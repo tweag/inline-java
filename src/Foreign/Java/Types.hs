@@ -1,11 +1,16 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Foreign.Java.Types where
 
+import Data.ByteString (ByteString)
 import Data.Int
 import Data.Map (fromList)
+import Data.Text (Text)
+import Data.Vector.Storable.Mutable (IOVector)
 import Data.Word
 import Foreign.C (CChar)
 import Foreign.Ptr
@@ -25,8 +30,20 @@ newtype JFieldID = JFieldID_ (Ptr JFieldID)
 newtype JMethodID = JMethodID_ (Ptr JMethodID)
   deriving (Eq, Show, Storable)
 
-newtype JObject = JObject_ (Ptr JObject)
+-- | Type indexed Java Objects.
+newtype J a = J (Ptr (J a))
   deriving (Eq, Show, Storable)
+
+-- | Any object can be cast to @Object@.
+toObject :: J a -> J Object
+toObject (J x) = J (castPtr x)
+
+-- | (Unsafe) downcast from @Object@
+fromObject :: J Object -> J a
+fromObject (J x) = J (castPtr x)
+
+unsafeCast :: J a -> J b
+unsafeCast (J x) = J (castPtr x)
 
 data JValue
   = JBoolean Word8
@@ -55,19 +72,25 @@ instance Storable JValue where
 
   peek _ = error "Storable JValue: undefined peek"
 
-type JClass = JObject
-type JString = JObject
-type JArray = JObject
-type JObjectArray = JObject
-type JBooleanArray = JObject
-type JByteArray = JObject
-type JCharArray = JObject
-type JShortArray = JObject
-type JIntArray = JObject
-type JLongArray = JObject
-type JFloatArray = JObject
-type JDoubleArray = JObject
-type JThrowable = JObject
+data Object
+data Class
+data Throwable
+
+type JObject = J Object
+type JClass = J Class
+type JString = J Text
+type JArray a = J (IOVector a)
+type JObjectArray = J (IOVector JObject)
+type JBooleanArray = J (IOVector Bool)
+-- type JByteArray = J (IOVector CChar)
+type JByteArray = J ByteString
+type JCharArray = J (IOVector Word16)
+type JShortArray = J (IOVector Int16)
+type JIntArray = J (IOVector Int32)
+type JLongArray = J (IOVector Int64)
+type JFloatArray = J (IOVector Float)
+type JDoubleArray = J (IOVector Double)
+type JThrowable = J Throwable
 
 jniCtx :: Context
 jniCtx = mempty { ctxTypesTable = fromList tytab }
@@ -83,20 +106,20 @@ jniCtx = mempty { ctxTypesTable = fromList tytab }
       , (TypeName "jfloat", [t| Float |])
       , (TypeName "jdouble", [t| Double |])
       -- Reference types
-      , (TypeName "jobject", [t| JObject |])
-      , (TypeName "jclass", [t| JObject |])
-      , (TypeName "jstring", [t| JObject |])
+      , (TypeName "jobject", [t| J Object |])
+      , (TypeName "jclass", [t| JClass |])
+      , (TypeName "jstring", [t| JString |])
       , (TypeName "jarray", [t| JObject |])
-      , (TypeName "jobjectArray", [t| JObject |])
-      , (TypeName "jbooleanArray", [t| JObject |])
-      , (TypeName "jbyteArray", [t| JObject |])
-      , (TypeName "jcharArray", [t| JObject |])
-      , (TypeName "jshortArray", [t| JObject |])
-      , (TypeName "jintArray", [t| JObject |])
-      , (TypeName "jlongArray", [t| JObject |])
-      , (TypeName "jfloatArray", [t| JObject |])
-      , (TypeName "jdoubleArray", [t| JObject |])
-      , (TypeName "jthrowable", [t| JObject |])
+      , (TypeName "jobjectArray", [t| JObjectArray |])
+      , (TypeName "jbooleanArray", [t| JBooleanArray |])
+      , (TypeName "jbyteArray", [t| JByteArray |])
+      , (TypeName "jcharArray", [t| JCharArray |])
+      , (TypeName "jshortArray", [t| JShortArray |])
+      , (TypeName "jintArray", [t| JIntArray |])
+      , (TypeName "jlongArray", [t| JLongArray |])
+      , (TypeName "jfloatArray", [t| JFloatArray |])
+      , (TypeName "jdoubleArray", [t| JDoubleArray |])
+      , (TypeName "jthrowable", [t| J Throwable |])
       -- Internal types
       , (TypeName "JavaVM", [t| JVM |])
       , (TypeName "JNIEnv", [t| JNIEnv |])

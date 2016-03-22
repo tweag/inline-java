@@ -9,15 +9,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Foreign.Java
   ( -- TODO don't export constructors. Only necessary for foreign export, which
     -- ideally we won't need.
     JVM(..)
   , JNIEnv(..)
-  , JObject(..)
+  , J(..)
+  , Object
   , JMethodID
   , JFieldID
+  , JObject
   , JClass
   , JString
   , JArray
@@ -32,6 +35,8 @@ module Foreign.Java
   , JDoubleArray
   , JThrowable
   , JValue(..)
+  , fromObject
+  , toObject
   , findClass
   , newObject
   , getFieldID
@@ -66,6 +71,8 @@ module Foreign.Java
   , releaseStringChars
   , getObjectArrayElement
   , setObjectArrayElement
+  , unsafeGetArrayLength
+  , unsafeCast
   ) where
 
 import Control.Exception (Exception, finally, throwIO)
@@ -107,11 +114,11 @@ instance Exception ArrayCopyFailed
 -- | Map Java exceptions to Haskell exceptions.
 throwIfException :: Ptr JNIEnv -> IO a -> IO a
 throwIfException env m = m `finally` do
-    JObject_ excptr <- [CU.exp| jthrowable { (*$(JNIEnv *env))->ExceptionOccurred($(JNIEnv *env)) } |]
+    J excptr <- [CU.exp| jthrowable { (*$(JNIEnv *env))->ExceptionOccurred($(JNIEnv *env)) } |]
     unless (excptr == nullPtr) $ do
       [CU.exp| void { (*$(JNIEnv *env))->ExceptionDescribe($(JNIEnv *env)) } |]
       [CU.exp| void { (*$(JNIEnv *env))->ExceptionClear($(JNIEnv *env)) } |]
-      throwIO $ JavaException (JObject_ excptr)
+      throwIO $ JavaException (J excptr)
 
 -- | Check whether a pointer is null.
 throwIfNull :: IO (Ptr a) -> IO (Ptr a)
@@ -156,17 +163,17 @@ envTlsRef = unsafePerformIO $ do
 withJNIEnv :: (Ptr JNIEnv -> IO a) -> IO a
 withJNIEnv f = f =<< getTLS =<< readIORef envTlsRef
 
-findClass :: ByteString -> IO JObject
+findClass :: ByteString -> IO JClass
 findClass name = withJNIEnv $ \env ->
     throwIfException env $
     [C.exp| jclass { (*$(JNIEnv *env))->FindClass($(JNIEnv *env), $bs-ptr:name) } |]
 
-newObject :: JClass -> ByteString -> [JValue] -> IO JObject
+newObject :: JClass -> ByteString -> [JValue] -> IO (J Object)
 newObject cls sig args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs -> do
       constr <- getMethodID cls "<init>" sig
-      [CU.exp| jclass {
+      [CU.exp| jobject {
         (*$(JNIEnv *env))->NewObjectA($(JNIEnv *env),
                                       $(jclass cls),
                                       $(jmethodID constr),
@@ -181,13 +188,15 @@ getFieldID cls fieldname sig = withJNIEnv $ \env ->
                                     $bs-ptr:fieldname,
                                     $bs-ptr:sig) } |]
 
-getObjectField :: JObject -> JFieldID -> IO JObject
+getObjectField :: J a -> JFieldID -> IO (J Object)
 getObjectField obj field = withJNIEnv $ \env ->
     throwIfException env $
     [CU.exp| jobject {
       (*$(JNIEnv *env))->GetObjectField($(JNIEnv *env),
-                                        $(jobject obj),
+                                        $(jobject obj'),
                                         $(jfieldID field)) } |]
+
+  where obj' = toObject obj
 
 getMethodID :: JClass -> ByteString -> ByteString -> IO JMethodID
 getMethodID cls methodname sig = withJNIEnv $ \env ->
@@ -207,83 +216,97 @@ getStaticMethodID cls methodname sig = withJNIEnv $ \env ->
                                            $bs-ptr:methodname,
                                            $bs-ptr:sig) } |]
 
-callObjectMethod :: JObject -> JMethodID -> [JValue] -> IO JObject
+callObjectMethod :: J a -> JMethodID -> [JValue] -> IO (J Object)
 callObjectMethod obj method args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs ->
     [C.exp| jobject {
       (*$(JNIEnv *env))->CallObjectMethodA($(JNIEnv *env),
-                                           $(jobject obj),
+                                           $(jobject obj'),
                                            $(jmethodID method),
                                            $(jvalue *cargs)) } |]
 
-callBooleanMethod :: JObject -> JMethodID -> [JValue] -> IO Word8
+  where obj' = toObject obj
+
+callBooleanMethod :: J a -> JMethodID -> [JValue] -> IO Word8
 callBooleanMethod obj method args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs ->
     [C.exp| jboolean {
       (*$(JNIEnv *env))->CallBooleanMethodA($(JNIEnv *env),
-                                         $(jobject obj),
+                                         $(jobject obj'),
                                          $(jmethodID method),
                                          $(jvalue *cargs)) } |]
 
-callIntMethod :: JObject -> JMethodID -> [JValue] -> IO Int32
+  where obj' = toObject obj
+
+callIntMethod :: J a -> JMethodID -> [JValue] -> IO Int32
 callIntMethod obj method args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs ->
     [C.exp| jint {
       (*$(JNIEnv *env))->CallIntMethodA($(JNIEnv *env),
-                                        $(jobject obj),
+                                        $(jobject obj'),
                                         $(jmethodID method),
                                         $(jvalue *cargs)) } |]
 
-callLongMethod :: JObject -> JMethodID -> [JValue] -> IO Int64
+  where obj' = toObject obj
+
+callLongMethod :: J a -> JMethodID -> [JValue] -> IO Int64
 callLongMethod obj method args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs ->
     [C.exp| jlong {
       (*$(JNIEnv *env))->CallLongMethodA($(JNIEnv *env),
-                                         $(jobject obj),
+                                         $(jobject obj'),
                                          $(jmethodID method),
                                          $(jvalue *cargs)) } |]
 
-callByteMethod :: JObject -> JMethodID -> [JValue] -> IO CChar
+  where obj' = toObject obj
+
+callByteMethod :: J a -> JMethodID -> [JValue] -> IO CChar
 callByteMethod obj method args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs ->
     [C.exp| jbyte {
       (*$(JNIEnv *env))->CallByteMethodA($(JNIEnv *env),
-                                         $(jobject obj),
+                                         $(jobject obj'),
                                          $(jmethodID method),
                                          $(jvalue *cargs)) } |]
 
-callDoubleMethod :: JObject -> JMethodID -> [JValue] -> IO Double
+  where obj' = toObject obj
+
+callDoubleMethod :: J a -> JMethodID -> [JValue] -> IO Double
 callDoubleMethod obj method args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs ->
     [C.exp| jdouble {
       (*$(JNIEnv *env))->CallDoubleMethodA($(JNIEnv *env),
-                                           $(jobject obj),
+                                           $(jobject obj'),
                                            $(jmethodID method),
                                            $(jvalue *cargs)) } |]
 
-callVoidMethod :: JObject -> JMethodID -> [JValue] -> IO ()
+  where obj' = toObject obj
+
+callVoidMethod :: J a -> JMethodID -> [JValue] -> IO ()
 callVoidMethod obj method args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs ->
     [C.exp| void {
       (*$(JNIEnv *env))->CallVoidMethodA($(JNIEnv *env),
-                                         $(jobject obj),
+                                         $(jobject obj'),
                                          $(jmethodID method),
                                          $(jvalue *cargs)) } |]
 
-callStaticObjectMethod :: JClass -> JMethodID -> [JValue] -> IO JObject
+  where obj' = toObject obj
+
+callStaticObjectMethod :: JClass -> JMethodID -> [JValue] -> IO (J Object)
 callStaticObjectMethod cls method args = withJNIEnv $ \env ->
     throwIfException env $
     withArray args $ \cargs ->
     [C.exp| jobject {
       (*$(JNIEnv *env))->CallStaticObjectMethodA($(JNIEnv *env),
-                                                 $(jobject cls),
+                                                 $(jclass cls),
                                                  $(jmethodID method),
                                                  $(jvalue *cargs)) } |]
 
@@ -293,7 +316,7 @@ callStaticVoidMethod cls method args = withJNIEnv $ \env ->
     withArray args $ \cargs ->
     [C.exp| void {
       (*$(JNIEnv *env))->CallStaticVoidMethodA($(JNIEnv *env),
-                                               $(jobject cls),
+                                               $(jclass cls),
                                                $(jmethodID method),
                                                $(jvalue *cargs)) } |]
 
@@ -335,8 +358,14 @@ newString ptr len = withJNIEnv $ \env ->
                                    $(jchar *ptr),
                                    $(jsize len)) } |]
 
-getArrayLength :: JArray -> IO Int32
-getArrayLength array = withJNIEnv $ \env ->
+getArrayLength :: JArray a -> IO Int32
+getArrayLength (toObject -> array) = withJNIEnv $ \env ->
+    [C.exp| jsize {
+      (*$(JNIEnv *env))->GetArrayLength($(JNIEnv *env),
+                                        $(jarray array)) } |]
+
+unsafeGetArrayLength :: J a -> IO Int32
+unsafeGetArrayLength (toObject -> array) = withJNIEnv $ \env ->
     [C.exp| jsize {
       (*$(JNIEnv *env))->GetArrayLength($(JNIEnv *env),
                                         $(jarray array)) } |]
@@ -417,7 +446,7 @@ releaseIntArrayElements array xs = withJNIEnv $ \env ->
                                                  $(jint *xs),
                                                  JNI_ABORT) } |]
 
-releaseByteArrayElements :: JIntArray -> Ptr CChar -> IO ()
+releaseByteArrayElements :: JByteArray -> Ptr CChar -> IO ()
 releaseByteArrayElements array xs = withJNIEnv $ \env ->
     [CU.exp| void {
       (*$(JNIEnv *env))->ReleaseByteArrayElements($(JNIEnv *env),
@@ -432,14 +461,14 @@ releaseStringChars jstr chars = withJNIEnv $ \env ->
                                             $(jstring jstr),
                                             $(jchar *chars)) } |]
 
-getObjectArrayElement :: JObjectArray -> Int32 -> IO JObject
+getObjectArrayElement :: JObjectArray -> Int32 -> IO (J Object)
 getObjectArrayElement array i = withJNIEnv $ \env ->
     [C.exp| jobject {
       (*$(JNIEnv *env))->GetObjectArrayElement($(JNIEnv *env),
                                                $(jobjectArray array),
                                                $(jsize i)) } |]
 
-setObjectArrayElement :: JObjectArray -> Int32 -> JObject -> IO ()
+setObjectArrayElement :: JObjectArray -> Int32 -> J Object -> IO ()
 setObjectArrayElement array i x = withJNIEnv $ \env ->
     [C.exp| void {
       (*$(JNIEnv *env))->SetObjectArrayElement($(JNIEnv *env),
