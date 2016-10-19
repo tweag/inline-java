@@ -2,9 +2,11 @@
 
 [![Circle CI](https://circleci.com/gh/tweag/inline-java.svg?style=svg)](https://circleci.com/gh/tweag/inline-java)
 
-**NOTE: you'll need GHC >= 8.0.2 to compile and use this package. Use
-`stack --nix --stack-yaml stack-HEAD.yaml build` ahead of a new GHC
-release.**
+**NOTE: you'll need GHC >= 8.0.2 to compile and use this package. Use**
+```
+stack --nix --stack-yaml stack-HEAD.yaml build
+```
+**ahead of a new GHC release.**
 
 The Haskell standard includes a native foreign function interface
 (FFI). It can be a pain to use and in any case only C support is
