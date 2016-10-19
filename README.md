@@ -10,38 +10,27 @@ import declarations using the FFI. In the style of `inline-c` for C and
 `inline-r` for calling R, `inline-java` lets you name any function to
 call inline in your code.
 
-**This is an early tech preview, not production ready.**
-
-**Quasiquotation to make inline calls in Java syntax not yet
-  implemented. But calls in Haskell syntax supported.**
-
 # Example
 
 Graphical Hello World using Java Swing:
 
 ```Haskell
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+module Main where
 
-import Data.Text (Text)
+import Data.Int
 import Language.Java
+import Language.Java.Inline
 
-newtype JOptionPane = JOptionPane (J ('Class "javax.swing.JOptionPane"))
-instance Coercible JOptionPane ('Class "javax.swing.JOptionPane")
-
-main :: IO ()
+main :: IO Int32
 main = withJVM [] $ do
-    message <- reflect ("Hello World!" :: Text)
-    callStatic
-      (classOf (undefined :: JOptionPane))
-      "showMessageDialog"
-      [JObject nullComponent, JObject (upcast message)]
-  where
-    nullComponent :: J ('Class "java.awt.Component")
-    nullComponent = jnull
+    message <- reflect "Hello World!"
+    [java| { javax.swing.JOptionPane.showMessageDialog(null, $message);
+             return 0; } |]
 ```
+
 ## License
 
 Copyright (c) 2015-2016 EURL Tweag.
