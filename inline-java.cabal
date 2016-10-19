@@ -24,7 +24,8 @@ library
   exposed-modules:
     Language.Java.Inline
   build-depends:
-    base >= 4.8.2 && < 5,
+    -- Can't build at all with GHC < 8.0.2.
+    base > 4.9.0.0 && < 5,
     binary >=0.7,
     bytestring >=0.10,
     containers >=0.5,
