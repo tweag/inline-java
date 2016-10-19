@@ -6,7 +6,7 @@
 ```
 stack --nix --stack-yaml stack-HEAD.yaml build
 ```
-**ahead of a new GHC release.**
+**ahead of a new GHC release to build using GHC HEAD.**
 
 The Haskell standard includes a native foreign function interface
 (FFI). It can be a pain to use and in any case only C support is
