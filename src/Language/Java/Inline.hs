@@ -267,7 +267,6 @@ embedAsBytecode pkg name unit = do
     withSystemTempDirectory "inlinejava" $ \dir -> do
       let src = dir </> name <.> "java"
       emit src unit
-      putStrLn (Java.prettyPrint unit)
       callProcess "javac" [src]
       BS.readFile (dir </> name <.> "class")
   f <- TH.newName "inlinejava__bytecode"
@@ -333,7 +332,6 @@ blockQQ input = case Java.parser Java.block input of
         vtys <- forM (antis block) $ \v -> do
           name <- getValueName v
           info <- TH.reify name
-          TH.runIO $ print info
           case info of
 #if MIN_VERSION_template_haskell(2,11,0)
             TH.VarI _ (TH.AppT (TH.ConT nJ) thty) _
