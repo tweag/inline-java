@@ -153,13 +153,13 @@ instance Coercible () 'Void where
 
 -- | Get the Java class of an object or anything 'Coercible' to one.
 classOf
-  :: ( Coerce.Coercible a (J ('Class sym))
-     , Coercible a ('Class sym)
+  :: ( Coercible a ('Class sym)
      , KnownSymbol sym
      )
   => a
   -> Sing sym
-classOf _ = sing
+-- Silence redundant constraint warning.
+classOf x = coerce x `seq` sing
 
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
@@ -172,7 +172,6 @@ new
   :: forall a sym.
      ( Coerce.Coercible a (J ('Class sym))
      , Coercible a ('Class sym)
-     , KnownSymbol sym
      )
   => [JValue]
   -> IO a
