@@ -29,6 +29,7 @@
 -- __NOTE:__ To use any function in this module, you'll need an initialized JVM in the
 -- current process, using 'withJVM' or otherwise.
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -61,7 +62,7 @@ module Language.Java
 
 import Control.Distributed.Closure
 import Control.Distributed.Closure.TH
-import Control.Monad ((<=<), forM, forM_)
+import Control.Monad
 import Data.Char (chr, ord)
 import qualified Data.Coerce as Coerce
 import Data.Int
@@ -73,11 +74,13 @@ import Data.Singletons (SingI(..), fromSing)
 import Data.String (fromString)
 import qualified Data.Text.Foreign as Text
 import Data.Text (Text)
+#if ! __GLASGOW_HASKELL__ == 800
 import qualified Data.Vector.Storable as Vector
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable.Mutable as MVector
 import Data.Vector.Storable.Mutable (IOVector)
 import Foreign (FunPtr, Ptr, Storable, newForeignPtr, withForeignPtr)
+#endif
 import Foreign.C (CChar)
 import Foreign.JNI
 import Foreign.JNI.Types
@@ -286,6 +289,7 @@ class (Interp (Uncurry a) ~ ty, SingI ty) => Reify a ty where
 class (Interp (Uncurry a) ~ ty, SingI ty) => Reflect a ty where
   reflect :: a -> IO (J ty)
 
+#if ! __GLASGOW_HASKELL__ == 800
 foreign import ccall "wrapper" wrapFinalizer
   :: (Ptr a -> IO ())
   -> IO (FunPtr (Ptr a -> IO ()))
@@ -314,6 +318,7 @@ reflectMVector newfun fill mv = do
     jobj <- newfun (fromIntegral n)
     withForeignPtr fptr $ fill jobj 0 (fromIntegral n)
     return jobj
+#endif
 
 withStatic [d|
   type instance Interp (J ty) = ty
@@ -442,6 +447,9 @@ withStatic [d|
         Text.useAsPtr x $ \ptr len ->
           newString ptr (fromIntegral len)
 
+-- Instances can't be compiled on GHC 8.0.1 due to
+-- https://ghc.haskell.org/trac/ghc/ticket/12082.
+#if ! __GLASGOW_HASKELL__ == 800
   type instance Interp (IOVector Int32) = 'Array ('Prim "int")
 
   instance Reify (IOVector Int32) ('Array ('Prim "int")) where
@@ -457,6 +465,7 @@ withStatic [d|
 
   instance Reflect (Vector Int32) ('Array ('Prim "int")) where
     reflect = reflect <=< Vector.thaw
+#endif
 
   type instance Interp [a] = 'Array (Interp (Uncurry a))
 
