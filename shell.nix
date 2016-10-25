@@ -11,7 +11,7 @@ let
 in
 haskell.lib.buildStackProject {
   name = "sparkle";
-  buildInputs = [ openjdk ];
+  buildInputs = [ git openjdk ];
   inherit ghc;
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   # XXX Workaround https://ghc.haskell.org/trac/ghc/ticket/11042.

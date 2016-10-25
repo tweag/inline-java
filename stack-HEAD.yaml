@@ -6,8 +6,9 @@ packages:
   extra-dep: true
 - location: vendor/th-desugar
   extra-dep: true
-- location: vendor/ghc-heap-view
-  extra-dep: true
+- location:
+    git: https://github.com/nomeata/ghc-heap-view
+    commit: 97791de616dc095a8eec2fc5b056497616c98051
 resolver: nightly-2016-10-02
 extra-deps:
 - thread-local-storage-0.1.0.3
