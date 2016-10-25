@@ -159,7 +159,7 @@ classOf
   => a
   -> Sing sym
 -- Silence redundant constraint warning.
-classOf x = coerce x `seq` sing
+classOf x = sing `const` coerce x
 
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
