@@ -1,5 +1,5 @@
 name:                jvm
-version:             0.1.2
+version:             0.2.1
 synopsis:            Call JVM methods from Haskell.
 description:         Please see README.md.
 homepage:            http://github.com/tweag/inline-java/tree/master/jvm#readme
@@ -11,7 +11,7 @@ copyright:           2015-2016 EURL Tweag.
 category:            FFI, JVM, Java
 build-type:          Simple
 cabal-version:       >=1.10
-extra-source-files:  README.md
+extra-source-files:  README.md AUTHORS.md
 
 source-repository head
   type: git

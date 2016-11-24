@@ -37,3 +37,21 @@ main = withJVM [] $ do
     nullComponent :: J ('Class "java.awt.Component")
     nullComponent = jnull
 ```
+
+## Building
+
+The recommended build method is with Stack and Nix:
+
+```
+$ stack --nix build
+```
+
+Without Nix, you must help Stack find the JDK. Set the `JDK` environment
+variable appropriately, then issue:
+
+```
+stack --install-ghc \
+   --extra-lib-dirs="$JDK"/jre/lib/server \
+   --extra-include-dirs="$JDK"/include \
+   build
+```

@@ -1,0 +1,10 @@
+resolver: lts-7.8
+
+packages:
+- .
+
+extra-deps:
+- thread-local-storage-0.1.0.4
+
+nix:
+  shell-file: shell.nix

@@ -11,7 +11,7 @@ copyright:           2015-2016 EURL Tweag.
 category:            FFI, JVM, Java
 build-type:          Simple
 cabal-version:       >=1.10
-extra-source-files:  README.md
+extra-source-files:  README.md AUTHORS.md
 extra-tmp-files:
   src/Foreign/JNI.c
 
@@ -24,6 +24,8 @@ library
   hs-source-dirs: src
   c-sources: src/Foreign/JNI.c
   cc-options: -std=c11
+  build-tools: cpphs
+  ghc-options: -optP --cpp -pgmP cpphs
   extra-libraries: jvm
   exposed-modules:
     Foreign.JNI
