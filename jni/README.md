@@ -12,3 +12,21 @@ higher-level more opinionated bindings see the [jvm][haskell-jvm] and
 [jni]: https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/jniTOC.html
 [haskell-jvm]: https://github.com/tweag/inline-java/tree/master/jvm
 [inline-java]: https://github.com/tweag/inline-java/
+
+## Building
+
+The recommended build method is with Stack and Nix:
+
+```
+$ stack --nix build
+```
+
+Without Nix, you must help Stack find the JDK. Set the `JDK_LIBDIR`
+and `JNI_H` environment variables appropriately, then issue:
+
+```
+stack --install-ghc \
+   --extra-lib-dirs="$JDK_LIBDIR"/jre/lib/server \
+   --extra-include-dirs="$JNI_H" \
+   build
+```
