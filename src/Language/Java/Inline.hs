@@ -79,6 +79,7 @@ import qualified Language.Haskell.TH.Ppr as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH (Q)
 import System.FilePath ((</>), (<.>))
+import System.Directory (listDirectory)
 import System.IO.Temp (withSystemTempDirectory)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (callProcess)
@@ -261,26 +262,34 @@ data DotClass = DotClass
   , classBytecode :: BS.ByteString
   }
 
+instance TH.Lift DotClass where
+  lift DotClass{..} =
+      [| DotClass
+           (JNI.fromChars $(TH.lift (JNI.toChars className)))
+           (BS.pack $(TH.lift (BS.unpack classBytecode)))
+       |]
+
 embedAsBytecode :: String -> String -> Java.CompilationUnit -> Q ()
 embedAsBytecode pkg name unit = do
-  bcode <- TH.runIO $ do
+  dcs <- TH.runIO $ do
     withSystemTempDirectory "inlinejava" $ \dir -> do
       let src = dir </> name <.> "java"
       emit src unit
       callProcess "javac" [src]
-      BS.readFile (dir </> name <.> "class")
-  f <- TH.newName "inlinejava__bytecode"
-  TH.addTopDecls =<<
-    sequence
-      [ TH.sigD f [t| StaticPtr DotClass |]
-      , TH.valD
-          (TH.varP f)
-          (TH.normalB
-             [| static
-                  (DotClass (fromString $(TH.lift (pkg ++ "/" ++ name)))
-                  (BS.pack $(TH.lift (BS.unpack bcode)))) |])
-          []
-      ]
+      -- A single compilation unit can produce multiple class files.
+      classFiles <- filter (".class" `isSuffixOf`) <$> listDirectory dir
+      forM classFiles $ \classFile -> do
+        bcode <- BS.readFile (dir </> classFile)
+        -- Strip the .class suffix.
+        let klass = pkg ++ "/" ++ takeWhile (/= '.') classFile
+        return $ DotClass (JNI.fromChars klass) bcode
+  forM_ (zip dcs [(0 :: Int)..]) $ \(dc, i) -> do
+    ptr <- TH.newName $ "inlinejava__bytecode" ++ show i
+    TH.addTopDecls =<<
+      sequence
+        [ TH.sigD ptr [t| StaticPtr DotClass |]
+        , TH.valD (TH.varP ptr) (TH.normalB [| static $(TH.lift dc) |]) []
+        ]
 
 newtype ClassLoader = ClassLoader (J ('Class "java.lang.ClassLoader"))
 instance Coercible ClassLoader ('Class "java.lang.ClassLoader")

@@ -29,6 +29,7 @@ library
     binary >=0.7,
     bytestring >=0.10,
     containers >=0.5,
+    directory >=1.2,
     distributed-closure >=0.3,
     filepath >= 1,
     ghc-heap-view >= 0.5,
@@ -58,6 +59,7 @@ test-suite spec
   build-depends:
     base,
     bytestring,
+    jni,
     jvm,
     hspec,
     inline-java,
