@@ -11,15 +11,15 @@ tested and confirmed that the issue is resolved, close the issue. If
 you are not a member of the project, you will be asked for
 confirmation and we will close it.
 
-[new-issue]: https://github.com/tweag/sparkle/issues/new
+[new-issue]: https://github.com/tweag/inline-java/issues/new
 
 ## Code
 
 If you would like to contribute code to fix a bug, add a new feature,
-or otherwise improve sparkle, [pull requests][pull-requests] are most
-welcome. It's a good idea to [submit an issue][new-issue] to discuss
-the change before plowing into writing code. The main criteria for
-acceptance are:
+or otherwise improve inline-java and related packages,
+[pull requests][pull-requests] are most welcome. It's a good idea to
+[submit an issue][new-issue] to discuss the change before plowing into
+writing code. The main criteria for acceptance are:
 
 * a patch should be a minimal and accurate answer to exactly one
   identified and agreed problem,
@@ -32,7 +32,7 @@ acceptance are:
 Please include a [changelog][changelog] entry and full Haddock
 documentation updates with your pull request.
 
-[changelog]: https://github.com/tweag/sparkle/blob/master/CHANGELOG.md
+[changelog]: https://github.com/tweag/inline-java/blob/master/CHANGELOG.md
 [pull-requests]: https://help.github.com/articles/about-pull-requests/
 [style-guide]: https://github.com/tweag/guides/blob/master/style/Haskell.md
 
@@ -51,7 +51,7 @@ If you change the `Dockerfile` or any of its dependencies, you should
 [publish][docker-push] a new version of the image. It will be used as
 the environment for subsequent CI checks.
 
-[docker-build-img]: https://hub.docker.com/r/tweag/sparkle/
+[docker-build-img]: https://hub.docker.com/r/tweag/inline-java/
 [wercker]: http://www.wercker.com/
-[dockerfile]: https://github.com/tweag/sparkle/blob/master/Dockerfile
-[docker-push]: https://github.com/tweag/sparkle/blob/master/Dockerfile
+[dockerfile]: https://github.com/tweag/inline-java/blob/master/Dockerfile
+[docker-push]: https://github.com/tweag/inline-java/blob/master/Dockerfile
