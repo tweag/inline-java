@@ -5,6 +5,7 @@
 module Language.Java.InlineSpec where
 
 import Data.Int
+import Foreign.JNI.Types (JObject)
 import Language.Java.Inline
 import Test.Hspec
 
@@ -33,3 +34,10 @@ spec = do
       it "Supports antiquotation variables in blocks" $ do
         let z = 1 :: Int32
         [java| { return $z + 1; } |] `shouldReturn` (2 :: Int32)
+
+      it "Supports anonymous classes" $ do
+        _ :: JObject <- [java| new Object() {} |]
+        return ()
+
+      it "Supports multiple anonymous classes" $ do
+        [java| new Object() {}.equals(new Object() {}) |] `shouldReturn` False
