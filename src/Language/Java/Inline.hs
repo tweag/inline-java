@@ -51,7 +51,6 @@ module Language.Java.Inline
 
 import Control.Monad (forM_, unless)
 import Control.Monad.Fix (mfix)
-import Control.Monad.Loops (unfoldM)
 import qualified Data.ByteString.Char8 as BS
 import Data.Generics (everything, mkQ)
 import Data.List (intercalate, isPrefixOf, isSuffixOf)
@@ -75,7 +74,6 @@ import qualified Language.Java.Pretty as Java
 import qualified Language.Java.Syntax as Java
 import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH as TH
-import qualified Language.Haskell.TH.Ppr as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH (Q)
 import System.FilePath ((</>), (<.>))
@@ -282,9 +280,6 @@ embedAsBytecode pkg name unit = do
           []
       ]
 
-newtype ClassLoader = ClassLoader (J ('Class "java.lang.ClassLoader"))
-instance Coercible ClassLoader ('Class "java.lang.ClassLoader")
-
 -- | Idempotent action that loads all wrappers in every module of the current
 -- program into the JVM.
 loadJavaWrappers :: IO ()
@@ -293,8 +288,8 @@ loadJavaWrappers = doit `seq` return ()
     {-# NOINLINE doit #-}
     doit = unsafePerformIO $ do
       keys <- staticPtrKeys
-      loader :: ClassLoader <-
-        callStatic (classOf (undefined :: ClassLoader)) "getSystemClassLoader" []
+      loader :: J ('Class "java.lang.ClassLoader") <-
+        callStatic (sing :: Sing "java.lang.ClassLoader") "getSystemClassLoader" []
       forM_ keys $ \key -> do
         sptr :: StaticPtr Any <- fromJust <$> unsafeLookupStaticPtr key
         let !x = deRefStaticPtr sptr

@@ -36,7 +36,6 @@ library
     jni >= 0.1,
     jvm >= 0.1,
     language-java >= 0.2,
-    monad-loops >= 0.4,
     process >= 1.2,
     singletons >= 2.0,
     syb >= 0.6,
