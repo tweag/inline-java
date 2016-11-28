@@ -1,11 +1,19 @@
+resolver: lts-6.21
+
 packages:
 # Requires a GHC 8.0.2 snapshot.
 # - .
 - jni
 - jvm
-resolver: lts-6.21
+
 extra-deps:
 - thread-local-storage-0.1.0.3
+
 nix:
   # Requires Stack >= 1.2.
   shell-file: shell.nix
+
+docker:
+  enable: false
+  image: tweag/inline-java
+  stack-exe: image

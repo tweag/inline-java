@@ -1,6 +1,6 @@
-{ ghc }:
+{ pkgs ? import <nixpkgs> {}, ghc ? pkgs.haskell.compiler.ghc7103 }:
 
-with (import <nixpkgs> {});
+with pkgs;
 
 let
   openjdk = openjdk8;
