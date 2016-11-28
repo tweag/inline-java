@@ -1,0 +1,16 @@
+box: tweag/inline-java
+
+build:
+  steps:
+  - script:
+      name: Dependencies
+      code: |
+        stack --no-terminal build --only-snapshot --prefetch --test
+  - script:
+      name: Project
+      code: |
+        stack --no-terminal build --pedantic --test --no-run-tests
+  - script:
+      name: Tests
+      code: |
+        stack --no-terminal test
