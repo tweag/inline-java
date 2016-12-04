@@ -12,6 +12,10 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 
+#if __GLASGOW_HASKELL__ >= 800
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+#endif
+
 module Foreign.JNI.Types
   ( JType(..)
   , IsPrimitiveType
