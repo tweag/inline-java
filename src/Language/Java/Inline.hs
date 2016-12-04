@@ -127,7 +127,7 @@ java = QuasiQuoter
     }
 
 antis :: Java.Block -> [String]
-antis = everything (++) (mkQ [] (\case Java.Name [Java.Ident ('$':av)] -> [av]; _ -> []))
+antis = everything (++) (mkQ [] (\case Java.Name (Java.Ident ('$':av):_) -> [av]; _ -> []))
 
 toJavaType :: Sing (a :: JType) -> Java.Type
 toJavaType ty = case Java.parser Java.ttype (pretty ty) of
