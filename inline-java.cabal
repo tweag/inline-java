@@ -23,11 +23,13 @@ library
   hs-source-dirs: src
   exposed-modules:
     Language.Java.Inline
+    Language.Java.Inline.Cabal
   build-depends:
     -- Can't build at all with GHC < 8.0.2.
     base > 4.9.0.0 && < 5,
     binary >=0.7,
     bytestring >=0.10,
+    Cabal >= 1.24,
     containers >=0.5,
     directory >=1.2,
     distributed-closure >=0.3,
