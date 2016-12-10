@@ -118,6 +118,11 @@ import System.Process (callProcess)
 -- printf format string). An antiquotation variable @$foo@ is well-scoped if
 -- there exists a variable with the name @foo@ in the Haskell context of the
 -- quasiquote, whose type is 'Coercible' to a Java primitive or reference type.
+--
+-- __NOTE:__ In GHC 8.0.2 and earlier, due to
+-- <https://ghc.haskell.org/trac/ghc/ticket/12778 #12778>, a quasiquote must
+-- always return a boxed value (i.e. an object, not void or a primitive type).
+-- This limitation may be lifted in the future.
 java :: QuasiQuoter
 java = QuasiQuoter
     { quoteExp = \txt -> blockOrExpQQ txt
@@ -386,29 +391,8 @@ blockQQ input = case Java.parser Java.block input of
       -- always return java.lang.Object. This works, because in Java >= 5 if
       -- what you have is a primitive type but what you're requesting is an
       -- object type, then the value of primitive type gets autoboxed. So now we
-      -- have to guess on the Haskell side what autoboxing did. We assume
-      -- autoboxing is equivalent to reflecting a value at primitive type.
-      --
-      -- We have to write part of this programmatically due to a TH limitation,
-      -- https://ghc.haskell.org/trac/ghc/ticket/12164. It stands for:
-      --
-      -- @
-      -- [| -- Determine what Java type we'd get if we reflected the result.
-      --    -- That's the type we need to reify from.
-      --    mfix $ \x -> case Some (reflect x) of
-      --      Some (_ :: IO (J ty)) -> do
-      --        y <- $funcall
-      --        reify (unsafeCast y :: J ty)
-      --  |]
-      -- @
-      castReturnType funcall = do
-        ty <- TH.newName "ty"
-        [| mfix $ \x ->
-             $(TH.caseE
-                 [| Some (reflect x) |]
-                 [TH.match
-                    (TH.conP 'Some [TH.sigP TH.wildP [t| IO (J $(TH.varT ty)) |]])
-                    (TH.normalB [| do
-                       y <- $funcall
-                       reify (unsafeCast y :: J ty) |])
-                    []]) |]
+      -- have to guess on the Haskell side what autoboxing did, to reverse its
+      -- effect. Alternatively, we can say that for now we only support
+      -- returning boxed values. Once this limitation of the compiler gets
+      -- lifted, we'll support returning unboxed values, just like `call` does.
+      castReturnType funcall = [| unsafeUncoerce . coerce <$> $funcall |]
