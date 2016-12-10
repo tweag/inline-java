@@ -26,8 +26,12 @@
 -- To call Java methods using quasiquoted Java syntax instead, see
 -- "Language.Java.Inline".
 --
--- __NOTE:__ To use any function in this module, you'll need an initialized JVM in the
+-- __NOTE 1:__ To use any function in this module, you'll need an initialized JVM in the
 -- current process, using 'withJVM' or otherwise.
+--
+-- __NOTE 2:__ Functions in this module memoize (cache) any implicitly performed
+-- class and method lookups, for performance. This memoization is safe only when
+-- no new named classes are defined at runtime.
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
@@ -86,6 +90,14 @@ import Foreign.JNI
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import GHC.TypeLits (KnownSymbol, Symbol)
+import System.IO.Unsafe (unsafeDupablePerformIO)
+
+-- Note [Class lookup memoization]
+--
+-- By using unsafeDupablePerformIO, we mark the lookup actions as pure. When the
+-- body of the function is inlined within the calling context, the lookups
+-- typically become closed expressions, therefore are CAF's that can be floated
+-- to top-level by the GHC optimizer.
 
 -- | Tag data types that can be coerced in O(1) time without copy to a Java
 -- object or primitive type (i.e. have the same representation) by declaring an
@@ -175,10 +187,11 @@ new
      )
   => [JValue]
   -> IO a
+{-# INLINE new #-}
 new args = do
     let argsings = map jtypeOf args
         voidsing = sing :: Sing 'Void
-    klass <- findClass (referenceTypeName (sing :: Sing ('Class sym)))
+        klass = unsafeDupablePerformIO $ findClass (referenceTypeName (sing :: Sing ('Class sym)))
     Coerce.coerce <$> newObject klass (methodSignature argsings voidsing) args
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
@@ -196,11 +209,12 @@ call
   -> JNI.String -- ^ Method name
   -> [JValue] -- ^ Arguments
   -> IO b
+{-# INLINE call #-}
 call obj mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty2
-    klass <- findClass (referenceTypeName (sing :: Sing ty1))
-    method <- getMethodID klass mname (methodSignature argsings retsing)
+        klass = unsafeDupablePerformIO $ findClass (referenceTypeName (sing :: Sing ty1))
+        method = unsafeDupablePerformIO $ getMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callBooleanMethod obj method args
       SPrim "byte" -> unsafeUncoerce . coerce <$> callByteMethod obj method args
@@ -218,11 +232,12 @@ call obj mname args = do
 
 -- | Same as 'call', but for static methods.
 callStatic :: forall a ty sym. Coercible a ty => Sing (sym :: Symbol) -> JNI.String -> [JValue] -> IO a
+{-# INLINE callStatic #-}
 callStatic cname mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty
-    klass <- findClass (referenceTypeName (SClass (fromString (fromSing cname))))
-    method <- getStaticMethodID klass mname (methodSignature argsings retsing)
+        klass = unsafeDupablePerformIO $ findClass (referenceTypeName (SClass (fromString (fromSing cname))))
+        method = unsafeDupablePerformIO $ getStaticMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callStaticBooleanMethod klass method args
       SPrim "byte" -> unsafeUncoerce . coerce <$> callStaticByteMethod klass method args
