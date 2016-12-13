@@ -215,7 +215,7 @@ withJVM options action =
             JavaVMInitArgs vm_args;
             JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
             for(int i = 0; i < $(int n); i++)
-                    options[0].optionString = $(char **coptions)[i];
+                    options[i].optionString = $(char **coptions)[i];
             vm_args.version = JNI_VERSION_1_6;
             vm_args.nOptions = $(int n);
             vm_args.options = options;
