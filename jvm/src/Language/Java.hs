@@ -495,9 +495,9 @@ withStatic [d|
   instance Reflect a ty => Reflect [a] ('Array ty) where
     reflect xs = do
       let n = fromIntegral (length xs)
-      klass <- findClass "java/lang/Object"
-      array <- newObjectArray n klass
-      forM_ (zip [0..n-1] xs) $ \(i, x) -> do
+      array <- findClass (referenceTypeName (sing :: Sing ty))
+                 >>= newObjectArray n
+      forM_ (zip [0..n-1] xs) $ \(i, x) ->
         setObjectArrayElement array i =<< reflect x
       return (unsafeCast array)
   |]
