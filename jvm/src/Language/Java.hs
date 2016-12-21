@@ -294,13 +294,15 @@ type instance Interp ('Base a) = Interp a
 -- | Extract a concrete Haskell value from the space of Java objects. That is to
 -- say, unmarshall a Java object to a Haskell value. Unlike coercing, in general
 -- reifying induces allocations and copies.
-class (Interp (Uncurry a) ~ ty, SingI ty) => Reify a ty where
+class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
+      => Reify a ty where
   reify :: J ty -> IO a
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
 -- say, marshall a Haskell value to a Java object. Unlike coercing, in general
 -- reflection induces allocations and copies.
-class (Interp (Uncurry a) ~ ty, SingI ty) => Reflect a ty where
+class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
+      => Reflect a ty where
   reflect :: a -> IO (J ty)
 
 #if ! __GLASGOW_HASKELL__ == 800
@@ -337,10 +339,10 @@ reflectMVector newfun fill mv = do
 withStatic [d|
   type instance Interp (J ty) = ty
 
-  instance SingI ty => Reify (J ty) ty where
+  instance (SingI ty, IsReferenceType ty) => Reify (J ty) ty where
     reify x = return x
 
-  instance SingI ty => Reflect (J ty) ty where
+  instance (SingI ty, IsReferenceType ty) => Reflect (J ty) ty where
     reflect x = return x
 
   type instance Interp () = 'Class "java.lang.Object"
@@ -493,9 +495,9 @@ withStatic [d|
   instance Reflect a ty => Reflect [a] ('Array ty) where
     reflect xs = do
       let n = fromIntegral (length xs)
-      klass <- findClass "java/lang/Object"
-      array <- newObjectArray n klass
-      forM_ (zip [0..n-1] xs) $ \(i, x) -> do
+      array <- findClass (referenceTypeName (sing :: Sing ty))
+                 >>= newObjectArray n
+      forM_ (zip [0..n-1] xs) $ \(i, x) ->
         setObjectArrayElement array i =<< reflect x
       return (unsafeCast array)
   |]
