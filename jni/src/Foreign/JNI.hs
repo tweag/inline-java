@@ -34,9 +34,13 @@ module Foreign.JNI
     -- ** Query functions
   , findClass
   , getFieldID
-  , getObjectField
+  , getStaticFieldID
   , getMethodID
   , getStaticMethodID
+    -- ** Field accessor functions
+  , getObjectField
+  , getStaticObjectField
+  , setBooleanField
     -- ** Method invocation
   , callObjectMethod
   , callBooleanMethod
@@ -275,6 +279,21 @@ getFieldID cls fieldname sig = withJNIEnv $ \env ->
                                     $(char *fieldnamep),
                                     $(char *sigp)) } |]
 
+getStaticFieldID
+  :: JClass -- ^ A class object as returned by 'findClass'
+  -> JNI.String -- ^ Field name
+  -> JNI.String -- ^ JNI signature
+  -> IO JFieldID
+getStaticFieldID cls fieldname sig = withJNIEnv $ \env ->
+    throwIfException env $
+    JNI.withString fieldname $ \fieldnamep ->
+    JNI.withString sig $ \sigp ->
+    [CU.exp| jfieldID {
+      (*$(JNIEnv *env))->GetStaticFieldID($(JNIEnv *env),
+                                          $(jclass cls),
+                                          $(char *fieldnamep),
+                                          $(char *sigp)) } |]
+
 getObjectField
   :: Coercible o (J a)
   => o -- ^ Any object of any class
@@ -286,6 +305,32 @@ getObjectField (coerce -> upcast -> obj) field = withJNIEnv $ \env ->
       (*$(JNIEnv *env))->GetObjectField($(JNIEnv *env),
                                         $(jobject obj),
                                         $(jfieldID field)) } |]
+
+getStaticObjectField
+  :: JClass
+  -> JFieldID
+  -> IO JObject
+getStaticObjectField klass field = withJNIEnv $ \env ->
+    throwIfException env $
+    [CU.exp| jobject {
+      (*$(JNIEnv *env))->GetStaticObjectField($(JNIEnv *env),
+                                              $(jclass klass),
+                                              $(jfieldID field)) } |]
+
+setBooleanField
+  :: Coercible o (J a)
+  => o -- ^ Any object of any class
+  -> JFieldID
+  -> Bool
+  -> IO ()
+setBooleanField (coerce -> upcast -> obj) field (fromEnum -> fromIntegral -> b) =
+    withJNIEnv $ \env ->
+    throwIfException env $
+    [CU.block| void {
+      (*$(JNIEnv *env))->SetBooleanField($(JNIEnv *env),
+                                        $(jobject obj),
+                                        $(jfieldID field),
+                                        $(jboolean b)); } |]
 
 getMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
