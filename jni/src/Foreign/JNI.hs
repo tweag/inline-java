@@ -468,9 +468,9 @@ get/**/name/**/ArrayElements :: J/**/name/**/Array -> IO (Ptr hs_rettype); \
 get/**/name/**/ArrayElements (upcast -> array) = withJNIEnv $ \env -> \
     throwIfNull $ \
     [CU.exp| c_rettype* { \
-      (*$(JNIEnv *env))->GetIntArrayElements($(JNIEnv *env), \
-                                             $(jobject array), \
-                                             NULL) } |]
+      (*$(JNIEnv *env))->Get/**/name/**/ArrayElements($(JNIEnv *env), \
+                                                      $(jobject array), \
+                                                      NULL) } |]
 
 GET_ARRAY_ELEMENTS(Boolean, Word8, jboolean)
 GET_ARRAY_ELEMENTS(Byte, CChar, jbyte)
@@ -494,11 +494,11 @@ set/**/name/**/ArrayRegion :: J/**/name/**/Array -> Int32 -> Int32 -> Ptr hs_arg
 set/**/name/**/ArrayRegion array start len buf = withJNIEnv $ \env -> \
     throwIfException env $ \
     [CU.exp| void { \
-      (*$(JNIEnv *env))->SetIntArrayRegion($(JNIEnv *env), \
-                                            $(c_argtype/**/Array array), \
-                                            $(jsize start), \
-                                            $(jsize len), \
-                                            $(c_argtype *buf)) } |]
+      (*$(JNIEnv *env))->Set/**/name/**/ArrayRegion($(JNIEnv *env), \
+                                                    $(c_argtype/**/Array array), \
+                                                    $(jsize start), \
+                                                    $(jsize len), \
+                                                    $(c_argtype *buf)) } |]
 
 SET_ARRAY_REGION(Boolean, Word8, jboolean)
 SET_ARRAY_REGION(Byte, CChar, jbyte)
