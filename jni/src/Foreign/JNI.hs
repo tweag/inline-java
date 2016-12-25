@@ -42,6 +42,7 @@ module Foreign.JNI
   , getStaticFieldID
   , getMethodID
   , getStaticMethodID
+  , getObjectClass
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -474,6 +475,12 @@ getStaticMethodID cls methodname sig = withJNIEnv $ \env ->
                                            $(jclass cls),
                                            $(char *methodnamep),
                                            $(char *sigp)) } |]
+
+getObjectClass :: Coercible o (J ty) => o -> IO JClass
+getObjectClass (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+    [CU.exp| jclass {
+      (*$(JNIEnv *env))->GetObjectClass($(JNIEnv *env),
+                                        $(jobject obj)) } |]
 
 -- Modern CPP does have ## for concatenating strings, but we use the hacky /**/
 -- comment syntax for string concatenation. This is because GHC passes
