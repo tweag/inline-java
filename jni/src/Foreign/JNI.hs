@@ -31,6 +31,7 @@ module Foreign.JNI
     withJVM
     -- ** Class loading
   , defineClass
+  , registerNatives
     -- ** Exceptions
   , throw
   , throwNew
@@ -40,10 +41,48 @@ module Foreign.JNI
   , getStaticFieldID
   , getMethodID
   , getStaticMethodID
+  , getObjectClass
     -- ** Field accessor functions
+    -- *** Get fields
   , getObjectField
+  , getBooleanField
+  , getIntField
+  , getLongField
+  , getCharField
+  , getShortField
+  , getByteField
+  , getDoubleField
+  , getFloatField
+    -- *** Get static fields
   , getStaticObjectField
+  , getStaticBooleanField
+  , getStaticIntField
+  , getStaticLongField
+  , getStaticCharField
+  , getStaticShortField
+  , getStaticByteField
+  , getStaticDoubleField
+  , getStaticFloatField
+    -- *** Set fields
+  , setObjectField
   , setBooleanField
+  , setIntField
+  , setLongField
+  , setCharField
+  , setShortField
+  , setByteField
+  , setDoubleField
+  , setFloatField
+    -- *** Set static fields
+  , setStaticObjectField
+  , setStaticBooleanField
+  , setStaticIntField
+  , setStaticLongField
+  , setStaticCharField
+  , setStaticShortField
+  , setStaticByteField
+  , setStaticDoubleField
+  , setStaticFloatField
     -- ** Method invocation
   , callObjectMethod
   , callBooleanMethod
@@ -122,6 +161,7 @@ import Data.Monoid ((<>))
 import Data.Typeable (Typeable)
 import Data.TLS.PThread
 import Foreign.C (CChar)
+import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Array
@@ -247,6 +287,20 @@ defineClass name (coerce -> upcast -> loader) buf = withJNIEnv $ \env ->
                                      $(jobject loader),
                                      $bs-ptr:buf,
                                      $bs-len:buf) } |]
+registerNatives
+  :: JClass
+  -> [JNINativeMethod]
+  -> IO ()
+registerNatives cls methods = withJNIEnv $ \env ->
+    throwIfException env $
+    withArray methods $ \cmethods -> do
+      let numMethods = fromIntegral $ length methods
+      _ <- [CU.exp| jint {
+             (*$(JNIEnv *env))->RegisterNatives($(JNIEnv *env),
+                                                $(jclass cls),
+                                                $(JNINativeMethod *cmethods),
+                                                $(int numMethods)) } |]
+      return ()
 
 throw :: Coercible o (J a) => o -> IO ()
 throw (coerce -> upcast -> obj) = withJNIEnv $ \env -> void $ do
@@ -311,43 +365,85 @@ getStaticFieldID cls fieldname sig = withJNIEnv $ \env ->
                                           $(char *fieldnamep),
                                           $(char *sigp)) } |]
 
-getObjectField
-  :: Coercible o (J a)
-  => o -- ^ Any object of any class
-  -> JFieldID
-  -> IO JObject
-getObjectField (coerce -> upcast -> obj) field = withJNIEnv $ \env ->
-    throwIfException env $
-    [CU.exp| jobject {
-      (*$(JNIEnv *env))->GetObjectField($(JNIEnv *env),
-                                        $(jobject obj),
-                                        $(jfieldID field)) } |]
-
-getStaticObjectField
-  :: JClass
-  -> JFieldID
-  -> IO JObject
-getStaticObjectField klass field = withJNIEnv $ \env ->
-    throwIfException env $
-    [CU.exp| jobject {
-      (*$(JNIEnv *env))->GetStaticObjectField($(JNIEnv *env),
-                                              $(jclass klass),
+#define GET_FIELD(name, hs_rettype, c_rettype) \
+get/**/name/**/Field :: Coercible o (J a) => o -> JFieldID -> IO hs_rettype; \
+get/**/name/**/Field (coerce -> upcast -> obj) field = withJNIEnv $ \env -> \
+    throwIfException env $ \
+    [CU.exp| c_rettype { \
+      (*$(JNIEnv *env))->Get/**/name/**/Field($(JNIEnv *env), \
+                                              $(jobject obj), \
                                               $(jfieldID field)) } |]
 
-setBooleanField
-  :: Coercible o (J a)
-  => o -- ^ Any object of any class
-  -> JFieldID
-  -> Bool
-  -> IO ()
-setBooleanField (coerce -> upcast -> obj) field (fromEnum -> fromIntegral -> b) =
-    withJNIEnv $ \env ->
-    throwIfException env $
-    [CU.block| void {
-      (*$(JNIEnv *env))->SetBooleanField($(JNIEnv *env),
-                                        $(jobject obj),
-                                        $(jfieldID field),
-                                        $(jboolean b)); } |]
+GET_FIELD(Object, JObject, jobject)
+GET_FIELD(Boolean, Word8, jboolean)
+GET_FIELD(Byte, CChar, jbyte)
+GET_FIELD(Char, Word16, jchar)
+GET_FIELD(Short, Int16, jshort)
+GET_FIELD(Int, Int32, jint)
+GET_FIELD(Long, Int64, jlong)
+GET_FIELD(Float, Float, jfloat)
+GET_FIELD(Double, Double, jdouble)
+
+#define GET_STATIC_FIELD(name, hs_rettype, c_rettype) \
+getStatic/**/name/**/Field :: JClass -> JFieldID -> IO hs_rettype; \
+getStatic/**/name/**/Field klass field = withJNIEnv $ \env -> \
+    throwIfException env $ \
+    [CU.exp| c_rettype { \
+      (*$(JNIEnv *env))->GetStatic/**/name/**/Field($(JNIEnv *env), \
+                                                    $(jclass klass), \
+                                                    $(jfieldID field)) } |]
+
+GET_STATIC_FIELD(Object, JObject, jobject)
+GET_STATIC_FIELD(Boolean, Word8, jboolean)
+GET_STATIC_FIELD(Byte, CChar, jbyte)
+GET_STATIC_FIELD(Char, Word16, jchar)
+GET_STATIC_FIELD(Short, Int16, jshort)
+GET_STATIC_FIELD(Int, Int32, jint)
+GET_STATIC_FIELD(Long, Int64, jlong)
+GET_STATIC_FIELD(Float, Float, jfloat)
+GET_STATIC_FIELD(Double, Double, jdouble)
+
+#define SET_FIELD(name, hs_fieldtype, c_fieldtype) \
+set/**/name/**/Field :: Coercible o (J a) => o -> JFieldID -> hs_fieldtype -> IO (); \
+set/**/name/**/Field (coerce -> upcast -> obj) field x = \
+    withJNIEnv $ \env -> \
+    throwIfException env $ \
+    [CU.block| void { \
+      (*$(JNIEnv *env))->Set/**/name/**/Field($(JNIEnv *env), \
+                                              $(jobject obj), \
+                                              $(jfieldID field), \
+                                              $(c_fieldtype x)); } |]
+
+SET_FIELD(Object, JObject, jobject)
+SET_FIELD(Boolean, Word8, jboolean)
+SET_FIELD(Byte, CChar, jbyte)
+SET_FIELD(Char, Word16, jchar)
+SET_FIELD(Short, Int16, jshort)
+SET_FIELD(Int, Int32, jint)
+SET_FIELD(Long, Int64, jlong)
+SET_FIELD(Float, Float, jfloat)
+SET_FIELD(Double, Double, jdouble)
+
+#define SET_STATIC_FIELD(name, hs_fieldtype, c_fieldtype) \
+setStatic/**/name/**/Field :: JClass -> JFieldID -> hs_fieldtype -> IO (); \
+setStatic/**/name/**/Field klass field x = \
+    withJNIEnv $ \env -> \
+    throwIfException env $ \
+    [CU.block| void { \
+      (*$(JNIEnv *env))->SetStatic/**/name/**/Field($(JNIEnv *env), \
+                                                    $(jclass klass), \
+                                                    $(jfieldID field), \
+                                                    $(c_fieldtype x)); } |]
+
+SET_STATIC_FIELD(Object, JObject, jobject)
+SET_STATIC_FIELD(Boolean, Word8, jboolean)
+SET_STATIC_FIELD(Byte, CChar, jbyte)
+SET_STATIC_FIELD(Char, Word16, jchar)
+SET_STATIC_FIELD(Short, Int16, jshort)
+SET_STATIC_FIELD(Int, Int32, jint)
+SET_STATIC_FIELD(Long, Int64, jlong)
+SET_STATIC_FIELD(Float, Float, jfloat)
+SET_STATIC_FIELD(Double, Double, jdouble)
 
 getMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
@@ -378,6 +474,12 @@ getStaticMethodID cls methodname sig = withJNIEnv $ \env ->
                                            $(jclass cls),
                                            $(char *methodnamep),
                                            $(char *sigp)) } |]
+
+getObjectClass :: Coercible o (J ty) => o -> IO JClass
+getObjectClass (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+    [CU.exp| jclass {
+      (*$(JNIEnv *env))->GetObjectClass($(JNIEnv *env),
+                                        $(jobject obj)) } |]
 
 -- Modern CPP does have ## for concatenating strings, but we use the hacky /**/
 -- comment syntax for string concatenation. This is because GHC passes
