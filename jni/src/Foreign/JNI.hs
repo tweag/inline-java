@@ -33,6 +33,9 @@ module Foreign.JNI
   , defineClass
   , JNINativeMethod(..)
   , registerNatives
+    -- ** Exceptions
+  , throw
+  , throwNew
     -- ** Query functions
   , findClass
   , getFieldID
@@ -147,7 +150,7 @@ module Foreign.JNI
   ) where
 
 import Control.Exception (Exception, bracket, finally, throwIO)
-import Control.Monad (unless)
+import Control.Monad (unless, void)
 import Data.Coerce
 import Data.Int
 import Data.IORef (IORef, newIORef, readIORef)
@@ -298,6 +301,20 @@ registerNatives cls methods = withJNIEnv $ \env ->
                                                 $(JNINativeMethod *cmethods),
                                                 $(int numMethods)) } |]
       return ()
+
+throw :: Coercible o (J a) => o -> IO ()
+throw (coerce -> upcast -> obj) = withJNIEnv $ \env -> void $ do
+    [CU.exp| jint {
+       (*$(JNIEnv *env))->Throw($(JNIEnv *env),
+                                $(jobject obj)) } |]
+
+throwNew :: JClass -> JNI.String -> IO ()
+throwNew cls msg = withJNIEnv $ \env ->
+    JNI.withString msg $ \msgp -> void $ do
+    [CU.exp| jint {
+       (*$(JNIEnv *env))->ThrowNew($(JNIEnv *env),
+                                   $(jclass cls),
+                                   $(char *msgp)) } |]
 
 findClass
   :: JNI.String -- ^ Class name
