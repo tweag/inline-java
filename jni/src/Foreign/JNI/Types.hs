@@ -77,6 +77,7 @@ import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
 import Data.String (fromString)
 import Data.Word
 import Foreign.C (CChar)
+import Foreign.JNI.NativeMethod
 import qualified Foreign.JNI.String as JNI
 import Foreign.Ptr
 import Foreign.Storable (Storable(..))
@@ -346,6 +347,7 @@ jniCtx = mempty { ctxTypesTable = fromList tytab }
       -- Internal types
       , (TypeName "JavaVM", [t| JVM |])
       , (TypeName "JNIEnv", [t| JNIEnv |])
+      , (TypeName "JNINativeMethod", [t| JNINativeMethod |])
       , (TypeName "jfieldID", [t| JFieldID |])
       , (TypeName "jmethodID", [t| JMethodID |])
       , (TypeName "jsize", [t| Int32 |])
