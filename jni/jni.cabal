@@ -29,6 +29,8 @@ library
     Foreign.JNI
     Foreign.JNI.Types
     Foreign.JNI.String
+  other-modules:
+    Foreign.JNI.NativeMethod
   build-depends:
     base >= 4.7 && < 5,
     bytestring >=0.10,

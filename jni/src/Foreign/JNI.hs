@@ -31,6 +31,8 @@ module Foreign.JNI
     withJVM
     -- ** Class loading
   , defineClass
+  , JNINativeMethod(..)
+  , registerNatives
     -- ** Query functions
   , findClass
   , getFieldID
@@ -156,6 +158,7 @@ import Data.Monoid ((<>))
 import Data.Typeable (Typeable)
 import Data.TLS.PThread
 import Foreign.C (CChar)
+import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Array
@@ -281,6 +284,20 @@ defineClass name (coerce -> upcast -> loader) buf = withJNIEnv $ \env ->
                                      $(jobject loader),
                                      $bs-ptr:buf,
                                      $bs-len:buf) } |]
+registerNatives
+  :: JClass
+  -> [JNINativeMethod]
+  -> IO ()
+registerNatives cls methods = withJNIEnv $ \env ->
+    throwIfException env $
+    withArray methods $ \cmethods -> do
+      let numMethods = fromIntegral $ length methods
+      _ <- [CU.exp| jint {
+             (*$(JNIEnv *env))->RegisterNatives($(JNIEnv *env),
+                                                $(jclass cls),
+                                                $(JNINativeMethod *cmethods),
+                                                $(int numMethods)) } |]
+      return ()
 
 findClass
   :: JNI.String -- ^ Class name
