@@ -27,6 +27,7 @@ library
   extra-libraries: jvm
   exposed-modules:
     Foreign.JNI
+    Foreign.JNI.NativeMethod
     Foreign.JNI.Types
     Foreign.JNI.String
   build-depends:
