@@ -12,7 +12,7 @@ in
 haskell.lib.buildStackProject {
   name = "sparkle";
   buildInputs = [ git openjdk ];
-  inherit ghc;
+  ghc = haskell.compiler.ghc802;
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   # XXX Workaround https://ghc.haskell.org/trac/ghc/ticket/11042.
   LD_LIBRARY_PATH = [jvmlibdir];

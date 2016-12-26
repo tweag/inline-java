@@ -4,9 +4,9 @@
 
 **NOTE: you'll need GHC >= 8.0.2 to compile and use this package. Use**
 ```
-stack --nix --stack-yaml stack-HEAD.yaml build
+stack --nix build
 ```
-**ahead of a new GHC release to build using GHC HEAD.**
+**ahead of a new GHC release to build using GHC 8.0.2-rc2.**
 
 The Haskell standard includes a native foreign function interface
 (FFI). It can be a pain to use and in any case only C support is
