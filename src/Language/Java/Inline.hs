@@ -50,7 +50,6 @@ module Language.Java.Inline
   ) where
 
 import Control.Monad (forM_, unless)
-import Control.Monad.Fix (mfix)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isAlphaNum)
 import Data.Generics (everything, mkQ)
@@ -322,8 +321,6 @@ loadJavaWrappers = doit `seq` return ()
 mangle :: TH.Module -> String
 mangle (TH.Module (TH.PkgName pkgname) (TH.ModName mname)) =
     "Inline__" ++ filter isAlphaNum pkgname ++ "_" ++ map (\case '.' -> '_'; x -> x) mname
-
-data Some = forall ty. Some (IO (J ty))
 
 blockOrExpQQ :: String -> Q TH.Exp
 blockOrExpQQ txt@(words -> toks) -- ignore whitespace
