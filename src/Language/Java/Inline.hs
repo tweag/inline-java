@@ -171,8 +171,9 @@ unliftJType (TH.AppT (TH.PromotedT nm) ty)
   | nm == 'Array = unliftJType ty >>= \case SomeSing jty -> return $ SomeSing (SArray jty)
 unliftJType (TH.AppT (TH.AppT (TH.PromotedT _nm) _ty) _tys) =
     error "unliftJType (Generic): Unimplemented."
-unliftJType (TH.AppT (TH.ConT nm) lit@(TH.LitT (TH.StrTyLit _))) =
-    unliftJType $ TH.AppT (TH.PromotedT nm) lit
+-- Sometimes TH uses ConT for PromotedT. Pretend it's always PromotedT.
+unliftJType (TH.AppT (TH.ConT nm) ty) =
+    unliftJType $ TH.AppT (TH.PromotedT nm) ty
 unliftJType (TH.PromotedT nm)
   | nm == 'Void = return $ SomeSing SVoid
 unliftJType ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
