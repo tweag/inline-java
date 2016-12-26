@@ -1,8 +1,7 @@
 resolver: lts-7.10
 
 packages:
-# Requires a GHC 8.0.2 snapshot.
-# - .
+- .
 - jni
 - jvm
 
