@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.6.1] - 2016-12-27
+
+* Support passing array objects as arguments / return values.
+* More robust mangling of inline class name.
+
 ## [0.6.0] - 2016-12-13
 
 ### Added
