@@ -191,7 +191,9 @@ new
 new args = do
     let argsings = map jtypeOf args
         voidsing = sing :: Sing 'Void
-        klass = unsafeDupablePerformIO $ findClass (referenceTypeName (sing :: Sing ('Class sym)))
+        klass = unsafeDupablePerformIO $
+          findClass (referenceTypeName (sing :: Sing ('Class sym)))
+            >>= fmap unsafeCast . newGlobalRef . upcast
     Coerce.coerce <$> newObject klass (methodSignature argsings voidsing) args
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
@@ -213,7 +215,9 @@ call
 call obj mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty2
-        klass = unsafeDupablePerformIO $ findClass (referenceTypeName (sing :: Sing ty1))
+        klass = unsafeDupablePerformIO $
+                  findClass (referenceTypeName (sing :: Sing ty1))
+                    >>= fmap unsafeCast . newGlobalRef . upcast
         method = unsafeDupablePerformIO $ getMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callBooleanMethod obj method args
@@ -236,7 +240,9 @@ callStatic :: forall a ty sym. Coercible a ty => Sing (sym :: Symbol) -> JNI.Str
 callStatic cname mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty
-        klass = unsafeDupablePerformIO $ findClass (referenceTypeName (SClass (fromString (fromSing cname))))
+        klass = unsafeDupablePerformIO $
+                  findClass (referenceTypeName (SClass (fromString (fromSing cname))))
+                    >>= fmap unsafeCast . newGlobalRef . upcast
         method = unsafeDupablePerformIO $ getStaticMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callStaticBooleanMethod klass method args
