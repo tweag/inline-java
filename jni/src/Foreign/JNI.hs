@@ -43,6 +43,9 @@ module Foreign.JNI
   , getMethodID
   , getStaticMethodID
   , getObjectClass
+    -- ** Reference manipulation
+  , newGlobalRef
+  , deleteGlobalRef
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -481,6 +484,19 @@ getObjectClass (coerce -> upcast -> obj) = withJNIEnv $ \env ->
     [CU.exp| jclass {
       (*$(JNIEnv *env))->GetObjectClass($(JNIEnv *env),
                                         $(jobject obj)) } |]
+
+newGlobalRef :: Coercible o (J ty) => o -> IO o
+newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+    fmap coerce $
+    [CU.exp| jobject {
+      (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
+                                      $(jobject obj)) } |]
+
+deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
+deleteGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+    [CU.block| void {
+      (*$(JNIEnv *env))->DeleteGlobalRef($(JNIEnv *env),
+                                         $(jobject obj)); } |]
 
 -- Modern CPP does have ## for concatenating strings, but we use the hacky /**/
 -- comment syntax for string concatenation. This is because GHC passes
