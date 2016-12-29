@@ -193,7 +193,7 @@ new args = do
         voidsing = sing :: Sing 'Void
         klass = unsafeDupablePerformIO $
           findClass (referenceTypeName (sing :: Sing ('Class sym)))
-            >>= fmap unsafeCast . newGlobalRef . upcast
+            >>= newGlobalRef
     Coerce.coerce <$> newObject klass (methodSignature argsings voidsing) args
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
@@ -217,7 +217,7 @@ call obj mname args = do
         retsing = sing :: Sing ty2
         klass = unsafeDupablePerformIO $
                   findClass (referenceTypeName (sing :: Sing ty1))
-                    >>= fmap unsafeCast . newGlobalRef . upcast
+                    >>= newGlobalRef
         method = unsafeDupablePerformIO $ getMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callBooleanMethod obj method args
@@ -242,7 +242,7 @@ callStatic cname mname args = do
         retsing = sing :: Sing ty
         klass = unsafeDupablePerformIO $
                   findClass (referenceTypeName (SClass (fromString (fromSing cname))))
-                    >>= fmap unsafeCast . newGlobalRef . upcast
+                    >>= newGlobalRef
         method = unsafeDupablePerformIO $ getStaticMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callStaticBooleanMethod klass method args
