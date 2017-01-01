@@ -9,12 +9,16 @@ stack --nix build
 **ahead of a new GHC release to build using GHC 8.0.2-rc2.**
 
 The Haskell standard includes a native foreign function interface
-(FFI). It can be a pain to use and in any case only C support is
+(FFI). Using it can be a bit involved and only C support is
 implemented in GHC. `inline-java` lets you call any JVM function
 directly, from Haskell, without the need to write your own foreign
-import declarations using the FFI. In the style of `inline-c` for C and
-`inline-r` for calling R, `inline-java` lets you name any function to
-call inline in your code.
+import declarations using the FFI. In the style of `inline-c` for
+C and `inline-r` for calling R, `inline-java` lets you name any
+function to call inline in your code. It is implemented on top of the
+[jni][jni] and [jvm][jvm] packages.
+
+[jni]: jni/
+[jvm]: jvm/
 
 ## Example
 
