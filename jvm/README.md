@@ -1,5 +1,8 @@
 # jvm: Call any JVM function from Haskell
 
+[![jvm on Stackage LTS](http://stackage.org/package/jvm/badge/lts)](http://stackage.org/lts/package/jvm)
+[![jvm on Stackage Nightly](http://stackage.org/package/jvm/badge/nightly)](http://stackage.org/nightly/package/jvm)
+
 This package enables calling any JVM function from Haskell. If you'd
 like to call JVM methods using Java syntax and hence get the Java
 compiler to scope check and type check all your foreign calls, see

@@ -1,5 +1,8 @@
 # jni: Complete JNI raw bindings
 
+[![jni on Stackage LTS](http://stackage.org/package/jni/badge/lts)](http://stackage.org/lts/package/jni)
+[![jni on Stackage Nightly](http://stackage.org/package/jni/badge/nightly)](http://stackage.org/nightly/package/jni)
+
 This package includes Haskell bindings to the
 [Java Native Interface (JNI)][jni]. This package offers mostly
 unopinionated low-level bindings, which closely maps to the C API. For
