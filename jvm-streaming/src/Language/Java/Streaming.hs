@@ -38,6 +38,7 @@ import Language.Java
 import Language.Java.Inline
 import Streaming (Stream, Of)
 import qualified Streaming.Prelude as Streaming
+import System.Mem.Weak (addFinalizer)
 
 isPoppableStream :: IORef (Stream (Of a) IO ()) -> IO Word8
 isPoppableStream ref = do
@@ -136,7 +137,11 @@ withStatic [d|
   type instance Interp (Stream (Of a) m r) = 'Iface "java.util.Iterator"
 
   instance Reify a ty => Reify (Stream (Of a) IO ()) ('Iface "java.util.Iterator") where
-    reify it = return $ Streaming.untilRight $ do
+    reify itLocal = do
+      -- We make sure the iterator remains valid while we reference it.
+      it <- JNI.newGlobalRef itLocal
+      addFinalizer it (JNI.deleteGlobalRef it)
+      return $ Streaming.untilRight $ do
         call it "hasNext" [] >>= \case
           False -> return (Right ())
           True -> do
