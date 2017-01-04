@@ -26,7 +26,7 @@ library
     base >= 4.7 && < 5,
     bytestring >=0.10,
     distributed-closure >=0.3,
-    jni >= 0.1,
+    jni >= 0.2.3,
     singletons >= 2.0,
     text >=1.2,
     vector >=0.11
