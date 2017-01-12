@@ -42,10 +42,11 @@ import System.Mem.Weak (addFinalizer)
 
 isPoppableStream :: IORef (Stream (Of a) IO ()) -> IO Word8
 isPoppableStream ref = do
-    stream <- readIORef ref
-    Streaming.uncons stream >>= \case
+    readIORef ref >>= Streaming.uncons >>= \case
       Nothing -> return $ fromIntegral $ fromEnum False
-      Just _ -> return $ fromIntegral $ fromEnum True
+      Just (x, stream) -> do
+        writeIORef ref (Streaming.cons x stream)
+        return $ fromIntegral $ fromEnum True
 
 popStream :: Reflect a ty => IORef (Stream (Of a) IO ()) -> IO (J ty)
 popStream ref = do
