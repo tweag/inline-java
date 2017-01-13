@@ -4,6 +4,7 @@
 module Language.Java.StreamingSpec where
 
 import Data.Int
+import Data.IORef
 import Language.Java
 import Language.Java.Inline
 import Language.Java.Streaming ()
@@ -34,3 +35,9 @@ spec = do
         iterator <- reflect (Streaming.each [1..10000] :: Stream (Of Int32) IO ())
         stream <- reify iterator
         Streaming.toList_ stream `shouldReturn` [1..10000 :: Int32]
+      it "don't redo effects" $ do
+        ref <- newIORef (1 :: Int32)
+        iterator <- reflect $
+          Streaming.replicateM 10 $ atomicModifyIORef ref (\i -> (i + 1, i))
+        stream <- reify iterator
+        Streaming.toList_ stream `shouldReturn` [1..10 :: Int32]
