@@ -31,7 +31,7 @@ library
     base > 4.9.0.0 && < 5,
     binary >=0.7,
     bytestring >=0.10,
-    Cabal >= 1.24,
+    Cabal >= 1.24.2,
     containers >=0.5,
     directory >=1.2,
     distributed-closure >=0.3,
