@@ -11,7 +11,9 @@
 -- JVM, it is attached implicitly upon the first call to one of these bindings
 -- in the current thread.
 --
--- The 'String' type in this module is the type of JNI strings. See "Foreign.JNI.String".
+-- The 'String' type in this module is the type of JNI strings. See
+-- "Foreign.JNI.String".
+
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
