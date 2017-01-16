@@ -26,7 +26,7 @@ import Data.Singletons (SomeSing(..))
 import Data.Word (Word8)
 import Foreign.Ptr (FunPtr, freeHaskellFunPtr, intPtrToPtr, ptrToIntPtr)
 import qualified Foreign.JNI as JNI
-import Foreign.JNI.Types (jnull)
+import Foreign.Ptr (Ptr, nullPtr)
 import GHC.Stable
   ( castPtrToStablePtr
   , castStablePtrToPtr
@@ -38,7 +38,6 @@ import Language.Java
 import Language.Java.Inline
 import Streaming (Stream, Of)
 import qualified Streaming.Prelude as Streaming
-import System.Mem.Weak (addFinalizer)
 
 isPoppableStream :: IORef (Stream (Of a) IO ()) -> IO Word8
 isPoppableStream ref = do
@@ -48,37 +47,37 @@ isPoppableStream ref = do
         writeIORef ref (Streaming.cons x stream)
         return $ fromIntegral $ fromEnum True
 
-popStream :: Reflect a ty => IORef (Stream (Of a) IO ()) -> IO (J ty)
+popStream :: Reflect a ty => IORef (Stream (Of a) IO ()) -> IO (Ptr (J ty))
 popStream ref = do
     stream <- readIORef ref
     Streaming.uncons stream >>= \case
       Nothing -> do
         exc :: J ('Class "java.util.NoSuchElementException") <- new []
         JNI.throw exc
-        return jnull
+        return nullPtr
       Just (x, stream') -> do
         writeIORef ref stream'
-        reflect x
+        reflect x >>= JNI.getLocalRefPtr
 
-type JNIFun a = JNIEnv -> JObject -> IO a
+type JNIFun a = JNIEnv -> Ptr JObject -> IO a
 
 foreign import ccall "wrapper" wrapObjectFun
-  :: JNIFun (J ty) -> IO (FunPtr (JNIFun (J ty)))
+  :: JNIFun (Ptr (J ty)) -> IO (FunPtr (JNIFun (Ptr (J ty))))
 foreign import ccall "wrapper" wrapBooleanFun
   :: JNIFun Word8 -> IO (FunPtr (JNIFun Word8))
 
 -- Export only to get a FunPtr.
 foreign export ccall "jvm_streaming_freeIterator" freeIterator
-  :: JNIEnv -> JObject -> Int64 -> IO ()
+  :: JNIEnv -> Ptr JObject -> Int64 -> IO ()
 foreign import ccall "&jvm_streaming_freeIterator" freeIteratorPtr
-  :: FunPtr (JNIEnv -> JObject -> Int64 -> IO ())
+  :: FunPtr (JNIEnv -> Ptr JObject -> Int64 -> IO ())
 
 data FunPtrTable = forall ty. FunPtrTable
   { hasNextPtr :: FunPtr (JNIFun Word8)
-  , nextPtr :: FunPtr (JNIFun (J ty))
+  , nextPtr :: FunPtr (JNIFun (Ptr (J ty)))
   }
 
-freeIterator :: JNIEnv -> JObject -> Int64 -> IO ()
+freeIterator :: JNIEnv -> Ptr JObject -> Int64 -> IO ()
 freeIterator _ _ ptr = do
     let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
     FunPtrTable{..} <- deRefStablePtr sptr
@@ -141,7 +140,6 @@ withStatic [d|
     reify itLocal = do
       -- We make sure the iterator remains valid while we reference it.
       it <- JNI.newGlobalRef itLocal
-      addFinalizer it (JNI.deleteGlobalRef it)
       return $ Streaming.untilRight $ do
         call it "hasNext" [] >>= \case
           False -> return (Right ())

@@ -346,7 +346,7 @@ withStatic [d|
   type instance Interp (J ty) = ty
 
   instance (SingI ty, IsReferenceType ty) => Reify (J ty) ty where
-    reify x = return x
+    reify x = newGlobalRef x
 
   instance (SingI ty, IsReferenceType ty) => Reflect (J ty) ty where
     reflect x = return x

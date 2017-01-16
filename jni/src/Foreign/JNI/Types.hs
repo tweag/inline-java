@@ -24,6 +24,8 @@ module Foreign.JNI.Types
   , type (<>)
     -- * JNI types
   , J(..)
+  , newJ
+  , withJ
   , jnull
   , upcast
   , unsafeCast
@@ -77,6 +79,7 @@ import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
 import Data.String (fromString)
 import Data.Word
 import Foreign.C (CChar)
+import Foreign.ForeignPtr
 import Foreign.JNI.NativeMethod
 import qualified Foreign.JNI.String as JNI
 import Foreign.Ptr
@@ -84,6 +87,7 @@ import Foreign.Storable (Storable(..))
 import GHC.TypeLits (Symbol)
 import Language.C.Types (TypeSpecifier(TypeName))
 import Language.C.Inline.Context (Context(..))
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | A JVM instance.
 newtype JVM = JVM_ (Ptr JVM)
@@ -148,14 +152,23 @@ instance SingI 'Void where
 type a <> g = 'Generic a g
 
 -- | Type indexed Java Objects.
-newtype J (a :: JType) = J (Ptr (J a))
-  deriving (Eq, Show, Storable)
+newtype J (a :: JType) = J (ForeignPtr (J a))
+  deriving (Eq, Show)
 
 type role J representational
 
+-- | Creates a J value from a Java reference.
+newJ :: Ptr (J ty) -> IO (J ty)
+newJ = fmap J . newForeignPtr_
+
+-- | Provides access to the underlying reference and makes sure no finalizer
+-- will be called before the given action returns.
+withJ :: J ty -> (Ptr (J ty) -> IO a) -> IO a
+withJ (J fp) = withForeignPtr fp
+
 -- | The null reference.
 jnull :: J a
-jnull = J nullPtr
+jnull = unsafePerformIO $ newJ nullPtr
 
 -- | Any object can be cast to @Object@.
 upcast :: J a -> JObject
@@ -163,7 +176,7 @@ upcast = unsafeCast
 
 -- | Unsafe type cast. Should only be used to downcast.
 unsafeCast :: J a -> J b
-unsafeCast (J x) = J (castPtr x)
+unsafeCast (J x) = J (castForeignPtr x)
 
 -- | Parameterize the type of an object, making its type a /generic type/.
 generic :: J a -> J (a <> g)
@@ -205,7 +218,7 @@ instance Eq JValue where
   (JLong x) == (JLong y) = x == y
   (JFloat x) == (JFloat y) = x == y
   (JDouble x) == (JDouble y) = x == y
-  (JObject (J x)) == (JObject (J y)) = castPtr x == castPtr y
+  (JObject (J x)) == (JObject (J y)) = castForeignPtr x == castForeignPtr y
   _ == _ = False
 
 instance Storable JValue where
@@ -220,7 +233,7 @@ instance Storable JValue where
   poke p (JLong x) = poke (castPtr p) x
   poke p (JFloat x) = poke (castPtr p) x
   poke p (JDouble x) = poke (castPtr p) x
-  poke p (JObject x) = poke (castPtr p :: Ptr (J a)) x
+  poke p (JObject (J x)) = withForeignPtr x $ poke (castPtr p)
 
   peek _ = error "Storable JValue: undefined peek"
 
@@ -330,20 +343,20 @@ jniCtx = mempty { ctxTypesTable = fromList tytab }
       , (TypeName "jfloat", [t| Float |])
       , (TypeName "jdouble", [t| Double |])
       -- Reference types
-      , (TypeName "jobject", [t| JObject |])
-      , (TypeName "jclass", [t| JClass |])
-      , (TypeName "jstring", [t| JString |])
-      , (TypeName "jarray", [t| JObject |])
-      , (TypeName "jobjectArray", [t| JObjectArray |])
-      , (TypeName "jbooleanArray", [t| JBooleanArray |])
-      , (TypeName "jbyteArray", [t| JByteArray |])
-      , (TypeName "jcharArray", [t| JCharArray |])
-      , (TypeName "jshortArray", [t| JShortArray |])
-      , (TypeName "jintArray", [t| JIntArray |])
-      , (TypeName "jlongArray", [t| JLongArray |])
-      , (TypeName "jfloatArray", [t| JFloatArray |])
-      , (TypeName "jdoubleArray", [t| JDoubleArray |])
-      , (TypeName "jthrowable", [t| JThrowable |])
+      , (TypeName "jobject", [t| Ptr JObject |])
+      , (TypeName "jclass", [t| Ptr JClass |])
+      , (TypeName "jstring", [t| Ptr JString |])
+      , (TypeName "jarray", [t| Ptr JObject |])
+      , (TypeName "jobjectArray", [t| Ptr JObjectArray |])
+      , (TypeName "jbooleanArray", [t| Ptr JBooleanArray |])
+      , (TypeName "jbyteArray", [t| Ptr JByteArray |])
+      , (TypeName "jcharArray", [t| Ptr JCharArray |])
+      , (TypeName "jshortArray", [t| Ptr JShortArray |])
+      , (TypeName "jintArray", [t| Ptr JIntArray |])
+      , (TypeName "jlongArray", [t| Ptr JLongArray |])
+      , (TypeName "jfloatArray", [t| Ptr JFloatArray |])
+      , (TypeName "jdoubleArray", [t| Ptr JDoubleArray |])
+      , (TypeName "jthrowable", [t| Ptr JThrowable |])
       -- Internal types
       , (TypeName "JavaVM", [t| JVM |])
       , (TypeName "JNIEnv", [t| JNIEnv |])
