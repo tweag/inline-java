@@ -9,6 +9,8 @@ packages:
 extra-deps:
 - thread-local-storage-0.1.0.3
 
+skip-ghc-check: true
+
 nix:
   # Requires Stack >= 1.2.
   shell-file: shell.nix
