@@ -402,7 +402,7 @@ findClass name = withJNIEnv $ \env ->
 newObject :: JClass -> JNI.String -> [JValue] -> IO JObject
 newObject cls sig args = withJNIEnv $ \env ->
     throwIfException env $
-    withArray args $ \cargs -> do
+    withJValues args $ \cargs -> do
       constr <- getMethodID cls "<init>" sig
       objectFromPtr =<< [CU.exp| jobject {
         (*$(JNIEnv *env))->NewObjectA($(JNIEnv *env),
@@ -618,7 +618,7 @@ deleteLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
 call/**/name/**/Method :: Coercible o (J a) => o -> JMethodID -> [JValue] -> IO hs_rettype; \
 call/**/name/**/Method (coerce -> upcast -> obj) method args = withJNIEnv $ \env -> \
     throwIfException env $ \
-    withArray args $ \cargs -> \
+    withJValues args $ \cargs -> \
     [C.exp| c_rettype { \
       (*$(JNIEnv *env))->Call/**/name/**/MethodA($(JNIEnv *env), \
                                                  $fptr-ptr:(jobject obj), \
@@ -646,7 +646,7 @@ CALL_METHOD(Double, Double, jdouble)
 callStatic/**/name/**/Method :: JClass -> JMethodID -> [JValue] -> IO hs_rettype; \
 callStatic/**/name/**/Method cls method args = withJNIEnv $ \env -> \
     throwIfException env $ \
-    withArray args $ \cargs -> \
+    withJValues args $ \cargs -> \
     [C.exp| c_rettype { \
       (*$(JNIEnv *env))->CallStatic/**/name/**/MethodA($(JNIEnv *env), \
                                                        $fptr-ptr:(jclass cls), \

@@ -38,6 +38,7 @@ module Foreign.JNI.Types
   , JMethodID(..)
   , JFieldID(..)
   , JValue(..)
+  , withJValues
     -- * JNI defined object types
   , JObject
   , JClass
@@ -85,6 +86,7 @@ import Foreign.ForeignPtr
   )
 import Foreign.JNI.NativeMethod
 import qualified Foreign.JNI.String as JNI
+import Foreign.Marshal.Alloc (allocaBytesAligned)
 import Foreign.Ptr
 import Foreign.Storable (Storable(..))
 import GHC.TypeLits (Symbol)
@@ -215,21 +217,38 @@ instance Eq JValue where
   (JObject (J x)) == (JObject (J y)) = castForeignPtr x == castForeignPtr y
   _ == _ = False
 
-instance Storable JValue where
-  sizeOf _ = 8
-  alignment _ = 8
+sizeOfJValue, alignmentJValue :: Int
+sizeOfJValue      = 8
+alignmentJValue   = 8
 
-  poke p (JBoolean x) = poke (castPtr p) x
-  poke p (JByte x) = poke (castPtr p) x
-  poke p (JChar x) = poke (castPtr p) x
-  poke p (JShort x) = poke (castPtr p) x
-  poke p (JInt x) = poke (castPtr p) x
-  poke p (JLong x) = poke (castPtr p) x
-  poke p (JFloat x) = poke (castPtr p) x
-  poke p (JDouble x) = poke (castPtr p) x
-  poke p (JObject (J x)) = withForeignPtr x (poke (castPtr p))
+-- | @withJValue jvalues f@ provides a pointer to an array containing the given
+-- @jvalues@.
+--
+-- The array is valid only while evaluating @f@.
+withJValues :: [JValue] -> (Ptr JValue -> IO a) -> IO a
+withJValues args f =
+    allocaBytesAligned (sizeOfJValue * length args) alignmentJValue $ \p ->
+      foldr (.) id (zipWith (withJValueOff p) [0..] args) (f p)
 
-  peek _ = error "Storable JValue: undefined peek"
+-- @withJValueOff p n jvalue io@ writes the given @jvalue@ to @p `plusPtr` n@
+-- and runs @io@.
+--
+-- The jvalue is guaranteed to stay valid while @io@ evaluates.
+withJValueOff :: Ptr JValue -> Int -> JValue -> IO a -> IO a
+withJValueOff p n jvalue io = case jvalue of
+    JBoolean x -> pokeByteOff (castPtr p) offset x >> io
+    JByte    x -> pokeByteOff (castPtr p) offset x >> io
+    JChar    x -> pokeByteOff (castPtr p) offset x >> io
+    JShort   x -> pokeByteOff (castPtr p) offset x >> io
+    JInt     x -> pokeByteOff (castPtr p) offset x >> io
+    JLong    x -> pokeByteOff (castPtr p) offset x >> io
+    JFloat   x -> pokeByteOff (castPtr p) offset x >> io
+    JDouble  x -> pokeByteOff (castPtr p) offset x >> io
+
+    JObject (J x) -> withForeignPtr x $ \xp ->
+      pokeByteOff (castPtr p) offset xp >> io
+  where
+    offset = n * sizeOfJValue
 
 -- | Get the Java type of a value.
 #if MIN_VERSION_singletons(2,2,0)
