@@ -4,3 +4,6 @@
 [submodule "vendor/constraints"]
 	path = vendor/constraints
 	url = https://github.com/mboes/constraints
+[submodule "vendor/inline-c"]
+	path = vendor/inline-c
+	url = https://github.com/mboes/inline-c

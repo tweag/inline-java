@@ -20,11 +20,13 @@
 module Language.Java.Streaming () where
 
 import Control.Distributed.Closure.TH
+import qualified Data.Coerce as Coerce
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
 import Data.Singletons (SomeSing(..))
 import Data.Word (Word8)
-import Foreign.Ptr (FunPtr, freeHaskellFunPtr, intPtrToPtr, ptrToIntPtr)
+import Foreign.Ptr (FunPtr, Ptr, freeHaskellFunPtr, intPtrToPtr, ptrToIntPtr)
+import Foreign.ForeignPtr.Unsafe (unsafeForeignPtrToPtr)
 import qualified Foreign.JNI as JNI
 import Foreign.JNI.Types (jnull)
 import GHC.Stable
@@ -38,7 +40,6 @@ import Language.Java
 import Language.Java.Inline
 import Streaming (Stream, Of)
 import qualified Streaming.Prelude as Streaming
-import System.Mem.Weak (addFinalizer)
 
 isPoppableStream :: IORef (Stream (Of a) IO ()) -> IO Word8
 isPoppableStream ref = do
@@ -60,25 +61,25 @@ popStream ref = do
         writeIORef ref stream'
         reflect x
 
-type JNIFun a = JNIEnv -> JObject -> IO a
+type JNIFun a = JNIEnv -> Ptr JObject -> IO a
 
 foreign import ccall "wrapper" wrapObjectFun
-  :: JNIFun (J ty) -> IO (FunPtr (JNIFun (J ty)))
+  :: JNIFun (Ptr (J ty)) -> IO (FunPtr (JNIFun (Ptr (J ty))))
 foreign import ccall "wrapper" wrapBooleanFun
   :: JNIFun Word8 -> IO (FunPtr (JNIFun Word8))
 
 -- Export only to get a FunPtr.
 foreign export ccall "jvm_streaming_freeIterator" freeIterator
-  :: JNIEnv -> JObject -> Int64 -> IO ()
+  :: JNIEnv -> Ptr JObject -> Int64 -> IO ()
 foreign import ccall "&jvm_streaming_freeIterator" freeIteratorPtr
-  :: FunPtr (JNIEnv -> JObject -> Int64 -> IO ())
+  :: FunPtr (JNIEnv -> Ptr JObject -> Int64 -> IO ())
 
 data FunPtrTable = forall ty. FunPtrTable
   { hasNextPtr :: FunPtr (JNIFun Word8)
-  , nextPtr :: FunPtr (JNIFun (J ty))
+  , nextPtr :: FunPtr (JNIFun (Ptr (J ty)))
   }
 
-freeIterator :: JNIEnv -> JObject -> Int64 -> IO ()
+freeIterator :: JNIEnv -> Ptr JObject -> Int64 -> IO ()
 freeIterator _ _ ptr = do
     let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
     FunPtrTable{..} <- deRefStablePtr sptr
@@ -93,7 +94,9 @@ newIterator
 newIterator stream = do
     ref <- newIORef stream
     hasNextPtr <- wrapBooleanFun $ \_ _ -> isPoppableStream ref
-    nextPtr <- wrapObjectFun $ \_ _ -> popStream ref
+    nextPtr <- wrapObjectFun $ \_ _ ->
+      -- Conversion is safe, because result is always a reflected object.
+      unsafeForeignPtrToPtr <$> Coerce.coerce <$> popStream ref
     -- Keep FunPtr's in a table that can be referenced from the Java side, so
     -- that they can be freed.
     tblPtr :: Int64 <- fromIntegral . ptrToIntPtr . castStablePtrToPtr <$> newStablePtr FunPtrTable{..}
@@ -141,7 +144,6 @@ withStatic [d|
     reify itLocal = do
       -- We make sure the iterator remains valid while we reference it.
       it <- JNI.newGlobalRef itLocal
-      addFinalizer it (JNI.deleteGlobalRef it)
       return $ Streaming.untilRight $ do
         call it "hasNext" [] >>= \case
           False -> return (Right ())

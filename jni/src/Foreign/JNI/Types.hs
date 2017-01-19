@@ -38,6 +38,7 @@ module Foreign.JNI.Types
   , JMethodID(..)
   , JFieldID(..)
   , JValue(..)
+  , withJValues
     -- * JNI defined object types
   , JObject
   , JClass
@@ -63,7 +64,7 @@ import qualified Data.ByteString.Builder.Prim as Prim
 import Data.ByteString.Builder (Builder)
 import Data.Char (chr, ord)
 import Data.Int
-import Data.Map (fromList)
+import qualified Data.Map as Map
 import Data.Monoid ((<>))
 import Data.Singletons
   ( Sing
@@ -77,13 +78,21 @@ import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
 import Data.String (fromString)
 import Data.Word
 import Foreign.C (CChar)
+import Foreign.ForeignPtr
+  ( ForeignPtr
+  , castForeignPtr
+  , newForeignPtr_
+  , withForeignPtr
+  )
 import Foreign.JNI.NativeMethod
 import qualified Foreign.JNI.String as JNI
+import Foreign.Marshal.Alloc (allocaBytesAligned)
 import Foreign.Ptr
 import Foreign.Storable (Storable(..))
 import GHC.TypeLits (Symbol)
 import Language.C.Types (TypeSpecifier(TypeName))
-import Language.C.Inline.Context (Context(..))
+import Language.C.Inline.Context (Context(..), fptrCtx)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | A JVM instance.
 newtype JVM = JVM_ (Ptr JVM)
@@ -148,14 +157,14 @@ instance SingI 'Void where
 type a <> g = 'Generic a g
 
 -- | Type indexed Java Objects.
-newtype J (a :: JType) = J (Ptr (J a))
-  deriving (Eq, Show, Storable)
+newtype J (a :: JType) = J (ForeignPtr (J a))
+  deriving (Eq, Show)
 
 type role J representational
 
 -- | The null reference.
 jnull :: J a
-jnull = J nullPtr
+jnull = J $ unsafePerformIO $ newForeignPtr_ nullPtr
 
 -- | Any object can be cast to @Object@.
 upcast :: J a -> JObject
@@ -163,7 +172,7 @@ upcast = unsafeCast
 
 -- | Unsafe type cast. Should only be used to downcast.
 unsafeCast :: J a -> J b
-unsafeCast (J x) = J (castPtr x)
+unsafeCast (J x) = J (castForeignPtr x)
 
 -- | Parameterize the type of an object, making its type a /generic type/.
 generic :: J a -> J (a <> g)
@@ -205,24 +214,41 @@ instance Eq JValue where
   (JLong x) == (JLong y) = x == y
   (JFloat x) == (JFloat y) = x == y
   (JDouble x) == (JDouble y) = x == y
-  (JObject (J x)) == (JObject (J y)) = castPtr x == castPtr y
+  (JObject (J x)) == (JObject (J y)) = castForeignPtr x == castForeignPtr y
   _ == _ = False
 
-instance Storable JValue where
-  sizeOf _ = 8
-  alignment _ = 8
+sizeOfJValue, alignmentJValue :: Int
+sizeOfJValue      = 8
+alignmentJValue   = 8
 
-  poke p (JBoolean x) = poke (castPtr p) x
-  poke p (JByte x) = poke (castPtr p) x
-  poke p (JChar x) = poke (castPtr p) x
-  poke p (JShort x) = poke (castPtr p) x
-  poke p (JInt x) = poke (castPtr p) x
-  poke p (JLong x) = poke (castPtr p) x
-  poke p (JFloat x) = poke (castPtr p) x
-  poke p (JDouble x) = poke (castPtr p) x
-  poke p (JObject x) = poke (castPtr p :: Ptr (J a)) x
+-- | @withJValue jvalues f@ provides a pointer to an array containing the given
+-- @jvalues@.
+--
+-- The array is valid only while evaluating @f@.
+withJValues :: [JValue] -> (Ptr JValue -> IO a) -> IO a
+withJValues args f =
+    allocaBytesAligned (sizeOfJValue * length args) alignmentJValue $ \p ->
+      foldr (.) id (zipWith (withJValueOff p) [0..] args) (f p)
 
-  peek _ = error "Storable JValue: undefined peek"
+-- @withJValueOff p n jvalue io@ writes the given @jvalue@ to @p `plusPtr` n@
+-- and runs @io@.
+--
+-- The jvalue is guaranteed to stay valid while @io@ evaluates.
+withJValueOff :: Ptr JValue -> Int -> JValue -> IO a -> IO a
+withJValueOff p n jvalue io = case jvalue of
+    JBoolean x -> pokeByteOff (castPtr p) offset x >> io
+    JByte    x -> pokeByteOff (castPtr p) offset x >> io
+    JChar    x -> pokeByteOff (castPtr p) offset x >> io
+    JShort   x -> pokeByteOff (castPtr p) offset x >> io
+    JInt     x -> pokeByteOff (castPtr p) offset x >> io
+    JLong    x -> pokeByteOff (castPtr p) offset x >> io
+    JFloat   x -> pokeByteOff (castPtr p) offset x >> io
+    JDouble  x -> pokeByteOff (castPtr p) offset x >> io
+
+    JObject (J x) -> withForeignPtr x $ \xp ->
+      pokeByteOff (castPtr p) offset xp >> io
+  where
+    offset = n * sizeOfJValue
 
 -- | Get the Java type of a value.
 #if MIN_VERSION_singletons(2,2,0)
@@ -317,7 +343,7 @@ type JFloatArray = JArray ('Prim "float")
 type JDoubleArray = JArray ('Prim "double")
 
 jniCtx :: Context
-jniCtx = mempty { ctxTypesTable = fromList tytab }
+jniCtx = mempty { ctxTypesTable = Map.fromList tytab } <> fptrCtx
   where
     tytab =
       [ -- Primitive types
@@ -330,20 +356,20 @@ jniCtx = mempty { ctxTypesTable = fromList tytab }
       , (TypeName "jfloat", [t| Float |])
       , (TypeName "jdouble", [t| Double |])
       -- Reference types
-      , (TypeName "jobject", [t| JObject |])
-      , (TypeName "jclass", [t| JClass |])
-      , (TypeName "jstring", [t| JString |])
-      , (TypeName "jarray", [t| JObject |])
-      , (TypeName "jobjectArray", [t| JObjectArray |])
-      , (TypeName "jbooleanArray", [t| JBooleanArray |])
-      , (TypeName "jbyteArray", [t| JByteArray |])
-      , (TypeName "jcharArray", [t| JCharArray |])
-      , (TypeName "jshortArray", [t| JShortArray |])
-      , (TypeName "jintArray", [t| JIntArray |])
-      , (TypeName "jlongArray", [t| JLongArray |])
-      , (TypeName "jfloatArray", [t| JFloatArray |])
-      , (TypeName "jdoubleArray", [t| JDoubleArray |])
-      , (TypeName "jthrowable", [t| JThrowable |])
+      , (TypeName "jobject", [t| Ptr JObject |])
+      , (TypeName "jclass", [t| Ptr JClass |])
+      , (TypeName "jstring", [t| Ptr JString |])
+      , (TypeName "jarray", [t| Ptr JObject |])
+      , (TypeName "jobjectArray", [t| Ptr JObjectArray |])
+      , (TypeName "jbooleanArray", [t| Ptr JBooleanArray |])
+      , (TypeName "jbyteArray", [t| Ptr JByteArray |])
+      , (TypeName "jcharArray", [t| Ptr JCharArray |])
+      , (TypeName "jshortArray", [t| Ptr JShortArray |])
+      , (TypeName "jintArray", [t| Ptr JIntArray |])
+      , (TypeName "jlongArray", [t| Ptr JLongArray |])
+      , (TypeName "jfloatArray", [t| Ptr JFloatArray |])
+      , (TypeName "jdoubleArray", [t| Ptr JDoubleArray |])
+      , (TypeName "jthrowable", [t| Ptr JThrowable |])
       -- Internal types
       , (TypeName "JavaVM", [t| JVM |])
       , (TypeName "JNIEnv", [t| JNIEnv |])
