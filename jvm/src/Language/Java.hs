@@ -300,6 +300,10 @@ type instance Interp ('Base a) = Interp a
 -- | Extract a concrete Haskell value from the space of Java objects. That is to
 -- say, unmarshall a Java object to a Haskell value. Unlike coercing, in general
 -- reifying induces allocations and copies.
+--
+-- Instances of this class /must/ guarantee that the result is managed on the
+-- Haskell heap. That is, the Haskell runtime has /global ownership/ of the
+-- result.
 class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
       => Reify a ty where
   reify :: J ty -> IO a
@@ -307,6 +311,8 @@ class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
 -- say, marshall a Haskell value to a Java object. Unlike coercing, in general
 -- reflection induces allocations and copies.
+--
+-- Instances of this class /must not/ claim global ownership.
 class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
       => Reflect a ty where
   reflect :: a -> IO (J ty)
@@ -345,9 +351,15 @@ reflectMVector newfun fill mv = do
 withStatic [d|
   type instance Interp (J ty) = ty
 
+  -- | Use this instance to claim global ownership of a Java object on the
+  -- Haskell heap until the Haskell garbage collector determines that it is
+  -- inaccessible. Objects that need to survive the dynamic scope delimited by
+  -- the topmost Java frame on the call stack must have global ownership.
   instance (SingI ty, IsReferenceType ty) => Reify (J ty) ty where
     reify x = newGlobalRef x
 
+  -- | Use this instance to relinquish global ownership of a Java object. You
+  -- /must not/ refer to the argument anywhere after a call to 'reflect'.
   instance (SingI ty, IsReferenceType ty) => Reflect (J ty) ty where
     reflect x = newLocalRef x
 
