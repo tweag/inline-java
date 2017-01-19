@@ -349,7 +349,7 @@ withStatic [d|
     reify x = newGlobalRef x
 
   instance (SingI ty, IsReferenceType ty) => Reflect (J ty) ty where
-    reflect x = return x
+    reflect x = newLocalRef x
 
   type instance Interp () = 'Class "java.lang.Object"
 

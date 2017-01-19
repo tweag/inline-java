@@ -20,13 +20,15 @@
 module Language.Java.Streaming () where
 
 import Control.Distributed.Closure.TH
+import qualified Data.Coerce as Coerce
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
 import Data.Singletons (SomeSing(..))
 import Data.Word (Word8)
-import Foreign.Ptr (FunPtr, freeHaskellFunPtr, intPtrToPtr, ptrToIntPtr)
+import Foreign.Ptr (FunPtr, Ptr, freeHaskellFunPtr, intPtrToPtr, ptrToIntPtr)
+import Foreign.ForeignPtr.Unsafe (unsafeForeignPtrToPtr)
 import qualified Foreign.JNI as JNI
-import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.JNI.Types (jnull)
 import GHC.Stable
   ( castPtrToStablePtr
   , castStablePtrToPtr
@@ -47,17 +49,17 @@ isPoppableStream ref = do
         writeIORef ref (Streaming.cons x stream)
         return $ fromIntegral $ fromEnum True
 
-popStream :: Reflect a ty => IORef (Stream (Of a) IO ()) -> IO (Ptr (J ty))
+popStream :: Reflect a ty => IORef (Stream (Of a) IO ()) -> IO (J ty)
 popStream ref = do
     stream <- readIORef ref
     Streaming.uncons stream >>= \case
       Nothing -> do
         exc :: J ('Class "java.util.NoSuchElementException") <- new []
         JNI.throw exc
-        return nullPtr
+        return jnull
       Just (x, stream') -> do
         writeIORef ref stream'
-        reflect x >>= JNI.getLocalRefPtr
+        reflect x
 
 type JNIFun a = JNIEnv -> Ptr JObject -> IO a
 
@@ -92,7 +94,9 @@ newIterator
 newIterator stream = do
     ref <- newIORef stream
     hasNextPtr <- wrapBooleanFun $ \_ _ -> isPoppableStream ref
-    nextPtr <- wrapObjectFun $ \_ _ -> popStream ref
+    nextPtr <- wrapObjectFun $ \_ _ ->
+      -- Conversion is safe, because result is always a reflected object.
+      unsafeForeignPtrToPtr <$> Coerce.coerce <$> popStream ref
     -- Keep FunPtr's in a table that can be referenced from the Java side, so
     -- that they can be freed.
     tblPtr :: Int64 <- fromIntegral . ptrToIntPtr . castStablePtrToPtr <$> newStablePtr FunPtrTable{..}

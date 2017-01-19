@@ -24,8 +24,6 @@ module Foreign.JNI.Types
   , type (<>)
     -- * JNI types
   , J(..)
-  , newJ
-  , withJ
   , jnull
   , upcast
   , unsafeCast
@@ -65,7 +63,7 @@ import qualified Data.ByteString.Builder.Prim as Prim
 import Data.ByteString.Builder (Builder)
 import Data.Char (chr, ord)
 import Data.Int
-import Data.Map (fromList)
+import qualified Data.Map as Map
 import Data.Monoid ((<>))
 import Data.Singletons
   ( Sing
@@ -80,13 +78,18 @@ import Data.String (fromString)
 import Data.Word
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
+  ( ForeignPtr
+  , castForeignPtr
+  , newForeignPtr_
+  , withForeignPtr
+  )
 import Foreign.JNI.NativeMethod
 import qualified Foreign.JNI.String as JNI
 import Foreign.Ptr
 import Foreign.Storable (Storable(..))
 import GHC.TypeLits (Symbol)
 import Language.C.Types (TypeSpecifier(TypeName))
-import Language.C.Inline.Context (Context(..))
+import Language.C.Inline.Context (Context(..), fptrCtx)
 import System.IO.Unsafe (unsafePerformIO)
 
 -- | A JVM instance.
@@ -157,18 +160,9 @@ newtype J (a :: JType) = J (ForeignPtr (J a))
 
 type role J representational
 
--- | Creates a J value from a Java reference.
-newJ :: Ptr (J ty) -> IO (J ty)
-newJ = fmap J . newForeignPtr_
-
--- | Provides access to the underlying reference and makes sure no finalizer
--- will be called before the given action returns.
-withJ :: J ty -> (Ptr (J ty) -> IO a) -> IO a
-withJ (J fp) = withForeignPtr fp
-
 -- | The null reference.
 jnull :: J a
-jnull = unsafePerformIO $ newJ nullPtr
+jnull = J $ unsafePerformIO $ newForeignPtr_ nullPtr
 
 -- | Any object can be cast to @Object@.
 upcast :: J a -> JObject
@@ -233,7 +227,7 @@ instance Storable JValue where
   poke p (JLong x) = poke (castPtr p) x
   poke p (JFloat x) = poke (castPtr p) x
   poke p (JDouble x) = poke (castPtr p) x
-  poke p (JObject (J x)) = withForeignPtr x $ poke (castPtr p)
+  poke p (JObject (J x)) = withForeignPtr x (poke (castPtr p))
 
   peek _ = error "Storable JValue: undefined peek"
 
@@ -330,7 +324,7 @@ type JFloatArray = JArray ('Prim "float")
 type JDoubleArray = JArray ('Prim "double")
 
 jniCtx :: Context
-jniCtx = mempty { ctxTypesTable = fromList tytab }
+jniCtx = mempty { ctxTypesTable = Map.fromList tytab } <> fptrCtx
   where
     tytab =
       [ -- Primitive types

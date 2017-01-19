@@ -5,6 +5,8 @@ packages:
 - jni
 - jvm
 - jvm-streaming
+- location: vendor/inline-c
+  extra-dep: true
 
 extra-deps:
 - thread-local-storage-0.1.0.3

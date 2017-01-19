@@ -50,7 +50,6 @@ module Foreign.JNI
   , deleteGlobalRef
   , newLocalRef
   , deleteLocalRef
-  , getLocalRefPtr
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -159,7 +158,7 @@ module Foreign.JNI
   ) where
 
 import Control.Exception (Exception, bracket, finally, throwIO)
-import Control.Monad (unless, void, (>=>))
+import Control.Monad (unless, void)
 import Data.Coerce
 import Data.Int
 import Data.IORef (IORef, newIORef, readIORef)
@@ -171,15 +170,18 @@ import Data.Typeable (Typeable)
 import Data.TLS.PThread
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
+  ( finalizeForeignPtr
+  , newForeignPtr_
+  , newForeignPtrEnv
+  , withForeignPtr
+  )
 import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Array
-import Foreign.Ptr (Ptr, nullPtr, castPtr)
-import GHC.ForeignPtr (newConcForeignPtr)
+import Foreign.Ptr (Ptr, nullPtr)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
-import System.IO (fixIO)
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (String)
 
@@ -202,6 +204,9 @@ data ArrayCopyFailed = ArrayCopyFailed
 
 instance Exception ArrayCopyFailed
 
+objectFromPtr :: Ptr (J a) -> IO (J a)
+objectFromPtr ptr = J <$> newForeignPtr_ ptr
+
 -- | Map Java exceptions to Haskell exceptions.
 throwIfException :: Ptr JNIEnv -> IO a -> IO a
 throwIfException env m = m `finally` do
@@ -209,24 +214,7 @@ throwIfException env m = m `finally` do
     unless (excptr == nullPtr) $ do
       [CU.exp| void { (*$(JNIEnv *env))->ExceptionDescribe($(JNIEnv *env)) } |]
       [CU.exp| void { (*$(JNIEnv *env))->ExceptionClear($(JNIEnv *env)) } |]
-      newGlobalJ env excptr >>= throwIO . JavaException
-
--- | Creates a global reference to a given Java value.
---
--- Arranges for 'deleteGlobalRef' to be called when the global reference
--- is no longer reachable on the Haskell side.
-newGlobalJ :: Ptr JNIEnv -> Ptr (J ty) -> IO (J ty)
-newGlobalJ env (castPtr -> obj) = do
-    g <- [CU.exp| jobject {
-      (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
-                                      $(jobject obj)) } |]
-    fmap (unsafeCast . J) $ fixIO $ newConcForeignPtr g . finalize
-  where
-    finalize fp = withJNIEnv $ \env ->
-      withForeignPtr fp $ \objp ->
-      [CU.block| void {
-        (*$(JNIEnv *env))->DeleteGlobalRef($(JNIEnv *env),
-                                           $(jobject objp)); } |]
+      throwIO . JavaException =<< newGlobalRef =<< objectFromPtr excptr
 
 -- | Check whether a pointer is null.
 throwIfNull :: IO (Ptr a) -> IO (Ptr a)
@@ -299,7 +287,8 @@ withJVM options action =
             JNI_CreateJavaVM(&jvm, (void**)&env, &vm_args);
             free(options);
             return jvm; } |]
-    fini jvm = [C.block| void { (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm)); } |]
+    fini jvm = do
+      [C.block| void { (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm)); } |]
 
 defineClass
   :: Coercible o (J ('Class "java.lang.ClassLoader"))
@@ -309,12 +298,12 @@ defineClass
   -> IO JClass
 defineClass name (coerce -> upcast -> loader) buf = withJNIEnv $ \env ->
     throwIfException env $
-    withJ loader $ \loaderp ->
     JNI.withString name $ \namep ->
-    newJ =<< [CU.exp| jclass {
+    objectFromPtr =<<
+    [CU.exp| jclass {
       (*$(JNIEnv *env))->DefineClass($(JNIEnv *env),
                                      $(char *namep),
-                                     $(jobject loaderp),
+                                     $fptr-ptr:(jobject loader),
                                      $bs-ptr:buf,
                                      $bs-len:buf) } |]
 registerNatives
@@ -322,31 +311,28 @@ registerNatives
   -> [JNINativeMethod]
   -> IO ()
 registerNatives cls methods = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
     throwIfException env $
     withArray methods $ \cmethods -> do
       let numMethods = fromIntegral $ length methods
       _ <- [CU.exp| jint {
              (*$(JNIEnv *env))->RegisterNatives($(JNIEnv *env),
-                                                $(jclass clsp),
+                                                $fptr-ptr:(jclass cls),
                                                 $(JNINativeMethod *cmethods),
                                                 $(int numMethods)) } |]
       return ()
 
 throw :: Coercible o (J a) => o -> IO ()
-throw (coerce -> upcast -> obj) = withJNIEnv $ \env ->
-    withJ obj $ \objp -> void
+throw (coerce -> upcast -> obj) = withJNIEnv $ \env -> void $ do
     [CU.exp| jint {
        (*$(JNIEnv *env))->Throw($(JNIEnv *env),
-                                $(jobject objp)) } |]
+                                $fptr-ptr:(jobject obj)) } |]
 
 throwNew :: JClass -> JNI.String -> IO ()
 throwNew cls msg = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
     JNI.withString msg $ \msgp -> void $ do
     [CU.exp| jint {
        (*$(JNIEnv *env))->ThrowNew($(JNIEnv *env),
-                                   $(jclass clsp),
+                                   $fptr-ptr:(jclass cls),
                                    $(char *msgp)) } |]
 
 findClass
@@ -355,17 +341,17 @@ findClass
 findClass name = withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString name $ \namep ->
-    newJ =<< [CU.exp| jclass { (*$(JNIEnv *env))->FindClass($(JNIEnv *env), $(char *namep)) } |]
+    objectFromPtr =<<
+    [CU.exp| jclass { (*$(JNIEnv *env))->FindClass($(JNIEnv *env), $(char *namep)) } |]
 
 newObject :: JClass -> JNI.String -> [JValue] -> IO JObject
 newObject cls sig args = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
     throwIfException env $
     withArray args $ \cargs -> do
       constr <- getMethodID cls "<init>" sig
-      newJ =<< [CU.exp| jobject {
+      objectFromPtr =<< [CU.exp| jobject {
         (*$(JNIEnv *env))->NewObjectA($(JNIEnv *env),
-                                      $(jclass clsp),
+                                      $fptr-ptr:(jclass cls),
                                       $(jmethodID constr),
                                       $(jvalue *cargs)) } |]
 
@@ -375,13 +361,12 @@ getFieldID
   -> JNI.String -- ^ JNI signature
   -> IO JFieldID
 getFieldID cls fieldname sig = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
     throwIfException env $
     JNI.withString fieldname $ \fieldnamep ->
     JNI.withString sig $ \sigp ->
     [CU.exp| jfieldID {
       (*$(JNIEnv *env))->GetFieldID($(JNIEnv *env),
-                                    $(jclass clsp),
+                                    $fptr-ptr:(jclass cls),
                                     $(char *fieldnamep),
                                     $(char *sigp)) } |]
 
@@ -391,35 +376,28 @@ getStaticFieldID
   -> JNI.String -- ^ JNI signature
   -> IO JFieldID
 getStaticFieldID cls fieldname sig = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
     throwIfException env $
     JNI.withString fieldname $ \fieldnamep ->
     JNI.withString sig $ \sigp ->
     [CU.exp| jfieldID {
       (*$(JNIEnv *env))->GetStaticFieldID($(JNIEnv *env),
-                                          $(jclass clsp),
+                                          $fptr-ptr:(jclass cls),
                                           $(char *fieldnamep),
                                           $(char *sigp)) } |]
-
-getObjectField :: Coercible o (J a) => o -> JFieldID -> IO JObject;
-getObjectField (coerce -> upcast -> obj) field = withJNIEnv $ \env ->
-    withJ obj $ \objp ->
-    throwIfException env $
-    newJ =<< [CU.exp| jobject {
-      (*$(JNIEnv *env))->GetObjectField($(JNIEnv *env),
-                                        $(jobject objp),
-                                        $(jfieldID field)) } |]
 
 #define GET_FIELD(name, hs_rettype, c_rettype) \
 get/**/name/**/Field :: Coercible o (J a) => o -> JFieldID -> IO hs_rettype; \
 get/**/name/**/Field (coerce -> upcast -> obj) field = withJNIEnv $ \env -> \
-    withJ obj $ \objp -> \
     throwIfException env $ \
     [CU.exp| c_rettype { \
       (*$(JNIEnv *env))->Get/**/name/**/Field($(JNIEnv *env), \
-                                              $(jobject objp), \
+                                              $fptr-ptr:(jobject obj), \
                                               $(jfieldID field)) } |]
 
+getObjectField :: Coercible o (J a) => o -> JFieldID -> IO JObject
+getObjectField x y =
+    let GET_FIELD(Object, (Ptr JObject), jobject)
+    in objectFromPtr =<< getObjectField x y
 GET_FIELD(Boolean, Word8, jboolean)
 GET_FIELD(Byte, CChar, jbyte)
 GET_FIELD(Char, Word16, jchar)
@@ -429,25 +407,19 @@ GET_FIELD(Long, Int64, jlong)
 GET_FIELD(Float, Float, jfloat)
 GET_FIELD(Double, Double, jdouble)
 
-getStaticObjectField :: JClass -> JFieldID -> IO JObject;
-getStaticObjectField klass field = withJNIEnv $ \env ->
-    withJ klass $ \klassp ->
-    throwIfException env $
-    newJ =<< [CU.exp| jobject {
-      (*$(JNIEnv *env))->GetStaticObjectField($(JNIEnv *env),
-                                              $(jclass klassp),
-                                              $(jfieldID field)) } |]
-
 #define GET_STATIC_FIELD(name, hs_rettype, c_rettype) \
 getStatic/**/name/**/Field :: JClass -> JFieldID -> IO hs_rettype; \
 getStatic/**/name/**/Field klass field = withJNIEnv $ \env -> \
-    withJ klass $ \klassp -> \
     throwIfException env $ \
     [CU.exp| c_rettype { \
       (*$(JNIEnv *env))->GetStatic/**/name/**/Field($(JNIEnv *env), \
-                                                    $(jclass klassp), \
+                                                    $fptr-ptr:(jclass klass), \
                                                     $(jfieldID field)) } |]
 
+getStaticObjectField :: JClass -> JFieldID -> IO JObject
+getStaticObjectField x y =
+    let GET_STATIC_FIELD(Object, (Ptr JObject), jobject)
+    in objectFromPtr =<< getStaticObjectField x y
 GET_STATIC_FIELD(Boolean, Word8, jboolean)
 GET_STATIC_FIELD(Byte, CChar, jbyte)
 GET_STATIC_FIELD(Char, Word16, jchar)
@@ -457,30 +429,21 @@ GET_STATIC_FIELD(Long, Int64, jlong)
 GET_STATIC_FIELD(Float, Float, jfloat)
 GET_STATIC_FIELD(Double, Double, jdouble)
 
-setObjectField :: Coercible o (J a) => o -> JFieldID -> JObject -> IO ();
-setObjectField (coerce -> upcast -> obj) field x =
-    withJNIEnv $ \env ->
-    withJ obj $ \objp ->
-    withJ x $ \xp ->
-    throwIfException env $
-    [CU.block| void {
-      (*$(JNIEnv *env))->SetObjectField($(JNIEnv *env),
-                                        $(jobject objp),
-                                        $(jfieldID field),
-                                        $(jobject xp)); } |]
-
 #define SET_FIELD(name, hs_fieldtype, c_fieldtype) \
 set/**/name/**/Field :: Coercible o (J a) => o -> JFieldID -> hs_fieldtype -> IO (); \
 set/**/name/**/Field (coerce -> upcast -> obj) field x = \
     withJNIEnv $ \env -> \
-    withJ obj $ \objp -> \
     throwIfException env $ \
     [CU.block| void { \
       (*$(JNIEnv *env))->Set/**/name/**/Field($(JNIEnv *env), \
-                                              $(jobject objp), \
+                                              $fptr-ptr:(jobject obj), \
                                               $(jfieldID field), \
                                               $(c_fieldtype x)); } |]
 
+setObjectField :: Coercible o (J a) => o -> JFieldID -> JObject -> IO ()
+setObjectField x y z =
+    let SET_FIELD(Object, (Ptr JObject), jobject)
+    in withForeignPtr (coerce z) (setObjectField x y)
 SET_FIELD(Boolean, Word8, jboolean)
 SET_FIELD(Byte, CChar, jbyte)
 SET_FIELD(Char, Word16, jchar)
@@ -490,30 +453,21 @@ SET_FIELD(Long, Int64, jlong)
 SET_FIELD(Float, Float, jfloat)
 SET_FIELD(Double, Double, jdouble)
 
-setStaticObjectField :: JClass -> JFieldID -> JObject -> IO ();
-setStaticObjectField klass field x =
-    withJNIEnv $ \env ->
-    withJ klass $ \klassp ->
-    withJ x $ \xp ->
-    throwIfException env $
-    [CU.block| void {
-      (*$(JNIEnv *env))->SetStaticObjectField($(JNIEnv *env),
-                                              $(jclass klassp),
-                                              $(jfieldID field),
-                                              $(jobject xp)); } |]
-
 #define SET_STATIC_FIELD(name, hs_fieldtype, c_fieldtype) \
 setStatic/**/name/**/Field :: JClass -> JFieldID -> hs_fieldtype -> IO (); \
 setStatic/**/name/**/Field klass field x = \
     withJNIEnv $ \env -> \
-    withJ klass $ \klassp -> \
     throwIfException env $ \
     [CU.block| void { \
       (*$(JNIEnv *env))->SetStatic/**/name/**/Field($(JNIEnv *env), \
-                                                    $(jclass klassp), \
+                                                    $fptr-ptr:(jclass klass), \
                                                     $(jfieldID field), \
                                                     $(c_fieldtype x)); } |]
 
+setStaticObjectField :: JClass -> JFieldID -> JObject -> IO ()
+setStaticObjectField x y z =
+    let SET_STATIC_FIELD(Object, (Ptr JObject), jobject)
+    in withForeignPtr (coerce z) (setStaticObjectField x y)
 SET_STATIC_FIELD(Boolean, Word8, jboolean)
 SET_STATIC_FIELD(Byte, CChar, jbyte)
 SET_STATIC_FIELD(Char, Word16, jchar)
@@ -529,13 +483,12 @@ getMethodID
   -> JNI.String -- ^ JNI signature
   -> IO JMethodID
 getMethodID cls methodname sig = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
     throwIfException env $
     JNI.withString methodname $ \methodnamep ->
     JNI.withString sig $ \sigp ->
     [CU.exp| jmethodID {
       (*$(JNIEnv *env))->GetMethodID($(JNIEnv *env),
-                                     $(jclass clsp),
+                                     $fptr-ptr:(jclass cls),
                                      $(char *methodnamep),
                                      $(char *sigp)) } |]
 
@@ -545,22 +498,21 @@ getStaticMethodID
   -> JNI.String -- ^ JNI signature
   -> IO JMethodID
 getStaticMethodID cls methodname sig = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
     throwIfException env $
     JNI.withString methodname $ \methodnamep ->
     JNI.withString sig $ \sigp ->
     [CU.exp| jmethodID {
       (*$(JNIEnv *env))->GetStaticMethodID($(JNIEnv *env),
-                                           $(jclass clsp),
+                                           $fptr-ptr:(jclass cls),
                                            $(char *methodnamep),
                                            $(char *sigp)) } |]
 
 getObjectClass :: Coercible o (J ty) => o -> IO JClass
 getObjectClass (coerce -> upcast -> obj) = withJNIEnv $ \env ->
-    withJ obj $ \objp ->
-    newJ =<< [CU.exp| jclass {
+    objectFromPtr =<<
+    [CU.exp| jclass {
       (*$(JNIEnv *env))->GetObjectClass($(JNIEnv *env),
-                                        $(jobject objp)) } |]
+                                        $fptr-ptr:(jobject obj)) } |]
 
 -- | Creates a global reference to the object referred to by
 -- the given reference.
@@ -568,59 +520,57 @@ getObjectClass (coerce -> upcast -> obj) = withJNIEnv $ \env ->
 -- Arranges for a finalizer to call 'deleteGlobalRef' when the
 -- global reference is no longer reachable on the Haskell side.
 newGlobalRef :: Coercible o (J ty) => o -> IO o
-newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
-    fmap coerce $ withJ obj $ newGlobalJ env
+newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
+    gobj <-
+      [CU.exp| jobject {
+        (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
+                                        $fptr-ptr:(jobject obj)) } |]
+    coerce <$> J <$> newForeignPtrEnv finalize env gobj
+  where
+    finalize =
+      unsafePerformIO $ -- Memoize
+      withJNIEnv $ \env ->
+      [CU.exp| void (*)(JNIEnv *, jobject) { (*$(JNIEnv *env))->DeleteGlobalRef } |]
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
 
--- | Gets a local reference to the given java value.
-getLocalRefPtr :: Coercible o (J ty) => o -> IO (Ptr (J ty))
-getLocalRefPtr (coerce -> j) = withJNIEnv $ \env -> withJ j $ \jp ->
-    castPtr <$> [CU.exp| jobject {
-      (*$(JNIEnv *env))->NewLocalRef($(JNIEnv *env),
-                                     $(jobject jp)) } |]
-
 -- NB: Cannot add a finalizer to local references because it may
 -- run in a thread where the reference is not valid.
 newLocalRef :: Coercible o (J ty) => o -> IO (J ty)
-newLocalRef = getLocalRefPtr >=> newJ
+newLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+    unsafeCast <$> (objectFromPtr =<<)
+    [CU.exp| jobject {
+      (*$(JNIEnv *env))->NewLocalRef($(JNIEnv *env),
+                                     $fptr-ptr:(jobject obj)) } |]
 
 deleteLocalRef :: Coercible o (J ty) => o -> IO ()
-deleteLocalRef (coerce -> j) = withJNIEnv $ \env -> withJ j $ \jp ->
+deleteLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
     [CU.exp| void {
       (*$(JNIEnv *env))->DeleteLocalRef($(JNIEnv *env),
-                                        $(jobject jp)) } |]
+                                        $fptr-ptr:(jobject obj)) } |]
 
 -- Modern CPP does have ## for concatenating strings, but we use the hacky /**/
 -- comment syntax for string concatenation. This is because GHC passes
 -- the -traditional flag to the preprocessor by default, which turns off several
 -- modern CPP features.
 
-callObjectMethod :: Coercible o (J a) => o -> JMethodID -> [JValue] -> IO JObject;
-callObjectMethod (coerce -> upcast -> obj) method args = withJNIEnv $ \env ->
-    withJ obj $ \objp ->
-    throwIfException env $
-    withArray args $ \cargs ->
-    newJ =<< [C.exp| jobject {
-      (*$(JNIEnv *env))->CallObjectMethodA($(JNIEnv *env),
-                                           $(jobject objp),
-                                           $(jmethodID method),
-                                           $(jvalue *cargs)) } |]
-
 #define CALL_METHOD(name, hs_rettype, c_rettype) \
 call/**/name/**/Method :: Coercible o (J a) => o -> JMethodID -> [JValue] -> IO hs_rettype; \
 call/**/name/**/Method (coerce -> upcast -> obj) method args = withJNIEnv $ \env -> \
-    withJ obj $ \objp -> \
     throwIfException env $ \
     withArray args $ \cargs -> \
     [C.exp| c_rettype { \
       (*$(JNIEnv *env))->Call/**/name/**/MethodA($(JNIEnv *env), \
-                                               $(jobject objp), \
-                                               $(jmethodID method), \
-                                               $(jvalue *cargs)) } |]
+                                                 $fptr-ptr:(jobject obj), \
+                                                 $(jmethodID method), \
+                                                 $(jvalue *cargs)) } |]
 
 CALL_METHOD(Void, (), void)
+callObjectMethod :: Coercible o (J a) => o -> JMethodID -> [JValue] -> IO JObject
+callObjectMethod x y z =
+    let CALL_METHOD(Object, (Ptr JObject), jobject)
+    in objectFromPtr =<< callObjectMethod x y z
 callBooleanMethod :: Coercible o (J a) => o -> JMethodID -> [JValue] -> IO Bool
 callBooleanMethod x y z =
     let CALL_METHOD(Boolean, Word8, jboolean)
@@ -633,30 +583,22 @@ CALL_METHOD(Long, Int64, jlong)
 CALL_METHOD(Float, Float, jfloat)
 CALL_METHOD(Double, Double, jdouble)
 
-callStaticObjectMethod :: JClass -> JMethodID -> [JValue] -> IO JObject;
-callStaticObjectMethod cls method args = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
-    throwIfException env $
-    withArray args $ \cargs ->
-    newJ =<< [C.exp| jobject {
-      (*$(JNIEnv *env))->CallStaticObjectMethodA($(JNIEnv *env),
-                                                 $(jclass clsp),
-                                                 $(jmethodID method),
-                                                 $(jvalue *cargs)) } |]
-
 #define CALL_STATIC_METHOD(name, hs_rettype, c_rettype) \
 callStatic/**/name/**/Method :: JClass -> JMethodID -> [JValue] -> IO hs_rettype; \
 callStatic/**/name/**/Method cls method args = withJNIEnv $ \env -> \
-    withJ cls $ \clsp -> \
     throwIfException env $ \
     withArray args $ \cargs -> \
     [C.exp| c_rettype { \
       (*$(JNIEnv *env))->CallStatic/**/name/**/MethodA($(JNIEnv *env), \
-                                                       $(jclass clsp), \
+                                                       $fptr-ptr:(jclass cls), \
                                                        $(jmethodID method), \
                                                        $(jvalue *cargs)) } |]
 
 CALL_STATIC_METHOD(Void, (), void)
+callStaticObjectMethod :: JClass -> JMethodID -> [JValue] -> IO JObject
+callStaticObjectMethod x y z =
+    let CALL_STATIC_METHOD(Object, (Ptr JObject), jobject)
+    in objectFromPtr =<< callStaticObjectMethod x y z
 callStaticBooleanMethod :: JClass -> JMethodID -> [JValue] -> IO Bool
 callStaticBooleanMethod x y z =
     let CALL_STATIC_METHOD(Boolean, Word8, jboolean)
@@ -671,19 +613,20 @@ CALL_STATIC_METHOD(Double, Double, jdouble)
 
 newObjectArray :: Int32 -> JClass -> IO JObjectArray
 newObjectArray sz cls = withJNIEnv $ \env ->
-    withJ cls $ \clsp ->
     throwIfException env $
-    newJ =<< [CU.exp| jobjectArray {
+    objectFromPtr =<<
+    [CU.exp| jobjectArray {
       (*$(JNIEnv *env))->NewObjectArray($(JNIEnv *env),
                                         $(jsize sz),
-                                        $(jclass clsp),
+                                        $fptr-ptr:(jclass cls),
                                         NULL) } |]
 
 #define NEW_ARRAY(name, c_rettype) \
 new/**/name/**/Array :: Int32 -> IO J/**/name/**/Array; \
 new/**/name/**/Array sz = withJNIEnv $ \env -> \
     throwIfException env $ \
-    newJ =<< [CU.exp| c_rettype/**/Array { \
+    objectFromPtr =<< \
+    [CU.exp| c_rettype/**/Array { \
       (*$(JNIEnv *env))->New/**/name/**/Array($(JNIEnv *env), \
                                               $(jsize sz)) } |]
 
@@ -699,33 +642,31 @@ NEW_ARRAY(Double, jdouble)
 newString :: Ptr Word16 -> Int32 -> IO JString
 newString ptr len = withJNIEnv $ \env ->
     throwIfException env $
-    newJ =<< [CU.exp| jstring {
+    objectFromPtr =<<
+    [CU.exp| jstring {
       (*$(JNIEnv *env))->NewString($(JNIEnv *env),
                                    $(jchar *ptr),
                                    $(jsize len)) } |]
 
 getArrayLength :: Coercible o (JArray a) => o -> IO Int32
 getArrayLength (coerce -> upcast -> array) = withJNIEnv $ \env ->
-    withJ array $ \arrayp -> \
     [C.exp| jsize {
       (*$(JNIEnv *env))->GetArrayLength($(JNIEnv *env),
-                                        $(jarray arrayp)) } |]
+                                        $fptr-ptr:(jarray array)) } |]
 
 getStringLength :: JString -> IO Int32
 getStringLength jstr = withJNIEnv $ \env ->
-    withJ jstr $ \jstrp -> \
     [CU.exp| jsize {
       (*$(JNIEnv *env))->GetStringLength($(JNIEnv *env),
-                                         $(jstring jstrp)) } |]
+                                         $fptr-ptr:(jstring jstr)) } |]
 
 #define GET_ARRAY_ELEMENTS(name, hs_rettype, c_rettype) \
 get/**/name/**/ArrayElements :: J/**/name/**/Array -> IO (Ptr hs_rettype); \
 get/**/name/**/ArrayElements (upcast -> array) = withJNIEnv $ \env -> \
-    withJ array $ \arrayp -> \
     throwIfNull $ \
     [CU.exp| c_rettype* { \
       (*$(JNIEnv *env))->Get/**/name/**/ArrayElements($(JNIEnv *env), \
-                                                      $(jobject arrayp), \
+                                                      $fptr-ptr:(jobject array), \
                                                       NULL) } |]
 
 GET_ARRAY_ELEMENTS(Boolean, Word8, jboolean)
@@ -739,21 +680,19 @@ GET_ARRAY_ELEMENTS(Double, Double, jdouble)
 
 getStringChars :: JString -> IO (Ptr Word16)
 getStringChars jstr = withJNIEnv $ \env ->
-    withJ jstr $ \jstrp -> \
     throwIfNull $
     [CU.exp| const jchar* {
       (*$(JNIEnv *env))->GetStringChars($(JNIEnv *env),
-                                        $(jstring jstrp),
+                                        $fptr-ptr:(jstring jstr),
                                         NULL) } |]
 
 #define SET_ARRAY_REGION(name, hs_argtype, c_argtype) \
 set/**/name/**/ArrayRegion :: J/**/name/**/Array -> Int32 -> Int32 -> Ptr hs_argtype -> IO (); \
 set/**/name/**/ArrayRegion array start len buf = withJNIEnv $ \env -> \
-    withJ array $ \arrayp -> \
     throwIfException env $ \
     [CU.exp| void { \
       (*$(JNIEnv *env))->Set/**/name/**/ArrayRegion($(JNIEnv *env), \
-                                                    $(c_argtype/**/Array arrayp), \
+                                                    $fptr-ptr:(c_argtype/**/Array array), \
                                                     $(jsize start), \
                                                     $(jsize len), \
                                                     $(c_argtype *buf)) } |]
@@ -770,10 +709,9 @@ SET_ARRAY_REGION(Double, Double, jdouble)
 #define RELEASE_ARRAY_ELEMENTS(name, hs_argtype, c_argtype) \
 release/**/name/**/ArrayElements :: J/**/name/**/Array -> Ptr hs_argtype -> IO (); \
 release/**/name/**/ArrayElements (upcast -> array) xs = withJNIEnv $ \env -> \
-    withJ array $ \arrayp -> \
     [CU.exp| void { \
       (*$(JNIEnv *env))->Release/**/name/**/ArrayElements($(JNIEnv *env), \
-                                                          $(jobject arrayp), \
+                                                          $fptr-ptr:(jobject array), \
                                                           $(c_argtype *xs), \
                                                           JNI_ABORT) } |]
 
@@ -788,26 +726,23 @@ RELEASE_ARRAY_ELEMENTS(Double, Double, jdouble)
 
 releaseStringChars :: JString -> Ptr Word16 -> IO ()
 releaseStringChars jstr chars = withJNIEnv $ \env ->
-    withJ jstr $ \jstrp -> \
     [CU.exp| void {
       (*$(JNIEnv *env))->ReleaseStringChars($(JNIEnv *env),
-                                            $(jstring jstrp),
+                                            $fptr-ptr:(jstring jstr),
                                             $(jchar *chars)) } |]
 
 getObjectArrayElement :: Coercible o (JArray a) => o -> Int32 -> IO (J a)
 getObjectArrayElement (coerce -> upcast -> array) i = withJNIEnv $ \env ->
-    withJ array $ \arrayp ->
-    fmap unsafeCast . newJ =<< [C.exp| jobject {
+    unsafeCast <$> (objectFromPtr =<<)
+    [C.exp| jobject {
       (*$(JNIEnv *env))->GetObjectArrayElement($(JNIEnv *env),
-                                               $(jarray arrayp),
+                                               $fptr-ptr:(jarray array),
                                                $(jsize i)) } |]
 
 setObjectArrayElement :: Coercible o (J a) => JObjectArray -> Int32 -> o -> IO ()
 setObjectArrayElement array i (coerce -> upcast -> x) = withJNIEnv $ \env ->
-    withJ array $ \arrayp ->
-    withJ x $ \xp ->
     [C.exp| void {
       (*$(JNIEnv *env))->SetObjectArrayElement($(JNIEnv *env),
-                                               $(jobjectArray arrayp),
+                                               $fptr-ptr:(jobjectArray array),
                                                $(jsize i),
-                                               $(jobject xp)); } |]
+                                               $fptr-ptr:(jobject x)); } |]
