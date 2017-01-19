@@ -228,54 +228,59 @@ throwIfNull m = do
     then throwIO ArrayCopyFailed
     else return ptr
 
--- | A system lock allows concurrent readers until the system is shutdown, in
--- which case no more read locks are granted.
-newtype SystemLock =
-    SystemLock (IORef (Int, SystemWantedState))
+-- | A read-write lock
+--
+-- Concurrent readers are allowed, but only one writer is supported.
+newtype RWLock =
+    RWLock (IORef (Int, RWWantedState))
     -- ^ A count of the held read locks and the wanted state
 
--- | The wanted state of the system
-data SystemWantedState
-    = StayOnline            -- ^ The system will stay online
-    | GoOffline (MVar ())
-       -- ^ The system wants to shutdown, grant no read locks. The MVar is used
-       -- to notify the system when the currently held read locks are released.
+-- | The wanted state of the RW
+data RWWantedState
+    = Reading            -- ^ There are no writers
+    | Writing (MVar ())
+       -- ^ A writer wants to write, grant no more read locks. The MVar is used
+       -- to notify the writer when the currently held read locks are released.
 
--- | Creates a new system lock.
-newSystemLock :: IO SystemLock
-newSystemLock = SystemLock <$> newIORef (0, StayOnline)
+-- | Creates a new read-write lock.
+newRWLock :: IO RWLock
+newRWLock = RWLock <$> newIORef (0, Reading)
 
--- | Tries to acquire a read lock. If this call returns `Do #read`, the system
--- is guaranteed not to shutdown until 'releaseReadLock' is called.
-tryAcquireReadLock :: SystemLock -> IO (Choice "read")
-tryAcquireReadLock (SystemLock ref) = do
+-- | Tries to acquire a read lock. If this call returns `Do #read`, no writer
+-- will be granted a lock before the read lock is released.
+tryAcquireReadLock :: RWLock -> IO (Choice "read")
+tryAcquireReadLock (RWLock ref) = do
     atomicModifyIORef ref $ \case
-      (!readers,  StayOnline) -> ((readers + 1, StayOnline),    Do #read)
-      st                      -> (                       st, Don't #read)
+      (!readers,  Reading) -> ((readers + 1, Reading),    Do #read)
+      st                   -> (                       st, Don't #read)
 
 -- | Releases a read lock.
-releaseReadLock :: SystemLock -> IO ()
-releaseReadLock (SystemLock ref) = do
+releaseReadLock :: RWLock -> IO ()
+releaseReadLock (RWLock ref) = do
     st <- atomicModifyIORef ref $
             \st@(readers, aim) -> ((readers - 1, aim), st)
     case st of
-      -- Notify the system if I'm the last reader.
-      (0, GoOffline mv) -> putMVar mv ()
-      _                 -> return ()
+      -- Notify the writer if I'm the last reader.
+      (0, Writing mv) -> putMVar mv ()
+      _               -> return ()
 
--- | Waits until the current read locks are released and shutdowns the system.
-shutdown :: SystemLock -> IO ()
-shutdown (SystemLock ref) = do
+-- | Waits until the current read locks are released and grants a write lock.
+acquireWriteLock :: RWLock -> IO ()
+acquireWriteLock (RWLock ref) = do
     mv <- newEmptyMVar
     join $ atomicModifyIORef ref $ \case
-      (0, _) -> ((0, GoOffline mv),   return ())
+      (0, _) -> ((0, Writing mv),   return ())
       st     -> (               st, takeMVar mv)
 
 -- | This lock is used to avoid the JVM from dying before any finalizers
--- deleting global references are finished. Finalizers running after the JVM
--- shuts down are noops.
-globalJVMLock :: SystemLock
-globalJVMLock = unsafePerformIO newSystemLock
+-- deleting global references are finished.
+--
+-- Finalizers try to acquire read locks.
+--
+-- The JVM acquires a write lock before shutdown. Thence, finalizers fail to
+-- acquire read locks and behave as noops.
+globalJVMLock :: RWLock
+globalJVMLock = unsafePerformIO newRWLock
 {-# NOINLINE globalJVMLock #-}
 
 -- | A global mutable cell holding the TLS variable, whose content is set once
@@ -342,7 +347,7 @@ withJVM options action =
             free(options);
             return jvm; } |]
     fini jvm = do
-      shutdown globalJVMLock
+      acquireWriteLock globalJVMLock
       [C.block| void { (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm)); } |]
 
 defineClass
