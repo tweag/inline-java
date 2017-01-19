@@ -19,6 +19,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -157,11 +159,13 @@ module Foreign.JNI
   , setObjectArrayElement
   ) where
 
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Exception (Exception, bracket, finally, throwIO)
-import Control.Monad (unless, void)
+import Control.Monad (join, unless, void, when)
+import Data.Choice
 import Data.Coerce
 import Data.Int
-import Data.IORef (IORef, newIORef, readIORef)
+import Data.IORef (IORef, newIORef, readIORef, atomicModifyIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -172,7 +176,6 @@ import Foreign.C (CChar)
 import Foreign.ForeignPtr
   ( finalizeForeignPtr
   , newForeignPtr_
-  , newForeignPtrEnv
   , withForeignPtr
   )
 import Foreign.JNI.NativeMethod
@@ -180,6 +183,7 @@ import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Array
 import Foreign.Ptr (Ptr, nullPtr)
+import GHC.ForeignPtr (newConcForeignPtr)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
 import System.IO.Unsafe (unsafePerformIO)
@@ -223,6 +227,56 @@ throwIfNull m = do
     if ptr == nullPtr
     then throwIO ArrayCopyFailed
     else return ptr
+
+-- | A system lock allows concurrent readers until the system is shutdown, in
+-- which case no more read locks are granted.
+newtype SystemLock =
+    SystemLock (IORef (Int, SystemWantedState))
+    -- ^ A count of the held read locks and the wanted state
+
+-- | The wanted state of the system
+data SystemWantedState
+    = StayOnline            -- ^ The system will stay online
+    | GoOffline (MVar ())
+       -- ^ The system wants to shutdown, grant no read locks. The MVar is used
+       -- to notify the system when the currently held read locks are released.
+
+-- | Creates a new system lock.
+newSystemLock :: IO SystemLock
+newSystemLock = SystemLock <$> newIORef (0, StayOnline)
+
+-- | Tries to acquire a read lock. If this call returns `Do #read`, the system
+-- is guaranteed not to shutdown until 'releaseReadLock' is called.
+tryAcquireReadLock :: SystemLock -> IO (Choice "read")
+tryAcquireReadLock (SystemLock ref) = do
+    atomicModifyIORef ref $ \case
+      (!readers,  StayOnline) -> ((readers + 1, StayOnline),    Do #read)
+      st                      -> (                       st, Don't #read)
+
+-- | Releases a read lock.
+releaseReadLock :: SystemLock -> IO ()
+releaseReadLock (SystemLock ref) = do
+    st <- atomicModifyIORef ref $
+            \st@(readers, aim) -> ((readers - 1, aim), st)
+    case st of
+      -- Notify the system if I'm the last reader.
+      (0, GoOffline mv) -> putMVar mv ()
+      _                 -> return ()
+
+-- | Waits until the current read locks are released and shutdowns the system.
+shutdown :: SystemLock -> IO ()
+shutdown (SystemLock ref) = do
+    mv <- newEmptyMVar
+    join $ atomicModifyIORef ref $ \case
+      (0, _) -> ((0, GoOffline mv),   return ())
+      st     -> (               st, takeMVar mv)
+
+-- | This lock is used to avoid the JVM from dying before any finalizers
+-- deleting global references are finished. Finalizers running after the JVM
+-- shuts down are noops.
+globalJVMLock :: SystemLock
+globalJVMLock = unsafePerformIO newSystemLock
+{-# NOINLINE globalJVMLock #-}
 
 -- | A global mutable cell holding the TLS variable, whose content is set once
 -- for each thread.
@@ -288,6 +342,7 @@ withJVM options action =
             free(options);
             return jvm; } |]
     fini jvm = do
+      shutdown globalJVMLock
       [C.block| void { (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm)); } |]
 
 defineClass
@@ -525,12 +580,16 @@ newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
       [CU.exp| jobject {
         (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
-    coerce <$> J <$> newForeignPtrEnv finalize env gobj
+    coerce <$> J <$> newConcForeignPtr gobj (finalize gobj)
   where
-    finalize =
-      unsafePerformIO $ -- Memoize
-      withJNIEnv $ \env ->
-      [CU.exp| void (*)(JNIEnv *, jobject) { (*$(JNIEnv *env))->DeleteGlobalRef } |]
+    finalize gobj = do
+      bracket (tryAcquireReadLock globalJVMLock)
+              (\doRead -> when (toBool doRead) $ releaseReadLock globalJVMLock)
+              $ \doRead ->
+        when (toBool doRead) $ withJNIEnv $ \env ->
+          [CU.block| void { (*$(JNIEnv *env))->DeleteGlobalRef($(JNIEnv *env)
+                                                              ,$(jobject gobj));
+                          } |]
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p

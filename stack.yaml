@@ -10,6 +10,7 @@ packages:
 
 extra-deps:
 - thread-local-storage-0.1.0.3
+- choice-0.2.0
 
 skip-ghc-check: true
 
