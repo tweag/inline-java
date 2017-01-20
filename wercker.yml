@@ -3,6 +3,10 @@ box: tweag/inline-java
 build:
   steps:
   - script:
+      name: Submodules
+      code: |
+        git submodule update --init
+  - script:
       name: Dependencies
       code: |
         stack --no-terminal build --only-snapshot --prefetch --test
