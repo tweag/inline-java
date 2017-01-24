@@ -48,4 +48,3 @@ test-suite spec
     jvm-streaming,
     streaming
   default-language: Haskell2010
-  extra-libraries: pthread
