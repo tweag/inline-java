@@ -11,7 +11,7 @@ packages:
     commit: 97791de616dc095a8eec2fc5b056497616c98051
 resolver: lts-7.10
 extra-deps:
-- thread-local-storage-0.1.0.3
+- thread-local-storage-0.1.1
 flags:
   ghc-heap-view:
     ghc_7_7: false
