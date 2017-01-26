@@ -52,6 +52,8 @@ module Foreign.JNI
   , deleteGlobalRef
   , newLocalRef
   , deleteLocalRef
+  , pushLocalFrame
+  , popLocalFrame
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -613,6 +615,22 @@ deleteLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
     [CU.exp| void {
       (*$(JNIEnv *env))->DeleteLocalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
+
+pushLocalFrame :: Int32 -> IO ()
+pushLocalFrame (coerce -> capacity) = withJNIEnv $ \env ->
+    -- We ignore the output as it is always 0 on success and throws an
+    -- exception otherwise.
+    throwIfException env $ void $
+    [CU.block| jint {
+      (*$(JNIEnv *env))->PushLocalFrame($(JNIEnv *env),
+                                        $(jint capacity)); } |]
+
+popLocalFrame :: Coercible o (J ty) => o -> IO o
+popLocalFrame (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+    coerce <$> (objectFromPtr =<<)
+    [CU.exp| jobject {
+      (*$(JNIEnv *env))->PopLocalFrame($(JNIEnv *env),
+                                       $fptr-ptr:(jobject obj)) } |]
 
 -- Modern CPP does have ## for concatenating strings, but we use the hacky /**/
 -- comment syntax for string concatenation. This is because GHC passes
