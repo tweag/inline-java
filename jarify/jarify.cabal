@@ -1,13 +1,13 @@
 name:                jarify
-version:             0.1.0.0
-synopsis:            Initial project template from stack
+version:             0.1
+synopsis:            Jarification of Haskell sources
 description:         Please see README.md
 license:             BSD3
 license-file:        LICENSE
 author:              Tweag I/O
 maintainer:          felix.raimundo@tweag.io
 copyright:           2017 EURL Tweag
-category:            FFI, JVM, Java, Distributed Computing
+category:            FFI, JVM, Java
 build-type:          Custom
 extra-source-files:
   src/main/java/io/tweag/sparkle/Sparkle.java
