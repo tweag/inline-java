@@ -15,7 +15,7 @@ import Text.Regex.TDFA
 doPackage :: FilePath -> IO ()
 doPackage cmd = do
     dir <- getDataDir
-    jarbytes <- BS.readFile (dir </> "sparkle.jar")
+    jarbytes <- BS.readFile (dir </> "stub.jar")
     cmdpath <- unpack . strip . pack <$> readProcess "which" [cmd] ""
     ldd <- case os of
       "darwin" -> do
@@ -30,7 +30,7 @@ doPackage cmd = do
     libentries <- mapM mkEntry libs
     cmdentry <- toEntry "hsapp" 0 <$> BS.readFile cmdpath
     let appzip =
-          toEntry "sparkle-app.zip" 0 $
+          toEntry "jarify-app.zip" 0 $
           fromArchive $
           foldr addEntryToArchive emptyArchive (cmdentry : libentries)
         newjarbytes = fromArchive $ addEntryToArchive appzip (toArchive jarbytes)
