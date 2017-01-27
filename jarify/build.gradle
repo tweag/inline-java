@@ -1,0 +1,11 @@
+apply plugin: 'java'
+
+repositories {
+  mavenCentral()
+}
+
+jar {
+  manifest {
+    attributes "Main-Class": "io.tweag.jarify.JarifyMain"
+  }
+}

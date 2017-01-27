@@ -2,6 +2,7 @@ resolver: lts-7.14
 
 packages:
 - .
+- jarify
 - jni
 - jvm
 - jvm-streaming
