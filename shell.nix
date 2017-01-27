@@ -10,8 +10,15 @@ let
     else "${openjdk}/jre/lib/server";
 in
 haskell.lib.buildStackProject {
-  name = "sparkle";
-  buildInputs = [ git openjdk ];
+  name = "inline-java";
+  buildInputs =
+    [ git
+      gradle
+      openjdk
+      which
+      zlib
+      zip
+    ];
   ghc = haskell.compiler.ghc802;
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   # XXX Workaround https://ghc.haskell.org/trac/ghc/ticket/11042.
