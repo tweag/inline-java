@@ -2,9 +2,11 @@ resolver: lts-7.14
 
 packages:
 - .
+- jarify
 - jni
 - jvm
 - jvm-streaming
+- jarify/apps/hello
 
 extra-deps:
 - choice-0.2.0

@@ -5,8 +5,6 @@
 #include <string.h>  // For memcpy
 #include "Rts.h"
 
-extern HsPtr jarify_apply(HsPtr a1, HsPtr a2);
-
 // main is provided when linking an executable. But jarify is sometimes
 // loaded dynamically when no main symbol is provided. Typically, ghc
 // could load it when building code which uses ANN pragmas or template
@@ -35,13 +33,7 @@ JNIEXPORT void JNICALL Java_io_tweag_jarify_Jarify_initializeHaskellRTS
 	// TODO: accept values for argc, argv via Java properties.
 	hs_init(&jarify_argc, &jarify_argv);
 	if (!rtsSupportsBoundThreads())
-	    (*env)->FatalError(env,"Sparkle.initializeHaskellRTS: Haskell RTS is not threaded.");
-}
-
-JNIEXPORT jobject JNICALL Java_io_tweag_jarify_Jarify_apply
-(JNIEnv * env, jclass klass, jbyteArray bytes, jobjectArray args)
-{
-	return jarify_apply(bytes, args);
+	    (*env)->FatalError(env,"Jarify.initializeHaskellRTS: Haskell RTS is not threaded.");
 }
 
 static jmp_buf bootstrap_env;
@@ -53,12 +45,12 @@ static void bypass_exit(int rc)
 {
 	/* If the exit code is 0, then jump the control flow back to
 	 * invokeMain(), because we don't want the RTS to call exit() -
-	 * we'd like to give Spark a chance to perform whatever
+	 * we'd like to give the JVM a chance to perform whatever
 	 * cleanup it needs. */
 	if(!rc) longjmp(bootstrap_env, 0);
 }
 
-JNIEXPORT void JNICALL Java_io_tweag_jarify_SparkMain_invokeMain
+JNIEXPORT void JNICALL Java_io_tweag_jarify_JarifyMain_invokeMain
 (JNIEnv * env, jclass klass, jobjectArray stringArr)
 {
 	/* Set a control prompt just before calling main. If main()

@@ -9,7 +9,6 @@ extra-deps:
 - jni-0.2.2
 - jvm-0.1.2
 - jvm-streaming-0.1
-- sparkle-0.3
 - thread-local-storage-0.1.0.3
 
 explicit-setup-deps:
