@@ -15,7 +15,6 @@
 -- "Foreign.JNI.String".
 
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -28,6 +27,10 @@
 {-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+
+-- XXX This file uses cpphs for preprocessing instead of the system's native
+-- CPP, because the OS X has subtly different whitespace behaviour in the
+-- presence of concatenation.
 
 module Foreign.JNI
   ( -- * JNI functions
