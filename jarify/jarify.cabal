@@ -17,6 +17,11 @@ extra-source-files:
 data-dir: build/libs
 data-files: stub.jar
 
+source-repository head
+  type:     git
+  location: https://github.com/tweag/inline-java
+  subdir:   jarify
+
 library
   include-dirs: cbits
   c-sources: cbits/bootstrap.c
@@ -26,7 +31,7 @@ library
   default-language: Haskell2010
 
 executable jarify
-  main-is: app/Main.hs
+  main-is: Jarify.hs
   other-modules: Paths_jarify
   build-depends:
     base >= 4.8 && < 5,
@@ -38,7 +43,3 @@ executable jarify
     zip-archive >= 0.2
   default-language: Haskell2010
   ghc-options: -threaded
-
-source-repository head
-  type:     git
-  location: https://github.com/githubuser/jarify
