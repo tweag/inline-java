@@ -19,6 +19,7 @@ haskell.lib.buildStackProject {
       zlib
       zip
     ];
+  buildInputs = [ git openjdk ];
   ghc = haskell.compiler.ghc802;
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   # XXX Workaround https://ghc.haskell.org/trac/ghc/ticket/11042.
