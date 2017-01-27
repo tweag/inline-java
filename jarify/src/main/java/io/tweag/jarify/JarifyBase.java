@@ -18,7 +18,7 @@ public class JarifyBase {
     static {
         try {
             InputStream in =
-                Jarify.class.getResourceAsStream("/jarify-app.zip");
+                JarifyBase.class.getResourceAsStream("/jarify-app.zip");
             File jarifyAppZipFile =
                 File.createTempFile("jarify-app-", ".zip");
             Files.copy(in, jarifyAppZipFile.toPath(),
