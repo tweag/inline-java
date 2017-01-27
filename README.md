@@ -51,6 +51,9 @@ main = withJVM [] $ do
 * either, the [Nix][nix] package manager,
 * or, OpenJDK, Gradle and Spark (version 1.6) installed from your distro.
 
+On OS X, you'll need to install the [Legacy Java SE 6][osx-java-se]
+runtime when prompted, even when using Nix.
+
 To build:
 
 ```
@@ -76,6 +79,7 @@ nix:
 [stack]: https://github.com/commercialhaskell/stack
 [stack-nix]: https://docs.haskellstack.org/en/stable/nix_integration/#configuration
 [nix]: http://nixos.org/nix
+[osx-java-se]: https://support.apple.com/kb/dl1572?locale=fr_FR
 
 ## License
 
