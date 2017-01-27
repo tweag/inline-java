@@ -10,7 +10,7 @@ let
     else "${openjdk}/jre/lib/server";
 in
 haskell.lib.buildStackProject {
-  name = "sparkle";
+  name = "inline-java";
   buildInputs = [ git openjdk ];
   ghc = haskell.compiler.ghc802;
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
