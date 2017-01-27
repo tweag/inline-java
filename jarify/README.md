@@ -1,14 +1,14 @@
 # What is Jarify ?
 
 Most of today's big data landscape runs on the JVM and sometimes offers python
-or javascript support, but haskell support is hard to find.
+or javascript support, but Haskell support is hard to find.
 
 [Sparkle](https://github.com/tweag/sparkle) answered this question for Spark
 and Hadoop, allowing programmers to write jobs in Haskell by transforming them
 into `.jar` files.
 
-The `jarify` package is the software used in sparkle generate this `.jar` file
-from Haskell source code, and thus letting people write Haskell code and
+The `jarify` package is the software used in sparkle to generate this `.jar`
+file from Haskell source code, and thus letting people write Haskell code and
 execute it on JVMs.
 
 # How to use jarify
