@@ -140,9 +140,9 @@ toJavaType ty = case Java.parser Java.ttype (pretty ty) of
     Right x -> x
   where
     pretty :: Sing (a :: JType) -> String
-    pretty (SClass sym) = JNI.toChars sym
-    pretty (SIface sym) = JNI.toChars sym
-    pretty (SPrim sym) = JNI.toChars sym
+    pretty (SClass sym) = sym
+    pretty (SIface sym) = sym
+    pretty (SPrim sym) = sym
     pretty (SArray ty1) = pretty ty1 ++ "[]"
     pretty (SGeneric _ty1 _tys) = error "toJavaType(Generic): Unimplemented."
     pretty SVoid = "void"

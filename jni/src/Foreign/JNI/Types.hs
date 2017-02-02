@@ -75,7 +75,6 @@ import Data.Singletons
 #endif
   )
 import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
-import Data.String (fromString)
 import Data.Word
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
@@ -131,9 +130,9 @@ instance IsReferenceType ('Array ty)
 instance IsReferenceType ty => IsReferenceType ('Generic ty tys)
 
 data instance Sing (a :: JType) where
-  SClass :: JNI.String -> Sing ('Class sym)
-  SIface :: JNI.String -> Sing ('Iface sym)
-  SPrim :: JNI.String -> Sing ('Prim sym)
+  SClass :: String -> Sing ('Class sym)
+  SIface :: String -> Sing ('Iface sym)
+  SPrim :: String -> Sing ('Prim sym)
   SArray :: Sing ty -> Sing ('Array ty)
   SGeneric :: Sing ty -> Sing tys -> Sing ('Generic ty tys)
   SVoid :: Sing 'Void
@@ -141,11 +140,11 @@ data instance Sing (a :: JType) where
 -- XXX SingI constraint temporary hack because GHC 7.10 has trouble inferring
 -- this constraint in 'signature'.
 instance (KnownSymbol sym, SingI sym) => SingI ('Class (sym :: Symbol)) where
-  sing = SClass $ fromString $ symbolVal (undefined :: proxy sym)
+  sing = SClass $ symbolVal (undefined :: proxy sym)
 instance (KnownSymbol sym, SingI sym) => SingI ('Iface (sym :: Symbol)) where
-  sing = SIface $ fromString $ symbolVal (undefined :: proxy sym)
+  sing = SIface $ symbolVal (undefined :: proxy sym)
 instance (KnownSymbol sym, SingI sym) => SingI ('Prim (sym :: Symbol)) where
-  sing = SPrim $ fromString $ symbolVal (undefined :: proxy sym)
+  sing = SPrim $ symbolVal (undefined :: proxy sym)
 instance SingI ty => SingI ('Array ty) where
   sing = SArray sing
 instance (SingI ty, SingI tys) => SingI ('Generic ty tys) where
@@ -283,9 +282,10 @@ referenceTypeName (SGeneric ty@(SClass _) _) = referenceTypeName ty
 referenceTypeName (SGeneric ty@(SIface _) _) = referenceTypeName ty
 referenceTypeName _ = error "referenceTypeName: Impossible."
 
-classSymbolBuilder :: JNI.String -> Builder
+classSymbolBuilder :: String -> Builder
 classSymbolBuilder sym =
-    Prim.primMapByteStringFixed (subst Prim.>$< Prim.word8) (JNI.toByteString sym)
+    Prim.primMapByteStringFixed (subst Prim.>$< Prim.word8)
+      (JNI.toByteString $ JNI.fromChars sym)
   where
     subst (chr . fromIntegral -> '.') = fromIntegral (ord '/')
     subst x = x
@@ -301,7 +301,7 @@ signatureBuilder (SPrim "int") = Builder.char7 'I'
 signatureBuilder (SPrim "long") = Builder.char7 'J'
 signatureBuilder (SPrim "float") = Builder.char7 'F'
 signatureBuilder (SPrim "double") = Builder.char7 'D'
-signatureBuilder (SPrim sym) = error $ "Unknown primitive: " ++ show sym
+signatureBuilder (SPrim sym) = error $ "Unknown primitive: " ++ sym
 signatureBuilder (SArray ty) = Builder.char7 '[' <> signatureBuilder ty
 signatureBuilder (SGeneric ty _) = signatureBuilder ty
 signatureBuilder SVoid = Builder.char7 'V'
