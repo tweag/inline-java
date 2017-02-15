@@ -202,10 +202,12 @@ C.include "<jni.h>"
 C.include "<errno.h>"
 C.include "<stdlib.h>"
 
-data JavaException = JavaException JThrowable
+-- | A JNI call may cause a (Java) exception to be raised. This module raises it
+-- as a Haskell exception wrapping the Java exception.
+newtype JVMException = JVMException JThrowable
   deriving (Show, Typeable)
 
-instance Exception JavaException
+instance Exception JVMException
 
 -- | Thrown when @Get<PrimitiveType>ArrayElements@ returns a null pointer,
 -- because it wanted to copy the array contents but couldn't. In this case the
@@ -225,7 +227,7 @@ throwIfException env m = m `finally` do
     unless (excptr == nullPtr) $ do
       [CU.exp| void { (*$(JNIEnv *env))->ExceptionDescribe($(JNIEnv *env)) } |]
       [CU.exp| void { (*$(JNIEnv *env))->ExceptionClear($(JNIEnv *env)) } |]
-      throwIO . JavaException =<< newGlobalRef =<< objectFromPtr excptr
+      throwIO . JVMException =<< newGlobalRef =<< objectFromPtr excptr
 
 -- | Check whether a pointer is null.
 throwIfNull :: IO (Ptr a) -> IO (Ptr a)
