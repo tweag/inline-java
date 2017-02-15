@@ -27,6 +27,12 @@ spec = do
         let x = 1 :: Int32
         ([java| $x + 1 |] >>= reify) `shouldReturn` (2 :: Int32)
 
+      it "Supports type synonym'ed antiquotation variables" $ do
+        obj <- [java| new Object() {} |]
+        let obj1 = obj :: JObject
+        _ :: JObject <- [java| $obj1 |]
+        return ()
+
       it "Supports multiple antiquotation variables" $ do
         let foo = 1 :: Int32
             bar = 2 :: Int32

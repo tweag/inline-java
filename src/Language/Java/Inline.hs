@@ -346,7 +346,9 @@ blockQQ input = case Java.parser Java.block input of
 #else
             TH.VarI _ ty _ _ -> do
 #endif
-              case ty of
+              -- First (recursively) unfold type synonyms, if any.
+              ty' <- unfoldHeadTySyn ty
+              case ty' of
                 TH.AppT (TH.ConT nJ) thty
                   | nJ == ''J -> do
                       unliftJType thty >>= \case
@@ -394,3 +396,8 @@ blockQQ input = case Java.parser Java.block input of
       -- returning boxed values. Once this limitation of the compiler gets
       -- lifted, we'll support returning unboxed values, just like `call` does.
       castReturnType funcall = [| unsafeUncoerce . coerce <$> $funcall |]
+      unfoldHeadTySyn ty@(TH.ConT nT) = do
+        TH.reify nT >>= \case
+          TH.TyConI (TH.TySynD _ _ ty') -> unfoldHeadTySyn ty'
+          _ -> return ty
+      unfoldHeadTySyn ty = return ty
