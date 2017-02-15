@@ -342,30 +342,29 @@ blockQQ input = case Java.parser Java.block input of
           info <- TH.reify name
           case info of
 #if MIN_VERSION_template_haskell(2,11,0)
-            TH.VarI _ (TH.AppT (TH.ConT nJ) thty) _
-#else
-            TH.VarI _ (TH.AppT (TH.ConT nJ) thty) _ _
-#endif
-              | nJ == ''J -> do
-              unliftJType thty >>= \case
-                SomeSing ty1 -> return $ (Java.Ident ('$':v), toJavaType ty1)
-#if MIN_VERSION_template_haskell(2,11,0)
             TH.VarI _ ty _ -> do
 #else
             TH.VarI _ ty _ _ -> do
 #endif
-              targetty <- TH.newName "a"
-              instances <- TH.reifyInstances ''Coercible [ty, TH.VarT targetty]
-              jty <- case instances of
-                [TH.InstanceD _ _ (TH.AppT (TH.AppT _ _) thty) _] -> unliftJType thty >>= \case
-                  SomeSing ty1 -> return $ toJavaType ty1
-                [] -> fail $ "No Coercible instance for type " ++ show (TH.ppr ty)
-                _ ->
-                  fail $
-                  "Ambiguous argument type " ++
-                  show (TH.ppr ty) ++
-                  ". Several Coercible instances apply."
-              return (Java.Ident ('$':v), jty)
+              case ty of
+                TH.AppT (TH.ConT nJ) thty
+                  | nJ == ''J -> do
+                      unliftJType thty >>= \case
+                        SomeSing ty1 -> return $ (Java.Ident ('$':v), toJavaType ty1)
+                _ -> do
+                  targetty <- TH.newName "a"
+                  instances <- TH.reifyInstances ''Coercible [ty, TH.VarT targetty]
+                  jty <- case instances of
+                    [TH.InstanceD _ _ (TH.AppT (TH.AppT _ _) thty) _] ->
+                      unliftJType thty >>= \case
+                        SomeSing ty1 -> return $ toJavaType ty1
+                    [] -> fail $ "No Coercible instance for type " ++ show (TH.ppr ty)
+                    _ ->
+                      fail $
+                      "Ambiguous argument type " ++
+                      show (TH.ppr ty) ++
+                      ". Several Coercible instances apply."
+                  return (Java.Ident ('$':v), jty)
             _ -> fail $ v ++ " not a valid variable name."
         let retty = toJavaType (SClass "java.lang.Object")
         return $ abstract
