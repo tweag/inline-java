@@ -43,6 +43,7 @@ module Foreign.JNI
   , JNINativeMethod(..)
   , registerNatives
     -- ** Exceptions
+  , JVMException(..)
   , throw
   , throwNew
     -- ** Query functions
@@ -136,6 +137,7 @@ module Foreign.JNI
     -- ** Array manipulation
   , getArrayLength
   , getStringLength
+  , ArrayCopyFailed(..)
   , getBooleanArrayElements
   , getByteArrayElements
   , getCharArrayElements
