@@ -1,8 +1,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+-- Test that inline-java produces code without warnings.
+{-# OPTIONS_GHC -Wall -Werror #-}
 
-module Language.Java.InlineSpec where
+module Language.Java.InlineSpec(spec) where
 
 import Data.Int
 import Foreign.JNI.Types (JObject)

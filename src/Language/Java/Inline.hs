@@ -288,7 +288,7 @@ embedAsBytecode pkg name unit = do
         let klass = pkg ++ "/" ++ takeWhile (/= '.') classFile
         return $ DotClass (JNI.fromChars klass) bcode
   forM_ (zip dcs [(0 :: Int)..]) $ \(dc, i) -> do
-    ptr <- TH.newName $ "inlinejava__bytecode" ++ show i
+    ptr <- TH.newName $ "_inlinejava__bytecode" ++ show i
     TH.addTopDecls =<<
       sequence
         [ TH.sigD ptr [t| StaticPtr DotClass |]
