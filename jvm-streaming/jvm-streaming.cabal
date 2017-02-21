@@ -1,5 +1,5 @@
 name:                jvm-streaming
-version:             0.1
+version:             0.2
 synopsis:            Expose Java iterators as streams from the streaming package.
 description:         Please see README.md.
 homepage:            http://github.com/tweag/inline-java/tree/master/jvm-streaming#readme
@@ -26,8 +26,8 @@ library
   build-depends:
     base >= 4.7 && < 5,
     distributed-closure >= 0.3,
-    jni >= 0.2.1,
-    jvm >= 0.1,
+    jni >= 0.3.0,
+    jvm >= 0.2.0,
     inline-java >= 0.6,
     singletons >= 2.2,
     streaming >= 0.1.4
