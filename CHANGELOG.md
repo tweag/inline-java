@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.6.2] - 2017-02-21
+
+* Avoid producing warnings about unused inlinejava_bytecode0 bindings.
+* Support type synonyms in variable antiquotation.
+* Update lower bounds of jni to 0.3 and jvm to 0.2.
+
 ## [0.6.1] - 2016-12-27
 
 * Support passing array objects as arguments / return values.
