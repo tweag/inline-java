@@ -52,6 +52,7 @@ module Language.Java
   , withJVM
   , classOf
   , new
+  , newArray
   , call
   , callStatic
   , jvalue
@@ -195,6 +196,37 @@ new args = do
           findClass (referenceTypeName (sing :: Sing ('Class sym)))
             >>= newGlobalRef
     Coerce.coerce <$> newObject klass (methodSignature argsings voidsing) args
+
+-- | Creates a new Java array of the given size. The type of the elements
+-- of the resulting array is determined by the return type a call to
+-- 'newArray' has, at the call site, and must not be left ambiguous.
+--
+-- To create a Java array of 50 booleans:
+--
+-- @
+-- do arr :: 'J' (''Array' (''Prim' "boolean")) <- 'newArray' 50
+--    return arr
+-- @
+newArray
+  :: forall ty.
+     SingI ty
+  => Int32
+  -> IO (J ('Array ty))
+newArray sz = do
+  let tysing = sing :: Sing ty
+  case tysing of
+    SPrim "boolean" -> unsafeCast <$> newBooleanArray sz
+    SPrim "byte"    -> unsafeCast <$> newByteArray    sz
+    SPrim "char"    -> unsafeCast <$> newCharArray    sz
+    SPrim "short"   -> unsafeCast <$> newShortArray   sz
+    SPrim "int"     -> unsafeCast <$> newIntArray     sz
+    SPrim "long"    -> unsafeCast <$> newLongArray    sz
+    SPrim "float"   -> unsafeCast <$> newFloatArray   sz
+    SPrim "double"  -> unsafeCast <$> newDoubleArray  sz
+    SClass cls      -> unsafeCast <$> newObjectArray sz klass
+      where klass = unsafeDupablePerformIO $ findClass (JNI.fromChars cls) >>= newGlobalRef
+    _               -> error "newArray only supports primitive types and objects"
+
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
 -- any data type coercible to one, the name of a method, and a list of
