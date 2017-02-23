@@ -197,6 +197,16 @@ new args = do
             >>= newGlobalRef
     Coerce.coerce <$> newObject klass (methodSignature argsings voidsing) args
 
+-- | Creates a new Java array of the given size. The type of the elements
+-- of the resulting array is determined by the return type a call to
+-- 'newArray' has, at the call site, and must not be left ambiguous.
+--
+-- To create a Java array of 50 booleans:
+--
+-- @
+-- do arr :: 'J' (''Array' (''Prim' "boolean")) <- 'newArray' 50
+--    return arr
+-- @
 newArray
   :: forall ty.
      SingI ty
