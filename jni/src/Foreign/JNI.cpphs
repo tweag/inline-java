@@ -42,6 +42,10 @@ module Foreign.JNI
   , defineClass
   , JNINativeMethod(..)
   , registerNatives
+    -- ** String wrappers
+  , ReferenceTypeName
+  , MethodSignature
+  , Signature
     -- ** Exceptions
   , JVMException(..)
   , throw
@@ -187,6 +191,7 @@ import Foreign.ForeignPtr
   , newForeignPtr_
   , withForeignPtr
   )
+import Foreign.JNI.Internal
 import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
@@ -363,11 +368,11 @@ withJVM options action =
 
 defineClass
   :: Coercible o (J ('Class "java.lang.ClassLoader"))
-  => JNI.String -- ^ Class name
-  -> o          -- ^ Loader
+  => ReferenceTypeName -- ^ Class name
+  -> o -- ^ Loader
   -> ByteString -- ^ Bytecode buffer
   -> IO JClass
-defineClass name (coerce -> upcast -> loader) buf = withJNIEnv $ \env ->
+defineClass (coerce -> name) (coerce -> upcast -> loader) buf = withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString name $ \namep ->
     objectFromPtr =<<
@@ -407,16 +412,16 @@ throwNew cls msg = withJNIEnv $ \env ->
                                    $(char *msgp)) } |]
 
 findClass
-  :: JNI.String -- ^ Class name
+  :: ReferenceTypeName -- ^ Class name
   -> IO JClass
-findClass name = withJNIEnv $ \env ->
+findClass (coerce -> name) = withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString name $ \namep ->
     objectFromPtr =<<
     [CU.exp| jclass { (*$(JNIEnv *env))->FindClass($(JNIEnv *env), $(char *namep)) } |]
 
-newObject :: JClass -> JNI.String -> [JValue] -> IO JObject
-newObject cls sig args = withJNIEnv $ \env ->
+newObject :: JClass -> MethodSignature -> [JValue] -> IO JObject
+newObject cls (coerce -> sig) args = withJNIEnv $ \env ->
     throwIfException env $
     withJValues args $ \cargs -> do
       constr <- getMethodID cls "<init>" sig
@@ -429,9 +434,9 @@ newObject cls sig args = withJNIEnv $ \env ->
 getFieldID
   :: JClass -- ^ A class object as returned by 'findClass'
   -> JNI.String -- ^ Field name
-  -> JNI.String -- ^ JNI signature
+  -> Signature -- ^ JNI signature
   -> IO JFieldID
-getFieldID cls fieldname sig = withJNIEnv $ \env ->
+getFieldID cls fieldname (coerce -> sig) = withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString fieldname $ \fieldnamep ->
     JNI.withString sig $ \sigp ->
@@ -444,9 +449,9 @@ getFieldID cls fieldname sig = withJNIEnv $ \env ->
 getStaticFieldID
   :: JClass -- ^ A class object as returned by 'findClass'
   -> JNI.String -- ^ Field name
-  -> JNI.String -- ^ JNI signature
+  -> Signature -- ^ JNI signature
   -> IO JFieldID
-getStaticFieldID cls fieldname sig = withJNIEnv $ \env ->
+getStaticFieldID cls fieldname (coerce -> sig) = withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString fieldname $ \fieldnamep ->
     JNI.withString sig $ \sigp ->
@@ -551,9 +556,9 @@ SET_STATIC_FIELD(Double, Double, jdouble)
 getMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
   -> JNI.String -- ^ Field name
-  -> JNI.String -- ^ JNI signature
+  -> MethodSignature -- ^ JNI signature
   -> IO JMethodID
-getMethodID cls methodname sig = withJNIEnv $ \env ->
+getMethodID cls methodname (coerce -> sig) = withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString methodname $ \methodnamep ->
     JNI.withString sig $ \sigp ->
@@ -566,9 +571,9 @@ getMethodID cls methodname sig = withJNIEnv $ \env ->
 getStaticMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
   -> JNI.String -- ^ Field name
-  -> JNI.String -- ^ JNI signature
+  -> MethodSignature -- ^ JNI signature
   -> IO JMethodID
-getStaticMethodID cls methodname sig = withJNIEnv $ \env ->
+getStaticMethodID cls methodname (coerce -> sig) = withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString methodname $ \methodnamep ->
     JNI.withString sig $ \sigp ->

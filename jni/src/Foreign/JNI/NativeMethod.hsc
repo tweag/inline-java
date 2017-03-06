@@ -6,6 +6,8 @@
 module Foreign.JNI.NativeMethod where
 
 import qualified Data.ByteString.Unsafe as BS
+import Data.Coerce (coerce)
+import Foreign.JNI.Internal
 import qualified Foreign.JNI.String as JNI
 import Foreign.Ptr (FunPtr)
 import Foreign.Storable (Storable(..))
@@ -18,7 +20,7 @@ import Foreign.Storable (Storable(..))
 
 data JNINativeMethod = forall a. JNINativeMethod
   { jniNativeMethodName :: JNI.String
-  , jniNativeMethodSignature :: JNI.String
+  , jniNativeMethodSignature :: MethodSignature
   , jniNativeMethodFunPtr :: FunPtr a
   }
 
@@ -32,9 +34,9 @@ instance Storable JNINativeMethod where
       return $
         JNINativeMethod
           (JNI.unsafeFromByteString name)
-          (JNI.unsafeFromByteString sig)
+          (coerce (JNI.unsafeFromByteString sig))
           fptr
   poke ptr JNINativeMethod{..} = do
       JNI.withString jniNativeMethodName $ #{poke JNINativeMethod, name} ptr
-      JNI.withString jniNativeMethodSignature $ #{poke JNINativeMethod, signature} ptr
+      JNI.withString (coerce jniNativeMethodSignature) $ #{poke JNINativeMethod, signature} ptr
       #{poke JNINativeMethod, fnPtr} ptr jniNativeMethodFunPtr

@@ -59,7 +59,6 @@ import Data.Singletons (SomeSing(..))
 import Data.String (fromString)
 import Data.Traversable (forM)
 import Foreign.JNI (defineClass)
-import qualified Foreign.JNI.String as JNI
 import GHC.Exts (Any)
 import qualified GHC.HeapView as HeapView
 import GHC.StaticPtr
@@ -253,7 +252,7 @@ pushWrapperGen gen = do
           FinalizerState{wrappers} <- getFinalizerState
           thismod <- TH.thisModule
           unless (null wrappers) $ do
-            embedAsBytecode "io/tweag/inlinejava" (mangle thismod) $
+            embedAsBytecode "io.tweag.inlinejava" (mangle thismod) $
               makeCompilationUnit pkgname [] $
                 makeClass (Java.Ident (mangle thismod)) wrappers
         False -> return ()
@@ -262,14 +261,14 @@ pushWrapperGen gen = do
 
 -- | A wrapper for class bytecode.
 data DotClass = DotClass
-  { className :: JNI.String
+  { className :: String
   , classBytecode :: BS.ByteString
   }
 
 instance TH.Lift DotClass where
   lift DotClass{..} =
       [| DotClass
-           (JNI.fromChars $(TH.lift (JNI.toChars className)))
+           $(TH.lift className)
            (BS.pack $(TH.lift (BS.unpack classBytecode)))
        |]
 
@@ -285,8 +284,8 @@ embedAsBytecode pkg name unit = do
       forM classFiles $ \classFile -> do
         bcode <- BS.readFile (dir </> classFile)
         -- Strip the .class suffix.
-        let klass = pkg ++ "/" ++ takeWhile (/= '.') classFile
-        return $ DotClass (JNI.fromChars klass) bcode
+        let klass = pkg ++ "." ++ takeWhile (/= '.') classFile
+        return $ DotClass klass bcode
   forM_ (zip dcs [(0 :: Int)..]) $ \(dc, i) -> do
     ptr <- TH.newName $ "_inlinejava__bytecode" ++ show i
     TH.addTopDecls =<<
@@ -314,7 +313,7 @@ loadJavaWrappers = doit `seq` return ()
             , intercalate "." [modl, name] == show 'DotClass -> do
                 clsPtr <- fromJust <$> unsafeLookupStaticPtr key
                 let DotClass clsname bcode = deRefStaticPtr clsPtr
-                _ <- defineClass clsname loader bcode
+                _ <- defineClass (referenceTypeName (SClass clsname)) loader bcode
                 return ()
           _ -> return ()
 

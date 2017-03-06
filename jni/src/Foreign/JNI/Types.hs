@@ -30,8 +30,11 @@ module Foreign.JNI.Types
   , generic
   , unsafeUngeneric
   , jtypeOf
+  , ReferenceTypeName
   , referenceTypeName
+  , Signature
   , signature
+  , MethodSignature
   , methodSignature
   , JVM(..)
   , JNIEnv(..)
@@ -83,6 +86,7 @@ import Foreign.ForeignPtr
   , newForeignPtr_
   , withForeignPtr
   )
+import Foreign.JNI.Internal
 import Foreign.JNI.NativeMethod
 import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Alloc (allocaBytesAligned)
@@ -274,10 +278,10 @@ build =
   (<> Builder.char7 '\NUL')
 
 -- | The name of a type, suitable for passing to 'Foreign.JNI.findClass'.
-referenceTypeName :: IsReferenceType ty => Sing (ty :: JType) -> JNI.String
-referenceTypeName (SClass sym) = build $ classSymbolBuilder sym
-referenceTypeName (SIface sym) = build $ classSymbolBuilder sym
-referenceTypeName ty@(SArray _) = build $ signatureBuilder ty
+referenceTypeName :: IsReferenceType ty => Sing (ty :: JType) -> ReferenceTypeName
+referenceTypeName (SClass sym) = ReferenceTypeName $ build $ classSymbolBuilder sym
+referenceTypeName (SIface sym) = ReferenceTypeName $ build $ classSymbolBuilder sym
+referenceTypeName ty@(SArray _) = ReferenceTypeName $ build $ signatureBuilder ty
 referenceTypeName (SGeneric ty@(SClass _) _) = referenceTypeName ty
 referenceTypeName (SGeneric ty@(SIface _) _) = referenceTypeName ty
 referenceTypeName _ = error "referenceTypeName: Impossible."
@@ -307,8 +311,8 @@ signatureBuilder (SGeneric ty _) = signatureBuilder ty
 signatureBuilder SVoid = Builder.char7 'V'
 
 -- | Construct a JNI type signature from a Java type.
-signature :: Sing (ty :: JType) -> JNI.String
-signature = build . signatureBuilder
+signature :: Sing (ty :: JType) -> Signature
+signature = Signature . build . signatureBuilder
 
 -- | Construct a method's JNI type signature, given the type of the arguments
 -- and the return type.
@@ -319,8 +323,9 @@ methodSignature
   :: [SomeSing ('KProxy :: KProxy JType)]
 #endif
   -> Sing (ty :: JType)
-  -> JNI.String
+  -> MethodSignature
 methodSignature args ret =
+    MethodSignature $
     build $
     Builder.char7 '(' <>
     mconcat (map (\(SomeSing s) -> signatureBuilder s) args) <>
