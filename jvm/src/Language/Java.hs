@@ -224,7 +224,8 @@ newArray sz = do
     SPrim "float"   -> unsafeCast <$> newFloatArray   sz
     SPrim "double"  -> unsafeCast <$> newDoubleArray  sz
     SClass cls      -> unsafeCast <$> newObjectArray sz klass
-      where klass = unsafeDupablePerformIO $ findClass (JNI.fromChars cls) >>= newGlobalRef
+      where klass = unsafeDupablePerformIO $
+                      findClass (referenceTypeName tysing) >>= newGlobalRef
     _               -> error "newArray only supports primitive types and objects"
 
 
