@@ -34,7 +34,7 @@ import qualified Prelude
 import Prelude hiding (String)
 
 newtype String = String ByteString
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show String where
   show str = show (toChars str)
