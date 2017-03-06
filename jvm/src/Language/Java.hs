@@ -223,7 +223,7 @@ newArray sz = do
     SPrim "long"    -> unsafeCast <$> newLongArray    sz
     SPrim "float"   -> unsafeCast <$> newFloatArray   sz
     SPrim "double"  -> unsafeCast <$> newDoubleArray  sz
-    SClass cls      -> unsafeCast <$> newObjectArray sz klass
+    SClass _cls     -> unsafeCast <$> newObjectArray sz klass
       where klass = unsafeDupablePerformIO $
                       findClass (referenceTypeName tysing) >>= newGlobalRef
     _               -> error "newArray only supports primitive types and objects"
