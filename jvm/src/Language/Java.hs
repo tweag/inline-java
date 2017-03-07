@@ -426,8 +426,12 @@ withStatic [d|
 
   instance Reify Bool ('Class "java.lang.Boolean") where
     reify jobj = do
-        klass <- findClass "java/lang/Boolean"
-        method <- getMethodID klass "booleanValue" "()Z"
+        klass <- findClass (referenceTypeName (SClass "java.lang.Boolean"))
+        method <-
+          getMethodID
+            klass
+            "booleanValue"
+            (methodSignature [] (SPrim "boolean"))
         callBooleanMethod jobj method []
 
   instance Reflect Bool ('Class "java.lang.Boolean") where
@@ -437,8 +441,12 @@ withStatic [d|
 
   instance Reify Int16 ('Class "java.lang.Short") where
     reify jobj = do
-        klass <- findClass "java/lang/Short"
-        method <- getMethodID klass "shortValue" "()S"
+        klass <- findClass (referenceTypeName (SClass "java.lang.Short"))
+        method <-
+          getMethodID
+            klass
+            "shortValue"
+            (methodSignature [] (SPrim "short"))
         callShortMethod jobj method []
 
   instance Reflect Int16 ('Class "java.lang.Short") where
@@ -448,8 +456,12 @@ withStatic [d|
 
   instance Reify Int32 ('Class "java.lang.Integer") where
     reify jobj = do
-        klass <- findClass "java/lang/Integer"
-        method <- getMethodID klass "intValue" "()I"
+        klass <- findClass (referenceTypeName (SClass "java.lang.Integer"))
+        method <-
+          getMethodID
+            klass
+            "intValue"
+            (methodSignature [] (SPrim "int"))
         callIntMethod jobj method []
 
   instance Reflect Int32 ('Class "java.lang.Integer") where
@@ -459,8 +471,12 @@ withStatic [d|
 
   instance Reify Int64 ('Class "java.lang.Long") where
     reify jobj = do
-        klass <- findClass "java/lang/Long"
-        method <- getMethodID klass "longValue" "()J"
+        klass <- findClass (referenceTypeName (SClass "java.lang.Long"))
+        method <-
+          getMethodID
+            klass
+            "longValue"
+            (methodSignature [] (SPrim "long"))
         callLongMethod jobj method []
 
   instance Reflect Int64 ('Class "java.lang.Long") where
@@ -470,8 +486,12 @@ withStatic [d|
 
   instance Reify Word16 ('Class "java.lang.Character") where
     reify jobj = do
-        klass <- findClass "java/lang/Character"
-        method <- getMethodID klass "charValue" "()C"
+        klass <- findClass (referenceTypeName (SClass "java.lang.Character"))
+        method <-
+          getMethodID
+            klass
+            "charValue"
+            (methodSignature [] (SPrim "char"))
         fromIntegral <$> callCharMethod jobj method []
 
   instance Reflect Word16 ('Class "java.lang.Character") where
@@ -481,8 +501,12 @@ withStatic [d|
 
   instance Reify Double ('Class "java.lang.Double") where
     reify jobj = do
-        klass <- findClass "java/lang/Double"
-        method <- getMethodID klass "doubleValue" "()D"
+        klass <- findClass (referenceTypeName (SClass "java.lang.Double"))
+        method <-
+          getMethodID
+            klass
+            "doubleValue"
+            (methodSignature [] (SPrim "double"))
         callDoubleMethod jobj method []
 
   instance Reflect Double ('Class "java.lang.Double") where
@@ -492,8 +516,12 @@ withStatic [d|
 
   instance Reify Float ('Class "java.lang.Float") where
     reify jobj = do
-        klass <- findClass "java/lang/Float"
-        method <- getMethodID klass "floatValue" "()F"
+        klass <- findClass (referenceTypeName (SClass "java.lang.Float"))
+        method <-
+          getMethodID
+            klass
+            "floatValue"
+            (methodSignature [] (SPrim "float"))
         callFloatMethod jobj method []
 
   instance Reflect Float ('Class "java.lang.Float") where

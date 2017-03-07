@@ -29,6 +29,7 @@ library
     Foreign.JNI
     Foreign.JNI.Types
     Foreign.JNI.String
+    Foreign.JNI.Internal
   other-modules:
     Foreign.JNI.NativeMethod
   build-depends:
