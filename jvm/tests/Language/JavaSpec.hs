@@ -2,6 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Language.JavaSpec where
 
@@ -55,3 +56,8 @@ spec = do
           `shouldReturn` (maxBound :: Int64)
         callStatic (sing :: Sing "java.lang.Long") "parseLong" [coerce minlong]
           `shouldReturn` (minBound :: Int64)
+
+    describe "newArray" $ do
+      it "Supports object arrays" $ do
+        xs :: [JObject] <- reify =<< newArray 10
+        length xs `shouldBe` 10
