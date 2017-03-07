@@ -213,20 +213,22 @@ newArray
   => Int32
   -> IO (J ('Array ty))
 newArray sz = do
-  let tysing = sing :: Sing ty
-  case tysing of
-    SPrim "boolean" -> unsafeCast <$> newBooleanArray sz
-    SPrim "byte"    -> unsafeCast <$> newByteArray    sz
-    SPrim "char"    -> unsafeCast <$> newCharArray    sz
-    SPrim "short"   -> unsafeCast <$> newShortArray   sz
-    SPrim "int"     -> unsafeCast <$> newIntArray     sz
-    SPrim "long"    -> unsafeCast <$> newLongArray    sz
-    SPrim "float"   -> unsafeCast <$> newFloatArray   sz
-    SPrim "double"  -> unsafeCast <$> newDoubleArray  sz
-    SClass _cls     -> unsafeCast <$> newObjectArray sz klass
-      where klass = unsafeDupablePerformIO $
-                      findClass (referenceTypeName tysing) >>= newGlobalRef
-    _               -> error "newArray only supports primitive types and objects"
+    let tysing = sing :: Sing ty
+    case tysing of
+      SPrim "boolean" -> unsafeCast <$> newBooleanArray sz
+      SPrim "byte" -> unsafeCast <$> newByteArray sz
+      SPrim "char" -> unsafeCast <$> newCharArray sz
+      SPrim "short" -> unsafeCast <$> newShortArray sz
+      SPrim "int" -> unsafeCast <$> newIntArray sz
+      SPrim "long" -> unsafeCast <$> newLongArray sz
+      SPrim "float" -> unsafeCast <$> newFloatArray sz
+      SPrim "double" -> unsafeCast <$> newDoubleArray sz
+      SClass _cls -> unsafeCast <$> newObjectArray sz klass
+        where
+          klass =
+            unsafeDupablePerformIO $
+            findClass (referenceTypeName tysing) >>= newGlobalRef
+      _ -> error "newArray only supports primitive types and objects"
 
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
