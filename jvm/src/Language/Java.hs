@@ -228,7 +228,7 @@ newArray sz = do
           klass =
             unsafeDupablePerformIO $
             findClass (referenceTypeName tysing) >>= newGlobalRef
-      _ -> error "newArray only supports primitive types and objects"
+      _ -> fail "newArray only supports primitive types and objects"
 
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
