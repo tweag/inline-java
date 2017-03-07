@@ -17,7 +17,7 @@ newtype Signature = Signature JNI.String
 instance Show Signature where
   show (Signature str) = show str
 
--- | A string representing a signature, well-formed by construction.
+-- | A string representing a method signature, well-formed by construction.
 newtype MethodSignature = MethodSignature JNI.String
   deriving (Eq, Ord)
 
