@@ -2,11 +2,7 @@
 
 [![wercker status](https://app.wercker.com/status/dfeba78838cc77d4c5e06eedc5c0833d/s/master "wercker status")](https://app.wercker.com/project/byKey/dfeba78838cc77d4c5e06eedc5c0833d)
 
-**NOTE: you'll need GHC >= 8.0.2 to compile and use this package. Use**
-```
-stack --nix build
-```
-**ahead of a new GHC release to build using GHC 8.0.2-rc2.**
+**NOTE: you'll need GHC >= 8.0.2 to compile and use this package.**
 
 The Haskell standard includes a native foreign function interface
 (FFI). Using it can be a bit involved and only C support is
