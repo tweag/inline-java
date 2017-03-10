@@ -134,6 +134,11 @@ instance IsReferenceType ('Array ty)
 instance IsReferenceType ty => IsReferenceType ('Generic ty tys)
 
 data instance Sing (a :: JType) where
+  -- Using String instead of JNI.String for the singleton data constructors
+  -- is an optimization. Otherwise, the comparisons in Language.Java.call
+  -- and callStatic would involve allocations and cannot be cached.
+  --
+  -- See commit 3da51a4 and https://github.com/tweag/inline-java/issues/11
   SClass :: String -> Sing ('Class sym)
   SIface :: String -> Sing ('Iface sym)
   SPrim :: String -> Sing ('Prim sym)
