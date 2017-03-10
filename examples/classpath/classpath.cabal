@@ -12,5 +12,5 @@ custom-setup
 
 executable classpath
   main-is:             Main.hs
-  build-depends:       base<5, inline-java
+  build-depends:       base<5, jni, inline-java, template-haskell
   default-language:    Haskell2010
