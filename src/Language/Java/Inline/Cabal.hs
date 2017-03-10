@@ -28,8 +28,8 @@ import System.Process (callProcess, readProcess)
 -- | Adds the 'setGradleClasspath' and 'gradleBuild' hooks.
 gradleHooks :: UserHooks -> UserHooks
 gradleHooks hooks = hooks
-    { preBuild = setGradleClasspath >> preBuild hooks
-    , buildHook = buildHook hooks >> gradleBuild
+    { preBuild = \a b -> setGradleClasspath a b >> preBuild hooks a b
+    , buildHook = \a b c d -> gradleBuild a b c d >> buildHook hooks a b c d
     }
 
 gradleBuildFile :: FilePath
