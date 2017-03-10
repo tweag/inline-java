@@ -17,7 +17,7 @@ let
 in
 haskell.lib.buildStackProject ({
   name = "inline-java";
-  buildInputs = [ git openjdk ];
+  buildInputs = [ git openjdk gradle ];
   ghc = haskell.compiler.ghc802;
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   LANG = "en_US.utf8";

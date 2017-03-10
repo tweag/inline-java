@@ -5,6 +5,7 @@ packages:
 - jni
 - jvm
 - jvm-streaming
+- location: examples/classpath
 
 extra-deps:
 - choice-0.2.0

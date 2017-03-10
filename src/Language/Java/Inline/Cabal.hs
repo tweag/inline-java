@@ -28,7 +28,7 @@ import System.Process (callProcess, readProcess)
 -- | Adds the 'setGradleClasspath' and 'gradleBuild' hooks.
 gradleHooks :: UserHooks -> UserHooks
 gradleHooks hooks = hooks
-    { preBuild = setGradleClasspath
+    { preBuild = setGradleClasspath >> preBuild hooks
     , buildHook = buildHook hooks >> gradleBuild
     }
 
