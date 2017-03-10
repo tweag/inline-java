@@ -55,6 +55,7 @@ module Language.Java
   , call
   , callStatic
   , jvalue
+  , CoercionFailure(..)
   , Coercible(..)
   , Reify(..)
   , Reflect(..)
@@ -66,10 +67,12 @@ module Language.Java
 
 import Control.Distributed.Closure
 import Control.Distributed.Closure.TH
+import Control.Exception (Exception, throw)
 import Control.Monad
 import Data.Char (chr, ord)
 import qualified Data.Coerce as Coerce
 import Data.Int
+import Data.Typeable (Typeable, TypeRep, typeOf)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
@@ -86,7 +89,7 @@ import Data.Vector.Storable.Mutable (IOVector)
 import Foreign (FunPtr, Ptr, Storable, newForeignPtr, withForeignPtr)
 #endif
 import Foreign.C (CChar)
-import Foreign.JNI
+import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import GHC.TypeLits (KnownSymbol, Symbol)
@@ -123,42 +126,58 @@ class SingI ty => Coercible a (ty :: JType) | a -> ty where
 -- | The identity instance.
 instance SingI ty => Coercible (J ty) ty
 
+-- | A JNI call may cause a (Java) exception to be raised. This module raises it
+-- as a Haskell exception wrapping the Java exception.
+data CoercionFailure = CoercionFailure
+  { coercionActual :: JValue
+  , coercionExpected :: TypeRep
+  }
+
+instance Exception CoercionFailure
+
+instance Show CoercionFailure where
+  show (CoercionFailure actual expected) =
+    "Can't coerce " ++ show actual ++ " to " ++ show expected ++ "."
+
+withTypeRep :: Typeable a => (TypeRep -> a) -> a
+withTypeRep f = let x = f (typeOf x) in x
+
 instance Coercible Bool ('Prim "boolean") where
   coerce x = JBoolean (fromIntegral (fromEnum x))
   unsafeUncoerce (JBoolean x) = toEnum (fromIntegral x)
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible CChar ('Prim "byte") where
   coerce = JByte
   unsafeUncoerce (JByte x) = x
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible Char ('Prim "char") where
   coerce x = JChar (fromIntegral (ord x))
   unsafeUncoerce (JChar x) = chr (fromIntegral x)
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible Word16 ('Prim "char") where
   coerce = JChar
   unsafeUncoerce (JChar x) = x
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible Int16 ('Prim "short") where
   coerce = JShort
   unsafeUncoerce (JShort x) = x
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible Int32 ('Prim "int") where
   coerce = JInt
   unsafeUncoerce (JInt x) = x
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible Int64 ('Prim "long") where
   coerce = JLong
   unsafeUncoerce (JLong x) = x
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible Float ('Prim "float") where
   coerce = JFloat
   unsafeUncoerce (JFloat x) = x
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible Double ('Prim "double") where
   coerce = JDouble
   unsafeUncoerce (JDouble x) = x
-  unsafeUncoerce _ = error "unsafeUncoerce: value doesn't match target type."
+  unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
 instance Coercible () 'Void where
   coerce = error "Void value undefined."
   unsafeUncoerce _ = ()
