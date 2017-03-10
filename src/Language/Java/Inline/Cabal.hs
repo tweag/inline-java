@@ -54,6 +54,8 @@ getGradleClasspath parentBuildfile = do
           , "task classpath { doLast { println sourceSets.main.compileClasspath.getAsPath() } }"
           ]
       readProcess "gradle" ["-q", "-b", buildfile, "classpath"] ""
+        -- trim trailing newlines
+        >>= return . concat . lines
 
 -- | Set the @CLASSPATH@ from a Gradle build configuration. Does not override
 -- the @CLASSPATH@ if one exists.
