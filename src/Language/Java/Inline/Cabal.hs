@@ -14,6 +14,7 @@ module Language.Java.Inline.Cabal
   , gradleBuild
   ) where
 
+import Data.Monoid
 import Distribution.Simple
 import Distribution.Simple.Setup (BuildFlags)
 import Distribution.Simple.LocalBuildInfo (LocalBuildInfo)
@@ -28,8 +29,8 @@ import System.Process (callProcess, readProcess)
 -- | Adds the 'setGradleClasspath' and 'gradleBuild' hooks.
 gradleHooks :: UserHooks -> UserHooks
 gradleHooks hooks = hooks
-    { preBuild = setGradleClasspath
-    , buildHook = buildHook hooks >> gradleBuild
+    { preBuild = setGradleClasspath <> preBuild hooks
+    , buildHook = gradleBuild <> buildHook hooks
     }
 
 gradleBuildFile :: FilePath
