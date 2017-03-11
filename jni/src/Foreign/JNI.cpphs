@@ -36,8 +36,10 @@
 
 module Foreign.JNI
   ( -- * JNI functions
-    -- ** VM creation
+    -- ** VM management
     withJVM
+  , newJVM
+  , destroyJVM
     -- ** Class loading
   , defineClass
   , JNINativeMethod(..)
@@ -339,32 +341,38 @@ useAsCStrings strs m =
   foldr (\str k cstrs -> BS.useAsCString str $ \cstr -> k (cstr:cstrs)) m strs []
 
 -- | Create a new JVM, with the given arguments. /Can only be called once/. Best
--- practice: use it to wrap your @main@ function.
+-- practice: use 'withJVM' instead. Only useful for GHCi.
+newJVM :: [ByteString] -> IO JVM
+newJVM options = JVM_ <$> do
+    useAsCStrings options $ \cstrs -> do
+      withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
+        let n = fromIntegral (length cstrs) :: C.CInt
+        [C.block| JavaVM * {
+          JavaVM *jvm;
+          JNIEnv *env;
+          JavaVMInitArgs vm_args;
+          JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
+          for(int i = 0; i < $(int n); i++)
+                  options[i].optionString = $(char **coptions)[i];
+          vm_args.version = JNI_VERSION_1_6;
+          vm_args.nOptions = $(int n);
+          vm_args.options = options;
+          vm_args.ignoreUnrecognized = 0;
+          JNI_CreateJavaVM(&jvm, (void**)&env, &vm_args);
+          free(options);
+          return jvm; } |]
+
+-- | Deallocate a 'JVM' created using 'newJVM'.
+destroyJVM :: JVM -> IO ()
+destroyJVM (JVM_ jvm) = do
+    acquireWriteLock globalJVMLock
+    [C.block| void { (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm)); } |]
+
+-- | Create a new JVM, with the given arguments. Destroy it once the given
+-- action completes. /Can only be called once/. Best practice: use it to wrap
+-- your @main@ function.
 withJVM :: [ByteString] -> IO a -> IO a
-withJVM options action =
-    bracket ini fini (const action)
-  where
-    ini = do
-      useAsCStrings options $ \cstrs -> do
-        withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
-          let n = fromIntegral (length cstrs) :: C.CInt
-          [C.block| JavaVM * {
-            JavaVM *jvm;
-            JNIEnv *env;
-            JavaVMInitArgs vm_args;
-            JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
-            for(int i = 0; i < $(int n); i++)
-                    options[i].optionString = $(char **coptions)[i];
-            vm_args.version = JNI_VERSION_1_6;
-            vm_args.nOptions = $(int n);
-            vm_args.options = options;
-            vm_args.ignoreUnrecognized = 0;
-            JNI_CreateJavaVM(&jvm, (void**)&env, &vm_args);
-            free(options);
-            return jvm; } |]
-    fini jvm = do
-      acquireWriteLock globalJVMLock
-      [C.block| void { (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm)); } |]
+withJVM options action = bracket (newJVM options) destroyJVM (const action)
 
 defineClass
   :: Coercible o (J ('Class "java.lang.ClassLoader"))
