@@ -28,8 +28,8 @@ import System.Process (callProcess, readProcess)
 -- | Adds the 'setGradleClasspath' and 'gradleBuild' hooks.
 gradleHooks :: UserHooks -> UserHooks
 gradleHooks hooks = hooks
-    { preBuild = setGradleClasspath
-    , buildHook = buildHook hooks >> gradleBuild
+    { preBuild = \a b -> setGradleClasspath a b >> preBuild hooks a b
+    , buildHook = \a b c d -> gradleBuild a b c d >> buildHook hooks a b c d
     }
 
 gradleBuildFile :: FilePath
@@ -53,6 +53,8 @@ getGradleClasspath parentBuildfile = do
           , "task classpath { doLast { println sourceSets.main.compileClasspath.getAsPath() } }"
           ]
       readProcess "gradle" ["-q", "-b", buildfile, "classpath"] ""
+        -- trim trailing newlines
+        >>= return . concat . lines
 
 -- | Set the @CLASSPATH@ from a Gradle build configuration. Does not override
 -- the @CLASSPATH@ if one exists.
