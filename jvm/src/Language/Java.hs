@@ -78,8 +78,7 @@ import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Unsafe as BS
-import Data.Singletons (SingI(..), fromSing)
-import Data.String (fromString)
+import Data.Singletons (SingI(..))
 import qualified Data.Text.Foreign as Text
 import Data.Text (Text)
 #if ! __GLASGOW_HASKELL__ == 800
@@ -93,7 +92,7 @@ import Foreign.C (CChar)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
-import GHC.TypeLits (KnownSymbol, Symbol)
+import GHC.TypeLits (KnownSymbol)
 import System.IO.Unsafe (unsafeDupablePerformIO)
 
 -- Note [Class lookup memoization]
@@ -289,13 +288,18 @@ call obj mname args = do
       _ -> unsafeUncoerce . coerce <$> callObjectMethod obj method args
 
 -- | Same as 'call', but for static methods.
-callStatic :: forall a ty sym. Coercible a ty => Sing (sym :: Symbol) -> JNI.String -> [JValue] -> IO a
+callStatic
+  :: forall a ty. Coercible a ty
+  => JNI.String -- ^ Class name
+  -> JNI.String -- ^ Method name
+  -> [JValue] -- ^ Arguments
+  -> IO a
 {-# INLINE callStatic #-}
 callStatic cname mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty
         klass = unsafeDupablePerformIO $
-                  findClass (referenceTypeName (SClass (fromString (fromSing cname))))
+                  findClass (referenceTypeName (SClass (JNI.toChars cname)))
                     >>= newGlobalRef
         method = unsafeDupablePerformIO $ getStaticMethodID klass mname (methodSignature argsings retsing)
     case retsing of

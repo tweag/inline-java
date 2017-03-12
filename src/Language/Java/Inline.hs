@@ -303,7 +303,7 @@ loadJavaWrappers = doit `seq` return ()
     doit = unsafePerformIO $ do
       keys <- staticPtrKeys
       loader :: J ('Class "java.lang.ClassLoader") <-
-        callStatic (sing :: Sing "java.lang.ClassLoader") "getSystemClassLoader" []
+        callStatic "java.lang.ClassLoader" "getSystemClassLoader" []
       forM_ keys $ \key -> do
         sptr :: StaticPtr Any <- fromJust <$> unsafeLookupStaticPtr key
         let !x = deRefStaticPtr sptr
@@ -313,7 +313,11 @@ loadJavaWrappers = doit `seq` return ()
             , intercalate "." [modl, name] == show 'DotClass -> do
                 clsPtr <- fromJust <$> unsafeLookupStaticPtr key
                 let DotClass clsname bcode = deRefStaticPtr clsPtr
-                _ <- defineClass (referenceTypeName (SClass clsname)) loader bcode
+                _ <-
+                  defineClass
+                   (referenceTypeName (SClass clsname))
+                   loader
+                   bcode
                 return ()
           _ -> return ()
 
@@ -379,7 +383,7 @@ blockQQ input = case Java.parser Java.block input of
       castReturnType
         [| loadJavaWrappers >>
            callStatic
-             (sing :: Sing $(TH.litT $ TH.strTyLit ("io.tweag.inlinejava." ++ mangle thismod)))
+             (fromString $(TH.stringE ("io.tweag.inlinejava." ++ mangle thismod)))
              (fromString $(TH.stringE (show mname)))
              $(TH.listE args) :: IO (J ('Class "java.lang.Object")) |]
     where
