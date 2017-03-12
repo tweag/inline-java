@@ -5,7 +5,7 @@ packages:
 - jni
 - jvm
 - jvm-streaming
-- location: examples/classpath
+- examples/classpath
 
 extra-deps:
 - choice-0.2.0
@@ -22,3 +22,6 @@ docker:
   enable: false
   image: tweag/inline-java
   stack-exe: image
+
+explicit-setup-deps:
+  classpath: true
