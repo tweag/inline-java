@@ -6,7 +6,6 @@ import Data.Int (Int32)
 import Data.String (fromString)
 import Foreign.JNI (withJVM)
 import Language.Java.Inline
-import Language.Java.Inline.Cabal (gradleHooks)
 import System.Environment (getArgs)
 
 main :: IO Int32

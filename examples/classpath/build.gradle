@@ -1,7 +1,4 @@
 apply plugin: 'java'
-apply plugin: 'application'
-
-mainClassName = "Classpath"
 
 repositories {
   mavenCentral()
@@ -9,15 +6,4 @@ repositories {
 
 dependencies {
   compile 'org.apache.commons:commons-collections4:4.1'
-}
-
-compileJava {
-  sourceCompatibility = 1.7
-  targetCompatibility = 1.7
-}
-
-jar {
-  manifest {
-    attributes "Main-Class": "Classpath"
-  }
 }
