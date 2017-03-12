@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.6.3] - 2017-03-12
+
+### Fixed
+
+* Setting the `CLASSPATH` using Gradle is now fully supported. It was
+  previously unusable due to a bug (see #42).
+
 ## [0.6.2] - 2017-02-21
 
 * Avoid producing warnings about unused inlinejava_bytecode0 bindings.
