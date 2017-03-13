@@ -174,7 +174,14 @@ unliftJType (TH.AppT (TH.ConT nm) ty) =
     unliftJType $ TH.AppT (TH.PromotedT nm) ty
 unliftJType (TH.PromotedT nm)
   | nm == 'Void = return $ SomeSing SVoid
-unliftJType ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
+unliftJType ty@(TH.ConT nm) =
+    TH.reify nm >>= \case
+      TH.TyConI (TH.TySynD _ [] ty') -> unliftJType ty'
+      _ -> unliftJTypeFail ty
+unliftJType ty = unliftJTypeFail ty
+
+unliftJTypeFail :: Monad m => TH.Type -> m a
+unliftJTypeFail ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
 
 getValueName :: String -> Q TH.Name
 getValueName v =
