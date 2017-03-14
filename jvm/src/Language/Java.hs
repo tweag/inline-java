@@ -383,7 +383,8 @@ reifyMVector
   -> (JArray ty -> Ptr a -> IO ())
   -> JArray ty
   -> IO (IOVector a)
-reifyMVector mk finalize jobj = do
+reifyMVector mk finalize jobj0 = do
+    jobj <- newGlobalRef jobj0
     n <- getArrayLength jobj
     ptr <- mk jobj
     fptr <- newForeignPtr ptr (finalize jobj ptr)
