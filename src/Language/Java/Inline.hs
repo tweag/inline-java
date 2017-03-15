@@ -49,7 +49,7 @@ module Language.Java.Inline
   ( java
   ) where
 
-import Control.Monad ((>=>), forM_, unless)
+import Control.Monad (forM_, unless)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isAlphaNum)
 import Data.Generics (everything, mkQ)
@@ -161,23 +161,19 @@ abstract mname retty vtys block =
 -- | Decode a TH 'Type' into a 'JType'. So named because it's morally the
 -- inverse of 'Language.Haskell.TH.Syntax.lift'.
 unliftJType :: TH.Type -> Q (SomeSing JType)
-unliftJType = unfoldTypeTySyn >=> unliftJType'
-
-unliftJType' :: TH.Type -> Q (SomeSing JType)
-unliftJType' (TH.AppT (TH.PromotedT nm) (TH.LitT (TH.StrTyLit sym)))
+unliftJType (TH.AppT (TH.PromotedT nm) (TH.LitT (TH.StrTyLit sym)))
   | nm == 'Class = return $ SomeSing $ SClass (fromString sym)
   | nm == 'Iface = return $ SomeSing $ SIface (fromString sym)
   | nm == 'Prim = return $ SomeSing $ SPrim (fromString sym)
-unliftJType' (TH.AppT (TH.PromotedT nm) ty)
-  | nm == 'Array = unliftJType' ty >>= \case SomeSing jty -> return $ SomeSing (SArray jty)
-unliftJType' (TH.AppT (TH.AppT (TH.PromotedT _nm) _ty) _tys) =
+unliftJType (TH.AppT (TH.PromotedT nm) ty)
+  | nm == 'Array = unliftJType ty >>= \case SomeSing jty -> return $ SomeSing (SArray jty)
+unliftJType (TH.AppT (TH.AppT (TH.PromotedT _nm) _ty) _tys) =
     error "unliftJType (Generic): Unimplemented."
 -- Sometimes TH uses ConT for PromotedT. Pretend it's always PromotedT.
-unliftJType' (TH.AppT (TH.ConT nm) ty) =
-  unliftJType' $ TH.AppT (TH.PromotedT nm) ty
-unliftJType' (TH.PromotedT nm)
+unliftJType (TH.AppT (TH.ConT nm) ty) = unliftJType $ TH.AppT (TH.PromotedT nm) ty
+unliftJType (TH.PromotedT nm)
   | nm == 'Void = return $ SomeSing SVoid
-unliftJType' ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
+unliftJType ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
 
 getValueName :: String -> Q TH.Name
 getValueName v =
@@ -408,7 +404,8 @@ unfoldTypeTySyn = \case
     -- The workhorse
     ty@(TH.ConT name) ->
       TH.reify name >>= \case
-        TH.TyConI (TH.TySynD _ _ ty') -> unfoldTypeTySyn ty'
+        TH.TyConI (TH.TySynD _ [] ty') -> unfoldTypeTySyn ty'
+        TH.TyConI (TH.TySynD _ _ _) -> fail $ "Type synonyms with type variables are not currently supported"
         _ -> pure ty
 
     -- The boilerplate
