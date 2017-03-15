@@ -49,7 +49,7 @@ module Language.Java.Inline
   ( java
   ) where
 
-import Control.Monad (forM_, unless)
+import Control.Monad ((>=>), forM_, unless)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isAlphaNum)
 import Data.Generics (everything, mkQ)
@@ -161,27 +161,23 @@ abstract mname retty vtys block =
 -- | Decode a TH 'Type' into a 'JType'. So named because it's morally the
 -- inverse of 'Language.Haskell.TH.Syntax.lift'.
 unliftJType :: TH.Type -> Q (SomeSing JType)
-unliftJType (TH.AppT (TH.PromotedT nm) (TH.LitT (TH.StrTyLit sym)))
+unliftJType = unfoldTypeTySyn >=> unliftJType'
+
+unliftJType' :: TH.Type -> Q (SomeSing JType)
+unliftJType' (TH.AppT (TH.PromotedT nm) (TH.LitT (TH.StrTyLit sym)))
   | nm == 'Class = return $ SomeSing $ SClass (fromString sym)
   | nm == 'Iface = return $ SomeSing $ SIface (fromString sym)
   | nm == 'Prim = return $ SomeSing $ SPrim (fromString sym)
-unliftJType (TH.AppT (TH.PromotedT nm) ty)
-  | nm == 'Array = unliftJType ty >>= \case SomeSing jty -> return $ SomeSing (SArray jty)
-unliftJType (TH.AppT (TH.AppT (TH.PromotedT _nm) _ty) _tys) =
+unliftJType' (TH.AppT (TH.PromotedT nm) ty)
+  | nm == 'Array = unliftJType' ty >>= \case SomeSing jty -> return $ SomeSing (SArray jty)
+unliftJType' (TH.AppT (TH.AppT (TH.PromotedT _nm) _ty) _tys) =
     error "unliftJType (Generic): Unimplemented."
 -- Sometimes TH uses ConT for PromotedT. Pretend it's always PromotedT.
-unliftJType (TH.AppT (TH.ConT nm) ty) =
-    unliftJType $ TH.AppT (TH.PromotedT nm) ty
-unliftJType (TH.PromotedT nm)
+unliftJType' (TH.AppT (TH.ConT nm) ty) =
+  unliftJType' $ TH.AppT (TH.PromotedT nm) ty
+unliftJType' (TH.PromotedT nm)
   | nm == 'Void = return $ SomeSing SVoid
-unliftJType ty@(TH.ConT nm) =
-    TH.reify nm >>= \case
-      TH.TyConI (TH.TySynD _ [] ty') -> unliftJType ty'
-      _ -> unliftJTypeFail ty
-unliftJType ty = unliftJTypeFail ty
-
-unliftJTypeFail :: Monad m => TH.Type -> m a
-unliftJTypeFail ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
+unliftJType' ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
 
 getValueName :: String -> Q TH.Name
 getValueName v =
@@ -356,8 +352,7 @@ blockQQ input = case Java.parser Java.block input of
 #else
             TH.VarI _ ty _ _ -> do
 #endif
-              -- First (recursively) unfold type synonyms, if any.
-              ty' <- unfoldHeadTySyn ty
+              ty' <- unfoldTypeTySyn ty
               case ty' of
                 TH.AppT (TH.ConT nJ) thty
                   | nJ == ''J -> do
@@ -406,8 +401,39 @@ blockQQ input = case Java.parser Java.block input of
       -- returning boxed values. Once this limitation of the compiler gets
       -- lifted, we'll support returning unboxed values, just like `call` does.
       castReturnType funcall = [| unsafeUncoerce . coerce <$> $funcall |]
-      unfoldHeadTySyn ty@(TH.ConT nT) = do
-        TH.reify nT >>= \case
-          TH.TyConI (TH.TySynD _ _ ty') -> unfoldHeadTySyn ty'
-          _ -> return ty
-      unfoldHeadTySyn ty = return ty
+
+-- Recursively unfold type synonyms, if any.
+unfoldTypeTySyn :: TH.Type -> Q TH.Type
+unfoldTypeTySyn = \case
+    -- The workhorse
+    ty@(TH.ConT name) ->
+      TH.reify name >>= \case
+        TH.TyConI (TH.TySynD _ _ ty') -> unfoldTypeTySyn ty'
+        _ -> pure ty
+
+    -- The boilerplate
+    TH.ForallT tvs ctx ty -> TH.ForallT
+      <$> mapM unfoldTyVarBndrTySyn tvs
+      <*> mapM unfoldTypeTySyn ctx
+      <*> unfoldTypeTySyn ty
+    TH.AppT f x -> TH.AppT
+      <$> unfoldTypeTySyn f
+      <*> unfoldTypeTySyn x
+    TH.SigT ty kind -> TH.SigT
+      <$> unfoldTypeTySyn ty
+      <*> unfoldTypeTySyn kind
+    TH.InfixT ty1 name ty2 -> TH.InfixT
+      <$> unfoldTypeTySyn ty1
+      <*> pure name
+      <*> unfoldTypeTySyn ty2
+    TH.UInfixT ty1 name ty2 -> TH.UInfixT
+      <$> unfoldTypeTySyn ty1
+      <*> pure name
+      <*> unfoldTypeTySyn ty2
+    TH.ParensT ty -> TH.ParensT <$> unfoldTypeTySyn ty
+    ty -> pure ty
+  where
+    unfoldTyVarBndrTySyn :: TH.TyVarBndr -> Q TH.TyVarBndr
+    unfoldTyVarBndrTySyn = \case
+        b@(TH.PlainTV _) -> pure b
+        TH.KindedTV var kind -> TH.KindedTV var <$> unfoldTypeTySyn kind
