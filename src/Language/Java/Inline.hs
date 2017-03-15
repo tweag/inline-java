@@ -170,7 +170,8 @@ unliftJType (TH.AppT (TH.PromotedT nm) ty)
 unliftJType (TH.AppT (TH.AppT (TH.PromotedT _nm) _ty) _tys) =
     error "unliftJType (Generic): Unimplemented."
 -- Sometimes TH uses ConT for PromotedT. Pretend it's always PromotedT.
-unliftJType (TH.AppT (TH.ConT nm) ty) = unliftJType $ TH.AppT (TH.PromotedT nm) ty
+unliftJType (TH.AppT (TH.ConT nm) ty) =
+    unliftJType $ TH.AppT (TH.PromotedT nm) ty
 unliftJType (TH.PromotedT nm)
   | nm == 'Void = return $ SomeSing SVoid
 unliftJType ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
