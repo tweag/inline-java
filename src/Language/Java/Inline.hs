@@ -406,7 +406,8 @@ unfoldTypeTySyn = \case
     ty@(TH.ConT name) ->
       TH.reify name >>= \case
         TH.TyConI (TH.TySynD _ [] ty') -> unfoldTypeTySyn ty'
-        TH.TyConI (TH.TySynD _ _ _) -> fail $ "Type synonyms with type variables are not currently supported"
+        TH.TyConI (TH.TySynD _ _ _) -> fail $
+          "unfoldTypeTySyn: Type synonyms with type variables are not currently supported: " ++ show name
         _ -> pure ty
 
     -- The boilerplate
