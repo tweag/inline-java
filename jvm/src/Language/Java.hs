@@ -55,6 +55,7 @@ module Language.Java
   , newArray
   , call
   , callStatic
+  , getStaticField
   , jvalue
   , CoercionFailure(..)
   , Coercible(..)
@@ -316,6 +317,31 @@ callStatic cname mname args = do
         -- Anything uncoerces to the void type.
         return (unsafeUncoerce undefined)
       _ -> unsafeUncoerce . coerce <$> callStaticObjectMethod klass method args
+
+-- | Get a static field.
+getStaticField
+  :: forall a ty. Coercible a ty
+  => JNI.String -- ^ Class name
+  -> JNI.String -- ^ Static field name
+  -> IO a
+{-# INLINE getStaticField #-}
+getStaticField cname fname = do
+  let retsing = sing :: Sing ty
+      klass = unsafeDupablePerformIO $ findClass (referenceTypeName (SClass (JNI.toChars cname)))
+      field = unsafeDupablePerformIO $ getStaticFieldID klass fname (signature retsing)
+  case retsing of
+    SPrim "boolean" -> unsafeUncoerce . coerce . w2b <$> getStaticBooleanField klass field
+    SPrim "byte" -> unsafeUncoerce . coerce <$> getStaticByteField klass field
+    SPrim "char" -> unsafeUncoerce . coerce <$> getStaticCharField klass field
+    SPrim "short" -> unsafeUncoerce . coerce <$> getStaticShortField klass field
+    SPrim "int" -> unsafeUncoerce . coerce <$> getStaticIntField klass field
+    SPrim "long" -> unsafeUncoerce . coerce <$> getStaticLongField klass field
+    SPrim "float" -> unsafeUncoerce . coerce <$> getStaticFloatField klass field
+    SPrim "double" -> unsafeUncoerce . coerce <$> getStaticDoubleField klass field
+    _ -> unsafeUncoerce . coerce <$> getStaticObjectField klass field
+  where
+    w2b :: Word8 -> Bool
+    w2b = toEnum . fromIntegral
 
 -- | Inject a value (of primitive or reference type) to a 'JValue'. This
 -- datatype is useful for e.g. passing arguments as a list of homogeneous type.
