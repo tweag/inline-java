@@ -338,6 +338,7 @@ getStaticField cname fname = do
     SPrim "long" -> unsafeUncoerce . coerce <$> getStaticLongField klass field
     SPrim "float" -> unsafeUncoerce . coerce <$> getStaticFloatField klass field
     SPrim "double" -> unsafeUncoerce . coerce <$> getStaticDoubleField klass field
+    SVoid -> fail "getStaticField cannot yield an object of type void"
     _ -> unsafeUncoerce . coerce <$> getStaticObjectField klass field
   where
     w2b :: Word8 -> Bool
