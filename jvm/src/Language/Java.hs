@@ -68,7 +68,7 @@ module Language.Java
 
 import Control.Distributed.Closure
 import Control.Distributed.Closure.TH
-import Control.Exception (Exception, throw)
+import Control.Exception (Exception, throw, finally)
 import Control.Monad
 import Data.Char (chr, ord)
 import qualified Data.Coerce as Coerce
@@ -384,10 +384,15 @@ reifyMVector
   -> JArray ty
   -> IO (IOVector a)
 reifyMVector mk finalize jobj0 = do
-    jobj <- newGlobalRef jobj0
+    -- jobj might be finalized before the finalizer of fptr runs.
+    -- Therefore, we create a global reference without an attached
+    -- finalizer.
+    -- See https://ghc.haskell.org/trac/ghc/ticket/13439
+    jobj <- newGlobalRefNonFinalized jobj0
     n <- getArrayLength jobj
     ptr <- mk jobj
-    fptr <- newForeignPtr ptr (finalize jobj ptr)
+    fptr <- newForeignPtr ptr $ finalize jobj ptr
+                                  `finally` deleteGlobalRefNonFinalized jobj
     return (MVector.unsafeFromForeignPtr0 fptr (fromIntegral n))
 
 reflectMVector
