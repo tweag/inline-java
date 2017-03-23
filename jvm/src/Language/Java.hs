@@ -462,6 +462,20 @@ withStatic [d|
   instance Reflect Bool ('Class "java.lang.Boolean") where
     reflect x = new [JBoolean (fromIntegral (fromEnum x))]
 
+  type instance Interp CChar = 'Class "java.lang.Byte"
+
+  instance Reify CChar ('Class "java.lang.Byte") where
+    reify jobj = do
+        let method = unsafeDupablePerformIO $ do
+              klass <- findClass "java/lang/Byte"
+              m <- getMethodID klass "byteValue" "()B"
+              deleteLocalRef klass
+              return m
+        callByteMethod jobj method []
+
+  instance Reflect CChar ('Class "java.lang.Byte") where
+    reflect x = Language.Java.new [JByte x]
+
   type instance Interp Int16 = 'Class "java.lang.Short"
 
   instance Reify Int16 ('Class "java.lang.Short") where
