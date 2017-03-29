@@ -33,6 +33,16 @@ spec = do
             [coerce (12345 :: Int32)]
         reify jstr `shouldReturn` ("12345" :: Text)
 
+      it "can get static fields" $ do
+        getStaticField "java.lang.Math" "PI"
+          `shouldReturn` (pi :: Double)
+
+      it "can get enum values" $ do
+        monday :: J ('Class "java.time.DayOfWeek") <-
+          getStaticField "java.time.DayOfWeek" "MONDAY"
+        call monday "getValue" []
+          `shouldReturn` (1 :: Int32)
+
       it "short doesn't under- or overflow" $ do
         maxshort <- reflect (Text.pack (show (maxBound :: Int16)))
         minshort <- reflect (Text.pack (show (minBound :: Int16)))
