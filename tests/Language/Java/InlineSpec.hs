@@ -12,6 +12,10 @@ import Language.Java
 import Language.Java.Inline
 import Test.Hspec
 
+type ObjectClass = 'Class "java.lang.Object"
+
+type JJObject = JObject
+
 spec :: Spec
 spec = do
     describe "Java quasiquoter" $ do
@@ -29,11 +33,24 @@ spec = do
         let x = 1 :: Int32
         ([java| $x + 1 |] >>= reify) `shouldReturn` (2 :: Int32)
 
-      it "Supports type synonym'ed antiquotation variables" $ do
-        obj <- [java| new Object() {} |]
-        let obj1 = obj :: JObject
-        _ :: JObject <- [java| $obj1 |]
-        return ()
+      describe "Type synonyms" $ do
+        it "Supports top-level type synonym'ed antiquotation variables" $ do
+          obj <- [java| new Object() {} |]
+          let obj1 = obj :: JObject
+          _ :: JObject <- [java| $obj1 |]
+          return ()
+
+        it "Supports inner type synonym'ed antiquotation variables" $ do
+          obj <- [java| new Object() {} |]
+          let obj1 = obj :: J ObjectClass
+          _ :: J ObjectClass <- [java| $obj1 |]
+          return ()
+
+        it "Supports chained type synonym'ed antiquotation variables" $ do
+          obj <- [java| new Object() {} |]
+          let obj1 = obj :: JJObject
+          _ :: JJObject <- [java| $obj1 |]
+          return ()
 
       it "Supports multiple antiquotation variables" $ do
         let foo = 1 :: Int32
