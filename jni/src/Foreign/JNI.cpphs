@@ -62,6 +62,8 @@ module Foreign.JNI
     -- ** Reference manipulation
   , newGlobalRef
   , deleteGlobalRef
+  , newGlobalRefNonFinalized
+  , deleteGlobalRefNonFinalized
   , newLocalRef
   , deleteLocalRef
   , pushLocalFrame
@@ -202,6 +204,7 @@ import Foreign.Ptr (Ptr, nullPtr)
 import GHC.ForeignPtr (newConcForeignPtr)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
+import System.IO (fixIO)
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (String)
 
@@ -609,19 +612,34 @@ newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
       [CU.exp| jobject {
         (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
-    coerce <$> J <$> newConcForeignPtr gobj (finalize gobj)
-  where
-    finalize gobj = do
-      bracket (tryAcquireReadLock globalJVMLock)
-              (\doRead -> when (toBool doRead) $ releaseReadLock globalJVMLock)
-              $ \doRead ->
-        when (toBool doRead) $ withJNIEnv $ \env ->
-          [CU.block| void { (*$(JNIEnv *env))->DeleteGlobalRef($(JNIEnv *env)
-                                                              ,$(jobject gobj));
-                          } |]
+    fixIO $ \j ->
+      coerce <$> J <$> newConcForeignPtr gobj (deleteGlobalRefNonFinalized j)
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
+
+-- | Like 'newGlobalRef' but it doesn't attach a finalizer to destroy
+-- the reference when it is not longer reachable. Use
+-- 'deleteGlobalRefNonFinalized' to destroy this reference.
+newGlobalRefNonFinalized :: Coercible o (J ty) => o -> IO o
+newGlobalRefNonFinalized (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
+    gobj <-
+      [CU.exp| jobject {
+        (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
+                                        $fptr-ptr:(jobject obj)) } |]
+    coerce <$> J <$> newForeignPtr_ gobj
+
+-- | Like 'deleteGlobalRef' but it can be used only on references created with
+-- 'newGlobalRefNonFinalized'.
+deleteGlobalRefNonFinalized :: Coercible o (J ty) => o -> IO ()
+deleteGlobalRefNonFinalized (coerce -> upcast -> obj) = do
+    bracket (tryAcquireReadLock globalJVMLock)
+            (\doRead -> when (toBool doRead) $ releaseReadLock globalJVMLock)
+            $ \doRead ->
+      when (toBool doRead) $ withJNIEnv $ \env -> do
+        [CU.block| void { (*$(JNIEnv *env))->DeleteGlobalRef($(JNIEnv *env)
+                                                            ,$fptr-ptr:(jobject obj));
+                        } |]
 
 -- NB: Cannot add a finalizer to local references because it may
 -- run in a thread where the reference is not valid.

@@ -68,7 +68,7 @@ module Language.Java
 
 import Control.Distributed.Closure
 import Control.Distributed.Closure.TH
-import Control.Exception (Exception, throw)
+import Control.Exception (Exception, throw, finally)
 import Control.Monad
 import Data.Char (chr, ord)
 import qualified Data.Coerce as Coerce
@@ -81,12 +81,13 @@ import qualified Data.ByteString.Unsafe as BS
 import Data.Singletons (SingI(..))
 import qualified Data.Text.Foreign as Text
 import Data.Text (Text)
-#if ! __GLASGOW_HASKELL__ == 800
+#if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 import qualified Data.Vector.Storable as Vector
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable.Mutable as MVector
 import Data.Vector.Storable.Mutable (IOVector)
-import Foreign (FunPtr, Ptr, Storable, newForeignPtr, withForeignPtr)
+import Foreign (Ptr, Storable, withForeignPtr)
+import Foreign.Concurrent (newForeignPtr)
 #endif
 import Foreign.C (CChar)
 import Foreign.JNI hiding (throw)
@@ -375,22 +376,23 @@ class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
       => Reflect a ty where
   reflect :: a -> IO (J ty)
 
-#if ! __GLASGOW_HASKELL__ == 800
-foreign import ccall "wrapper" wrapFinalizer
-  :: (Ptr a -> IO ())
-  -> IO (FunPtr (Ptr a -> IO ()))
-
+#if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 reifyMVector
   :: Storable a
   => (JArray ty -> IO (Ptr a))
   -> (JArray ty -> Ptr a -> IO ())
   -> JArray ty
   -> IO (IOVector a)
-reifyMVector mk finalize jobj = do
+reifyMVector mk finalize jobj0 = do
+    -- jobj might be finalized before the finalizer of fptr runs.
+    -- Therefore, we create a global reference without an attached
+    -- finalizer.
+    -- See https://ghc.haskell.org/trac/ghc/ticket/13439
+    jobj <- newGlobalRefNonFinalized jobj0
     n <- getArrayLength jobj
     ptr <- mk jobj
-    ffinalize <- wrapFinalizer (finalize jobj)
-    fptr <- newForeignPtr ffinalize ptr
+    fptr <- newForeignPtr ptr $ finalize jobj ptr
+                                  `finally` deleteGlobalRefNonFinalized jobj
     return (MVector.unsafeFromForeignPtr0 fptr (fromIntegral n))
 
 reflectMVector
@@ -583,7 +585,7 @@ withStatic [d|
 
 -- Instances can't be compiled on GHC 8.0.1 due to
 -- https://ghc.haskell.org/trac/ghc/ticket/12082.
-#if ! __GLASGOW_HASKELL__ == 800
+#if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
   type instance Interp (IOVector Int32) = 'Array ('Prim "int")
 
   instance Reify (IOVector Int32) ('Array ('Prim "int")) where
