@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -31,6 +32,7 @@ module Foreign.JNI.Types
   , unsafeUngeneric
   , jtypeOf
   , ReferenceTypeName
+  , singToIsReferenceType
   , referenceTypeName
   , Signature
   , signature
@@ -66,6 +68,7 @@ import qualified Data.ByteString.Builder as Builder
 import qualified Data.ByteString.Builder.Prim as Prim
 import Data.ByteString.Builder (Builder)
 import Data.Char (chr, ord)
+import Data.Constraint (Dict(..))
 import Data.Int
 import qualified Data.Map as Map
 import Data.Monoid ((<>))
@@ -77,6 +80,7 @@ import Data.Singletons
   , KProxy(..)
 #endif
   )
+import Data.Singletons.Prelude (Sing(..))
 import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
 import Data.Word
 import Foreign.C (CChar)
@@ -133,6 +137,16 @@ instance IsReferenceType ('Iface sym)
 instance IsReferenceType ('Array ty)
 instance IsReferenceType ty => IsReferenceType ('Generic ty tys)
 
+-- | Produces evidence for IsReferenceType from a `Sing ty`.
+singToIsReferenceType :: Sing (ty :: JType) -> Maybe (Dict (IsReferenceType ty))
+singToIsReferenceType tysing = case tysing of
+    SClass _ -> Just Dict
+    SPrim _ -> Nothing
+    SIface _ -> Just Dict
+    SArray _ -> Just Dict
+    SGeneric tysing' _ -> (\Dict -> Dict) <$> singToIsReferenceType tysing'
+    SVoid -> Nothing
+
 data instance Sing (a :: JType) where
   -- Using String instead of JNI.String for the singleton data constructors
   -- is an optimization. Otherwise, the comparisons in Language.Java.call
@@ -145,6 +159,24 @@ data instance Sing (a :: JType) where
   SArray :: Sing ty -> Sing ('Array ty)
   SGeneric :: Sing ty -> Sing tys -> Sing ('Generic ty tys)
   SVoid :: Sing 'Void
+
+instance Show (Sing (a :: JType)) where
+  showsPrec d (SClass s) = showParen (d > 10) $
+      showString "SClass " . showsPrec 11 s
+  showsPrec d (SIface s) = showParen (d > 10) $
+      showString "SIface " . showsPrec 11 s
+  showsPrec d (SPrim s) = showParen (d > 10) $
+      showString "SPrim " . showsPrec 11 s
+  showsPrec d (SArray s) = showParen (d > 10) $
+      showString "SArray " . showsPrec 11 s
+  showsPrec d (SGeneric s sargs) = showParen (d > 10) $
+      showString "SGeneric " . showsPrec 11 s . showsPrec 11 sargs
+  showsPrec _ SVoid = showString "SVoid"
+
+instance Show (Sing (a :: [JType])) where
+  showsPrec _ SNil = showString "SNil"
+  showsPrec d (SCons ty tys) = showParen (d > 10) $
+      showString "SCons " . showsPrec 11 ty . showChar ' ' . showsPrec 11 tys
 
 -- XXX SingI constraint temporary hack because GHC 7.10 has trouble inferring
 -- this constraint in 'signature'.
