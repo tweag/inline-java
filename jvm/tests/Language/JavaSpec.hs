@@ -77,3 +77,10 @@ spec = do
         xs <- reify =<< newArray 10
         length (xs :: [J ('Class "java.util.List" <> '[ 'Class "java.lang.Long"])])
           `shouldBe` 10
+
+    describe "reify" $ do
+      -- Applications need extra conversions if the following doesn't hold.
+      it "can get Integer when Long is expected" $ do
+        let i = maxBound :: Int32
+        j <- new [coerce i] :: IO (J ('Class "java.lang.Integer"))
+        reify (unsafeCast j) `shouldReturn` (fromIntegral i :: Int64)
