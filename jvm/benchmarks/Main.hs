@@ -11,11 +11,11 @@ import Language.Java
 import Foreign.JNI
 import Criterion.Main as Criterion
 
-incrementExact :: Int32 -> IO Int32
-incrementExact x = callStatic (sing :: Sing "java.lang.Math") "incrementExact" [coerce x]
+jabs :: Int32 -> IO Int32
+jabs x = callStatic (sing :: Sing "java.lang.Math") "abs" [coerce x]
 
-jniIncrementExact :: JClass -> JMethodID -> Int32 -> IO Int32
-jniIncrementExact klass method x = callStaticIntMethod klass method [coerce x]
+jniAbs :: JClass -> JMethodID -> Int32 -> IO Int32
+jniAbs klass method x = callStaticIntMethod klass method [coerce x]
 
 intValue :: Int32 -> IO Int32
 intValue x = do
@@ -36,11 +36,11 @@ foreign import ccall unsafe getpid :: IO Int
 main :: IO ()
 main = withJVM [] $ do
     klass <- findClass "java/lang/Math"
-    method <- getStaticMethodID klass "incrementExact" "(I)I"
+    method <- getStaticMethodID klass "abs" "(I)I"
     Criterion.defaultMain
       [ bgroup "Java calls"
-        [ bench "static method call: unboxed single arg / unboxed return" $ nfIO $ incrementExact 1
-        , bench "jni static method call: unboxed single arg / unboxed return" $ nfIO $ jniIncrementExact klass method 1
+        [ bench "static method call: unboxed single arg / unboxed return" $ nfIO $ jabs 1
+        , bench "jni static method call: unboxed single arg / unboxed return" $ nfIO $ jniAbs klass method 1
         , bench "method call: no args / unboxed return" $ nfIO $ intValue 1
         , bench "method call: boxed single arg / unboxed return" $ nfIO $ compareTo 1 1
         ]
