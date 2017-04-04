@@ -498,8 +498,9 @@ withStatic [d|
   instance Reify CChar ('Class "java.lang.Byte") where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass "java/lang/Byte"
-              m <- getMethodID klass "byteValue" "()B"
+              klass <- findClass (referenceTypeName (SClass "java.lang.Byte"))
+              m <- getMethodID klass "byteValue"
+                     (methodSignature [] (SPrim "byte"))
               deleteLocalRef klass
               return m
         callByteMethod jobj method []
