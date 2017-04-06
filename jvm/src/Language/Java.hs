@@ -232,6 +232,7 @@ newArray
      SingI ty
   => Int32
   -> IO (J ('Array ty))
+{-# INLINE newArray #-}
 newArray sz = do
     let tysing = sing :: Sing ty
     case tysing of
