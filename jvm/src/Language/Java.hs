@@ -73,6 +73,7 @@ import Control.Exception (Exception, throw, finally)
 import Control.Monad
 import Data.Char (chr, ord)
 import qualified Data.Coerce as Coerce
+import Data.Constraint (Dict(..))
 import Data.Int
 import Data.Typeable (Typeable, TypeRep, typeOf)
 import Data.Word
@@ -244,13 +245,16 @@ newArray sz = do
       SPrim "long" -> unsafeCast <$> newLongArray sz
       SPrim "float" -> unsafeCast <$> newFloatArray sz
       SPrim "double" -> unsafeCast <$> newDoubleArray sz
-      SClass _cls -> unsafeCast <$> newObjectArray sz klass
-        where
-          klass =
-            unsafeDupablePerformIO $
-            findClass (referenceTypeName tysing) >>= newGlobalRef
-      _ -> fail "newArray only supports primitive types and objects"
-
+      SVoid -> fail "newArray of void"
+      _ -> case singToIsReferenceType tysing of
+        Nothing -> fail $ "newArray of " ++ show tysing
+        Just Dict -> do
+          let klass = unsafeDupablePerformIO $ do
+                lk <- findClass (referenceTypeName tysing)
+                gk <- newGlobalRef lk
+                deleteLocalRef lk
+                return gk
+          unsafeCast <$> newObjectArray sz klass
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
 -- any data type coercible to one, the name of a method, and a list of

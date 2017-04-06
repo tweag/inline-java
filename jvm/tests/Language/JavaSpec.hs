@@ -3,6 +3,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Language.JavaSpec where
 
@@ -71,3 +72,8 @@ spec = do
       it "Supports object arrays" $ do
         xs :: [JObject] <- reify =<< newArray 10
         length xs `shouldBe` 10
+
+      it "supports generics" $ do
+        xs <- reify =<< newArray 10
+        length (xs :: [J ('Class "java.util.List" <> '[Class "java.lang.Long"])])
+          `shouldBe` 10
