@@ -75,5 +75,5 @@ spec = do
 
       it "supports generics" $ do
         xs <- reify =<< newArray 10
-        length (xs :: [J ('Class "java.util.List" <> '[Class "java.lang.Long"])])
+        length (xs :: [J ('Class "java.util.List" <> '[ 'Class "java.lang.Long"])])
           `shouldBe` 10
