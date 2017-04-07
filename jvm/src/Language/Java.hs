@@ -653,8 +653,10 @@ withStatic [d|
     reify jobj = do
         n <- getArrayLength jobj
         forM [0..n-1] $ \i -> do
-          x <- getObjectArrayElement jobj i
-          reify x
+          jx <- getObjectArrayElement jobj i
+          x  <- reify jx
+          deleteLocalRef jx
+          return x
 
   instance Reflect a ty => Reflect [a] ('Array ty) where
     reflect xs = do
