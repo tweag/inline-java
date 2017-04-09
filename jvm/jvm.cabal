@@ -26,6 +26,7 @@ library
     base >= 4.7 && < 5,
     bytestring >=0.10,
     constraints >= 0.8,
+    choice >= 0.1,
     distributed-closure >=0.3,
     jni >= 0.3.0,
     singletons >= 2.0,
