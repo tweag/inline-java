@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.6.4] - 2017-04-09
+
+### Fixed
+
+* Fixed handling of repeated antiquotation variables, which in some
+  cases was causing a compilation error.
+
 ## [0.6.3] - 2017-03-12
 
 ### Fixed
