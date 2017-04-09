@@ -75,6 +75,7 @@ import Data.Char (chr, ord)
 import qualified Data.Coerce as Coerce
 import Data.Constraint (Dict(..))
 import Data.Int
+import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, TypeRep, typeOf)
 import Data.Word
 import Data.ByteString (ByteString)
@@ -95,7 +96,7 @@ import Foreign.C (CChar)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
-import GHC.TypeLits (KnownSymbol)
+import GHC.TypeLits (KnownSymbol, symbolVal)
 import System.IO.Unsafe (unsafeDupablePerformIO)
 
 -- Note [Class lookup memoization]
@@ -186,14 +187,8 @@ instance Coercible () 'Void where
   unsafeUncoerce _ = ()
 
 -- | Get the Java class of an object or anything 'Coercible' to one.
-classOf
-  :: ( Coercible a ('Class sym)
-     , KnownSymbol sym
-     )
-  => a
-  -> Sing sym
--- Silence redundant constraint warning.
-classOf x = sing `const` coerce x
+classOf :: forall a sym. (Coercible a ('Class sym), KnownSymbol sym) => a -> JNI.String
+classOf _ = JNI.fromChars (symbolVal (Proxy :: Proxy sym))
 
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
