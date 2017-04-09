@@ -68,6 +68,7 @@ import Control.Distributed.Closure
 import Control.Distributed.Closure.TH
 import Control.Monad
 import Data.Char (chr, ord)
+import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
 import Data.Int
 import Data.Word
@@ -162,6 +163,9 @@ instance Coercible Double ('Prim "double") where
 instance Coercible () 'Void where
   coerce = error "Void value undefined."
   unsafeUncoerce _ = ()
+instance Coercible (Choice.Choice a) ('Prim "boolean") where
+  coerce = coerce . Choice.toBool
+  unsafeUncoerce = Choice.fromBool . unsafeUncoerce
 
 -- | Get the Java class of an object or anything 'Coercible' to one.
 classOf
