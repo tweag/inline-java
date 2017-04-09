@@ -40,6 +40,10 @@ spec = do
             bar = 2 :: Int32
         ([java| $foo + $bar |] >>= reify) `shouldReturn` (3 :: Int32)
 
+      it "Supports repeated antiquotation variables" $ do
+        obj :: JObject <- [java| new Object() {} |]
+        ([java| $obj.equals($obj) |] >>= reify) `shouldReturn` True
+
       it "Supports antiquotation variables in blocks" $ do
         let z = 1 :: Int32
         ([java| { return $z + 1; } |] >>= reify) `shouldReturn` (2 :: Int32)
