@@ -38,6 +38,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StaticPointers #-}
@@ -56,6 +57,7 @@ import Data.Generics (everything, everywhere, gmapM, mkM, mkQ, mkT)
 import Data.List (intercalate, isPrefixOf, isSuffixOf, lookup)
 import Data.Maybe (fromJust)
 import Data.Singletons (SomeSing(..))
+import Data.Singletons.Prelude.List (Sing(..))
 import Data.String (fromString)
 import Data.Traversable (forM)
 import Foreign.JNI (defineClass)
@@ -143,7 +145,12 @@ toJavaType ty = case Java.parser Java.ttype (pretty ty) of
     pretty (SIface sym) = sym
     pretty (SPrim sym) = sym
     pretty (SArray ty1) = pretty ty1 ++ "[]"
-    pretty (SGeneric _ty1 _tys) = error "toJavaType(Generic): Unimplemented."
+    pretty (SGeneric ty1 tys) =
+        pretty ty1 ++ "<" ++ intercalate "," (smap pretty tys) ++ ">"
+      where
+        smap :: (forall x. Sing (x :: JType) -> b) -> Sing (a :: [JType]) -> [b]
+        smap _ SNil = []
+        smap f (SCons x xs) = f x : smap f xs
     pretty SVoid = "void"
 
 abstract
@@ -167,14 +174,28 @@ unliftJType (TH.AppT (TH.PromotedT nm) (TH.LitT (TH.StrTyLit sym)))
   | nm == 'Prim = return $ SomeSing $ SPrim (fromString sym)
 unliftJType (TH.AppT (TH.PromotedT nm) ty)
   | nm == 'Array = unliftJType ty >>= \case SomeSing jty -> return $ SomeSing (SArray jty)
-unliftJType (TH.AppT (TH.AppT (TH.PromotedT _nm) _ty) _tys) =
-    error "unliftJType (Generic): Unimplemented."
+unliftJType (TH.AppT (TH.AppT (TH.ConT nm) ty) tys)
+  | nm == 'Generic = do
+    SomeSing jty <- unliftJType ty
+    SomeSing jtys <- unliftJTypes tys
+    return $ SomeSing $ SGeneric jty jtys
+unliftJType (TH.PromotedT nm)
+  | nm == 'Void = return $ SomeSing SVoid
 -- Sometimes TH uses ConT for PromotedT. Pretend it's always PromotedT.
 unliftJType (TH.AppT (TH.ConT nm) ty) =
     unliftJType $ TH.AppT (TH.PromotedT nm) ty
-unliftJType (TH.PromotedT nm)
-  | nm == 'Void = return $ SomeSing SVoid
+unliftJType (TH.AppT (TH.AppT (TH.ConT nm) ty1) ty2) =
+    unliftJType $ TH.AppT (TH.AppT (TH.PromotedT nm) ty1) ty2
 unliftJType ty = fail $ "unliftJType: cannot unlift " ++ show (TH.ppr ty)
+
+unliftJTypes :: TH.Type -> Q (SomeSing [JType])
+unliftJTypes TH.PromotedNilT = return $ SomeSing SNil
+unliftJTypes (TH.AppT (TH.AppT TH.PromotedConsT ty) tys) = do
+    SomeSing jty <- unliftJType ty
+    SomeSing jtys <- unliftJTypes tys
+    return $ SomeSing $ SCons jty jtys
+unliftJTypes (TH.SigT ty _) = unliftJTypes ty
+unliftJTypes ty = fail $ "unliftJTypes: cannot unlift " ++ show (TH.ppr ty)
 
 getValueName :: String -> Q TH.Name
 getValueName v =
