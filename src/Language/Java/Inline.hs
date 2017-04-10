@@ -53,7 +53,7 @@ import Control.Monad (forM_, unless, when)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isAlphaNum)
 import Data.Generics (everything, everywhere, gmapM, mkM, mkQ, mkT)
-import Data.List (intercalate, isPrefixOf, isSuffixOf, lookup)
+import Data.List (intercalate, isPrefixOf, isSuffixOf, lookup, nub)
 import Data.Maybe (fromJust)
 import Data.Singletons (SomeSing(..))
 import Data.String (fromString)
@@ -131,7 +131,7 @@ java = QuasiQuoter
     }
 
 antis :: Java.Block -> [String]
-antis = everything (++) (mkQ [] (\case Java.Name (Java.Ident ('$':av):_) -> [av]; _ -> []))
+antis = nub . everything (++) (mkQ [] (\case Java.Name (Java.Ident ('$':av):_) -> [av]; _ -> []))
 
 toJavaType :: Sing (a :: JType) -> Java.Type
 toJavaType ty = case Java.parser Java.ttype (pretty ty) of
