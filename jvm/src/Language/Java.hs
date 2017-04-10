@@ -64,7 +64,7 @@ module Language.Java
   , Type(..)
   , Uncurry
   , Interp
-  , sing
+  , SingI(..)
   ) where
 
 import Control.Distributed.Closure
