@@ -52,6 +52,8 @@ module Language.Java.Inline
 import Control.Monad (forM_, unless)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isAlphaNum)
+import Data.Generics (everything, everywhereM, mkM, mkQ)
+import Data.List (intercalate, isPrefixOf, isSuffixOf, nub)
 import Data.Generics (everything, mkQ)
 import Data.List (intercalate, isPrefixOf, isSuffixOf, nub)
 import Data.Maybe (fromJust)
@@ -401,38 +403,12 @@ blockQQ input = case Java.parser Java.block input of
 
 -- Recursively unfold type synonyms, if any.
 unfoldTypeTySyn :: TH.Type -> Q TH.Type
-unfoldTypeTySyn = \case
-    -- The workhorse
-    ty@(TH.ConT name) ->
+unfoldTypeTySyn = everywhereM (mkM go)
+  where
+    go ty@(TH.ConT name) =
       TH.reify name >>= \case
         TH.TyConI (TH.TySynD _ [] ty') -> unfoldTypeTySyn ty'
         TH.TyConI (TH.TySynD _ _ _) -> fail $
           "unfoldTypeTySyn: Type synonyms with type variables are not currently supported: " ++ show name
         _ -> pure ty
-
-    -- The boilerplate
-    TH.ForallT tvs ctx ty -> TH.ForallT
-      <$> mapM unfoldTyVarBndrTySyn tvs
-      <*> mapM unfoldTypeTySyn ctx
-      <*> unfoldTypeTySyn ty
-    TH.AppT f x -> TH.AppT
-      <$> unfoldTypeTySyn f
-      <*> unfoldTypeTySyn x
-    TH.SigT ty kind -> TH.SigT
-      <$> unfoldTypeTySyn ty
-      <*> unfoldTypeTySyn kind
-    TH.InfixT ty1 name ty2 -> TH.InfixT
-      <$> unfoldTypeTySyn ty1
-      <*> pure name
-      <*> unfoldTypeTySyn ty2
-    TH.UInfixT ty1 name ty2 -> TH.UInfixT
-      <$> unfoldTypeTySyn ty1
-      <*> pure name
-      <*> unfoldTypeTySyn ty2
-    TH.ParensT ty -> TH.ParensT <$> unfoldTypeTySyn ty
-    ty -> pure ty
-  where
-    unfoldTyVarBndrTySyn :: TH.TyVarBndr -> Q TH.TyVarBndr
-    unfoldTyVarBndrTySyn = \case
-        b@(TH.PlainTV _) -> pure b
-        TH.KindedTV var kind -> TH.KindedTV var <$> unfoldTypeTySyn kind
+    go ty = return ty
