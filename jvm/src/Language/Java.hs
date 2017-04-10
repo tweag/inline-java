@@ -212,9 +212,11 @@ new
 new args = do
     let argsings = map jtypeOf args
         voidsing = sing :: Sing 'Void
-        klass = unsafeDupablePerformIO $
-          findClass (referenceTypeName (sing :: Sing ('Class sym)))
-            >>= newGlobalRef
+        klass = unsafeDupablePerformIO $ do
+          lk <- findClass (referenceTypeName (sing :: Sing ('Class sym)))
+          gk <- newGlobalRef lk
+          deleteLocalRef lk
+          return gk
     Coerce.coerce <$> newObject klass (methodSignature argsings voidsing) args
 
 -- | Creates a new Java array of the given size. The type of the elements
@@ -274,9 +276,11 @@ call
 call obj mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty2
-        klass = unsafeDupablePerformIO $
-                  findClass (referenceTypeName (sing :: Sing ty1))
-                    >>= newGlobalRef
+        klass = unsafeDupablePerformIO $ do
+                  lk <- findClass (referenceTypeName (sing :: Sing ty1))
+                  gk <- newGlobalRef lk
+                  deleteLocalRef lk
+                  return gk
         method = unsafeDupablePerformIO $ getMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callBooleanMethod obj method args
@@ -304,9 +308,12 @@ callStatic
 callStatic cname mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty
-        klass = unsafeDupablePerformIO $
-                  findClass (referenceTypeName (SClass (JNI.toChars cname)))
-                    >>= newGlobalRef
+        klass = unsafeDupablePerformIO $ do
+                  lk <- findClass
+                          (referenceTypeName (SClass (JNI.toChars cname)))
+                  gk <- newGlobalRef lk
+                  deleteLocalRef lk
+                  return gk
         method = unsafeDupablePerformIO $ getStaticMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callStaticBooleanMethod klass method args
@@ -486,12 +493,13 @@ withStatic [d|
 
   instance Reify Bool ('Class "java.lang.Boolean") where
     reify jobj = do
-        klass <- findClass (referenceTypeName (SClass "java.lang.Boolean"))
-        method <-
-          getMethodID
-            klass
-            "booleanValue"
-            (methodSignature [] (SPrim "boolean"))
+        let method = unsafeDupablePerformIO $ do
+              klass <- findClass
+                         (referenceTypeName (SClass "java.lang.Boolean"))
+              m <- getMethodID klass "booleanValue"
+                     (methodSignature [] (SPrim "boolean"))
+              deleteLocalRef klass
+              return m
         callBooleanMethod jobj method []
 
   instance Reflect Bool ('Class "java.lang.Boolean") where
@@ -516,12 +524,12 @@ withStatic [d|
 
   instance Reify Int16 ('Class "java.lang.Short") where
     reify jobj = do
-        klass <- findClass (referenceTypeName (SClass "java.lang.Short"))
-        method <-
-          getMethodID
-            klass
-            "shortValue"
-            (methodSignature [] (SPrim "short"))
+        let method = unsafeDupablePerformIO $ do
+              klass <- findClass (referenceTypeName (SClass "java.lang.Short"))
+              m <- getMethodID klass "shortValue"
+                     (methodSignature [] (SPrim "short"))
+              deleteLocalRef klass
+              return m
         callShortMethod jobj method []
 
   instance Reflect Int16 ('Class "java.lang.Short") where
@@ -531,12 +539,13 @@ withStatic [d|
 
   instance Reify Int32 ('Class "java.lang.Integer") where
     reify jobj = do
-        klass <- findClass (referenceTypeName (SClass "java.lang.Integer"))
-        method <-
-          getMethodID
-            klass
-            "intValue"
-            (methodSignature [] (SPrim "int"))
+        let method = unsafeDupablePerformIO $ do
+              klass <- findClass
+                         (referenceTypeName (SClass "java.lang.Integer"))
+              m <- getMethodID klass "intValue"
+                     (methodSignature [] (SPrim "int"))
+              deleteLocalRef klass
+              return m
         callIntMethod jobj method []
 
   instance Reflect Int32 ('Class "java.lang.Integer") where
@@ -546,12 +555,12 @@ withStatic [d|
 
   instance Reify Int64 ('Class "java.lang.Long") where
     reify jobj = do
-        klass <- findClass (referenceTypeName (SClass "java.lang.Long"))
-        method <-
-          getMethodID
-            klass
-            "longValue"
-            (methodSignature [] (SPrim "long"))
+        let method = unsafeDupablePerformIO $ do
+              klass <- findClass (referenceTypeName (SClass "java.lang.Long"))
+              m <- getMethodID klass "longValue"
+                     (methodSignature [] (SPrim "long"))
+              deleteLocalRef klass
+              return m
         callLongMethod jobj method []
 
   instance Reflect Int64 ('Class "java.lang.Long") where
@@ -561,12 +570,13 @@ withStatic [d|
 
   instance Reify Word16 ('Class "java.lang.Character") where
     reify jobj = do
-        klass <- findClass (referenceTypeName (SClass "java.lang.Character"))
-        method <-
-          getMethodID
-            klass
-            "charValue"
-            (methodSignature [] (SPrim "char"))
+        let method = unsafeDupablePerformIO $ do
+              klass <- findClass
+                         (referenceTypeName (SClass "java.lang.Character"))
+              m <- getMethodID klass "charValue"
+                     (methodSignature [] (SPrim "char"))
+              deleteLocalRef klass
+              return m
         fromIntegral <$> callCharMethod jobj method []
 
   instance Reflect Word16 ('Class "java.lang.Character") where
@@ -576,12 +586,12 @@ withStatic [d|
 
   instance Reify Double ('Class "java.lang.Double") where
     reify jobj = do
-        klass <- findClass (referenceTypeName (SClass "java.lang.Double"))
-        method <-
-          getMethodID
-            klass
-            "doubleValue"
-            (methodSignature [] (SPrim "double"))
+        let method = unsafeDupablePerformIO $ do
+              klass <- findClass (referenceTypeName (SClass "java.lang.Double"))
+              m <- getMethodID klass "doubleValue"
+                     (methodSignature [] (SPrim "double"))
+              deleteLocalRef klass
+              return m
         callDoubleMethod jobj method []
 
   instance Reflect Double ('Class "java.lang.Double") where
@@ -591,12 +601,12 @@ withStatic [d|
 
   instance Reify Float ('Class "java.lang.Float") where
     reify jobj = do
-        klass <- findClass (referenceTypeName (SClass "java.lang.Float"))
-        method <-
-          getMethodID
-            klass
-            "floatValue"
-            (methodSignature [] (SPrim "float"))
+        let method = unsafeDupablePerformIO $ do
+              klass <- findClass (referenceTypeName (SClass "java.lang.Float"))
+              m <- getMethodID klass "floatValue"
+                     (methodSignature [] (SPrim "float"))
+              deleteLocalRef klass
+              return m
         callFloatMethod jobj method []
 
   instance Reflect Float ('Class "java.lang.Float") where
@@ -648,10 +658,16 @@ withStatic [d|
 
   instance Reflect a ty => Reflect [a] ('Array ty) where
     reflect xs = do
+      let klass = unsafeDupablePerformIO $ do
+                    lk <- findClass (referenceTypeName (sing :: Sing ty))
+                    gk <- newGlobalRef lk
+                    deleteLocalRef lk
+                    return gk
       let n = fromIntegral (length xs)
-      array <- findClass (referenceTypeName (sing :: Sing ty))
-                 >>= newObjectArray n
-      forM_ (zip [0..n-1] xs) $ \(i, x) ->
-        setObjectArrayElement array i =<< reflect x
+      array <- newObjectArray n klass
+      forM_ (zip [0..n-1] xs) $ \(i, x) -> do
+        jx <- reflect x
+        setObjectArrayElement array i jx
+        deleteLocalRef jx
       return (unsafeCast array)
   |]
