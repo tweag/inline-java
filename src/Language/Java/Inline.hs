@@ -49,13 +49,11 @@ module Language.Java.Inline
   ( java
   ) where
 
-import Control.Monad (forM_, unless)
+import Control.Monad (forM_, unless, when)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isAlphaNum)
-import Data.Generics (everything, everywhereM, mkM, mkQ)
-import Data.List (intercalate, isPrefixOf, isSuffixOf, nub)
-import Data.Generics (everything, mkQ)
-import Data.List (intercalate, isPrefixOf, isSuffixOf, nub)
+import Data.Generics (everything, everywhere, gmapM, mkM, mkQ, mkT)
+import Data.List (intercalate, isPrefixOf, isSuffixOf, lookup, nub)
 import Data.Maybe (fromJust)
 import Data.Singletons (SomeSing(..))
 import Data.String (fromString)
@@ -401,14 +399,29 @@ blockQQ input = case Java.parser Java.block input of
       -- lifted, we'll support returning unboxed values, just like `call` does.
       castReturnType funcall = [| unsafeUncoerce . coerce <$> $funcall |]
 
+-- | Non capture-avoiding substitution. The argument type should not contain any
+-- variable binding forms.
+substType :: [(TH.Name, TH.Type)] -> TH.Type -> TH.Type
+substType ctx = everywhere (mkT go)
+  where
+    go (TH.VarT name) | Just ty' <- lookup name ctx = ty'
+    go TH.ForallT{} = error "substType: forall not supported."
+    go ty = ty
+
 -- Recursively unfold type synonyms, if any.
 unfoldTypeTySyn :: TH.Type -> Q TH.Type
-unfoldTypeTySyn = everywhereM (mkM go)
+unfoldTypeTySyn ty
+  | (TH.ConT name, actuals) <- decomp [] ty =
+    TH.reify name >>= \case
+      TH.TyConI (TH.TySynD _ (map fromBndr -> parms) ty') -> do
+        when (length actuals < length parms) $
+          -- In principle GHC would never let this happen anyways.
+          fail "Internal error: type synonym not fully saturated."
+        unfoldTypeTySyn (substType (zip parms actuals) ty')
+      _ -> gmapM (mkM unfoldTypeTySyn) ty
+  | otherwise = gmapM (mkM unfoldTypeTySyn) ty
   where
-    go ty@(TH.ConT name) =
-      TH.reify name >>= \case
-        TH.TyConI (TH.TySynD _ [] ty') -> unfoldTypeTySyn ty'
-        TH.TyConI (TH.TySynD _ _ _) -> fail $
-          "unfoldTypeTySyn: Type synonyms with type variables are not currently supported: " ++ show name
-        _ -> pure ty
-    go ty = return ty
+    decomp tys (TH.AppT ty1 ty2) = decomp (ty2:tys) ty1
+    decomp tys ty1 = (ty1, tys)
+    fromBndr (TH.PlainTV n) = n
+    fromBndr (TH.KindedTV n _) = n
