@@ -1,20 +1,24 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators #-}
 -- Test that inline-java produces code without warnings.
 {-# OPTIONS_GHC -Wall -Werror #-}
 
 module Language.Java.InlineSpec(spec) where
 
 import Data.Int
-import Foreign.JNI.Types (JObject)
+import Foreign.JNI.Types (JObject, type (<>))
 import Language.Java
 import Language.Java.Inline
 import Test.Hspec
 
 type ObjectClass = 'Class "java.lang.Object"
+type ListClass = 'Class "java.util.List"
 
 type JJObject = JObject
+type List a = J (ListClass <> '[a])
 
 spec :: Spec
 spec = do
@@ -50,6 +54,11 @@ spec = do
           obj <- [java| new Object() {} |]
           let obj1 = obj :: JJObject
           _ :: JJObject <- [java| $obj1 |]
+          return ()
+
+        it "Supports parameterized type synonyms" $ do
+          obj :: List ObjectClass <- [java| new Object() {} |]
+          _ :: List ObjectClass <- [java| $obj |]
           return ()
 
       it "Supports multiple antiquotation variables" $ do
