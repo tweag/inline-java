@@ -163,7 +163,9 @@ abstract mname retty vtys block =
     Java.MethodDecl [Java.Public, Java.Static] [] retty mname params [] body
   where
     body = Java.MethodBody (Just block)
-    params = [ Java.FormalParam [] ty False (Java.VarId v) | (v, ty) <- vtys ]
+    params = [ Java.FormalParam [Java.Final] ty False (Java.VarId v)
+             | (v, ty) <- vtys
+             ]
 
 -- | Decode a TH 'Type' into a 'JType'. So named because it's morally the
 -- inverse of 'Language.Haskell.TH.Syntax.lift'.

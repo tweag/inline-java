@@ -80,3 +80,8 @@ spec = do
 
       it "Supports multiple anonymous classes" $ do
         ([java| new Object() {}.equals(new Object() {}) |] >>= reify) `shouldReturn` False
+
+      it "Supports using antiquotation variables in inner classes" $ do
+        let foo = 1 :: Int32
+        ([java| { class Foo { int f() { return $foo; } }; return 1; } |]
+          >>= reify) `shouldReturn` (1 :: Int32)
