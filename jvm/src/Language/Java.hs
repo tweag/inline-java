@@ -658,16 +658,11 @@ withStatic [d|
 
   instance Reflect a ty => Reflect [a] ('Array ty) where
     reflect xs = do
-      let klass = unsafeDupablePerformIO $ do
-                    lk <- findClass (referenceTypeName (sing :: Sing ty))
-                    gk <- newGlobalRef lk
-                    deleteLocalRef lk
-                    return gk
       let n = fromIntegral (length xs)
-      array <- newObjectArray n klass
+      array <- newArray n :: IO (J ('Array ty))
       forM_ (zip [0..n-1] xs) $ \(i, x) -> do
         jx <- reflect x
-        setObjectArrayElement array i jx
+        setObjectArrayElement (unsafeCast array) i jx
         deleteLocalRef jx
-      return (unsafeCast array)
+      return array
   |]
