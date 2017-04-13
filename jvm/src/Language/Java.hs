@@ -192,7 +192,7 @@ instance Coercible (Choice.Choice a) ('Prim "boolean") where
 
 -- | Get the Java class of an object or anything 'Coercible' to one.
 classOf :: forall a sym. (Coercible a ('Class sym), KnownSymbol sym) => a -> JNI.String
-classOf _ = JNI.fromChars (symbolVal (Proxy :: Proxy sym))
+classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
