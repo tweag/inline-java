@@ -48,6 +48,7 @@
 
 module Language.Java.Inline
   ( java
+  , loadJavaWrappers
   ) where
 
 import Control.Monad (forM_, unless, when)
@@ -318,7 +319,7 @@ embedAsBytecode pkg name unit = do
         ]
 
 -- | Idempotent action that loads all wrappers in every module of the current
--- program into the JVM.
+-- program into the JVM. You shouldn't need to call this yourself.
 loadJavaWrappers :: IO ()
 loadJavaWrappers = doit `seq` return ()
   where
