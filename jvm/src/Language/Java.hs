@@ -57,6 +57,7 @@ module Language.Java
   , callStatic
   , getStaticField
   , jvalue
+  , jobject
   , CoercionFailure(..)
   , Coercible(..)
   , Reify(..)
