@@ -57,6 +57,7 @@ module Language.Java
   , callStatic
   , getStaticField
   , jvalue
+  , jobject
   , CoercionFailure(..)
   , Coercible(..)
   , Reify(..)
@@ -364,6 +365,13 @@ getStaticField cname fname = do
 jvalue :: Coercible a ty => a -> JValue
 jvalue = coerce
 
+-- | If @ty@ is a reference type, then it should be possible to get an object
+-- from a value.
+jobject :: (Coercible a ty, IsReferenceType ty) => a -> J ty
+jobject x
+  | JObject jobj <- coerce x = unsafeCast jobj
+  | otherwise = error "impossible"
+
 -- | Classifies Java types according to whether they are base types (data) or
 -- higher-order types (objects representing functions).
 data Type a
@@ -407,6 +415,9 @@ class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
       => Reify a ty where
   reify :: J ty -> IO a
 
+  default reify :: Coercible a ty => J ty -> IO a
+  reify x = (unsafeUncoerce . JObject) <$> newGlobalRef x
+
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
 -- say, marshall a Haskell value to a Java object. Unlike coercing, in general
 -- reflection induces allocations and copies.
@@ -415,6 +426,9 @@ class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
 class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
       => Reflect a ty where
   reflect :: a -> IO (J ty)
+
+  default reflect :: Coercible a ty => a -> IO (J ty)
+  reflect x = newLocalRef (jobject x)
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 reifyMVector
