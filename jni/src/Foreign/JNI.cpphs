@@ -184,7 +184,6 @@ import Data.TLS.PThread
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
   ( finalizeForeignPtr
-  , newForeignPtr_
   , withForeignPtr
   )
 import Foreign.JNI.NativeMethod
@@ -218,9 +217,6 @@ data ArrayCopyFailed = ArrayCopyFailed
   deriving (Show, Typeable)
 
 instance Exception ArrayCopyFailed
-
-objectFromPtr :: Ptr (J a) -> IO (J a)
-objectFromPtr ptr = J <$> newForeignPtr_ ptr
 
 -- | Map Java exceptions to Haskell exceptions.
 throwIfException :: Ptr JNIEnv -> IO a -> IO a
