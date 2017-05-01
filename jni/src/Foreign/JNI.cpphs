@@ -229,9 +229,6 @@ data ArrayCopyFailed = ArrayCopyFailed
 
 instance Exception ArrayCopyFailed
 
-objectFromPtr :: Ptr (J a) -> IO (J a)
-objectFromPtr ptr = J <$> newForeignPtr_ ptr
-
 -- | Map Java exceptions to Haskell exceptions.
 throwIfException :: Ptr JNIEnv -> IO a -> IO a
 throwIfException env m = m `finally` do
