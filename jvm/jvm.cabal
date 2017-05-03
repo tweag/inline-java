@@ -1,5 +1,5 @@
 name:                jvm
-version:             0.2.0
+version:             0.2.2
 synopsis:            Call JVM methods from Haskell.
 description:         Please see README.md.
 homepage:            http://github.com/tweag/inline-java/tree/master/jvm#readme
