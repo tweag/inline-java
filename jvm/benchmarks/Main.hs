@@ -7,12 +7,13 @@
 module Main where
 
 import Data.Int
+import Data.Singletons (SomeSing(..))
 import Language.Java
 import Foreign.JNI
 import Criterion.Main as Criterion
 
 jabs :: Int32 -> IO Int32
-jabs x = callStatic (sing :: Sing "java.lang.Math") "abs" [coerce x]
+jabs x = callStatic "java.lang.Math" "abs" [coerce x]
 
 jniAbs :: JClass -> JMethodID -> Int32 -> IO Int32
 jniAbs klass method x = callStaticIntMethod klass method [coerce x]
@@ -35,8 +36,8 @@ foreign import ccall unsafe getpid :: IO Int
 
 main :: IO ()
 main = withJVM [] $ do
-    klass <- findClass "java/lang/Math"
-    method <- getStaticMethodID klass "abs" "(I)I"
+    klass <- findClass (referenceTypeName (SClass "java/lang/Math"))
+    method <- getStaticMethodID klass "abs" (methodSignature [SomeSing (sing :: Sing ('Prim "int"))] (SPrim "int"))
     Criterion.defaultMain
       [ bgroup "Java calls"
         [ bench "static method call: unboxed single arg / unboxed return" $ nfIO $ jabs 1

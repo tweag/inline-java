@@ -61,6 +61,7 @@ benchmark micro-benchmarks
     base >= 4.8 && < 5,
     criterion,
     jni,
-    jvm
+    jvm,
+    singletons
   default-language: Haskell2010
   ghc-options: -threaded
