@@ -9,11 +9,11 @@ build:
   - script:
       name: Dependencies
       code: |
-        stack --no-terminal build --only-snapshot --prefetch --test
+        stack --no-terminal build --only-snapshot --prefetch --test --bench
   - script:
       name: Project
       code: |
-        stack --no-terminal build --pedantic --test --no-run-tests
+        stack --no-terminal build --pedantic --test --bench --no-run-tests --no-run-benchmarks
   - script:
       name: Tests
       code: |
