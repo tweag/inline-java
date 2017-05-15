@@ -10,7 +10,10 @@ import Control.DeepSeq (NFData(..))
 import Criterion.Main as Criterion
 import Data.Int
 import Data.Singletons (SomeSing(..))
+import qualified Foreign.Concurrent as Concurrent
+import qualified Foreign.ForeignPtr as ForeignPtr
 import Foreign.JNI
+import Foreign.Marshal.Alloc (mallocBytes, finalizerFree)
 import Language.Java
 
 newtype BoxObject = BoxObject JObject
@@ -64,6 +67,30 @@ benchCalls =
       method <- getStaticMethodID klass "abs" (methodSignature [SomeSing (sing :: Sing ('Prim "int"))] (SPrim "int"))
       return (BoxClass klass, method)
 
+benchRefs :: Benchmark
+benchRefs =
+    env (BoxObject <$> new []) $ \ ~(BoxObject jobj) ->
+    bgroup "References"
+    [ bench "local reference" $ nfIO $ do
+        _ <- newLocalRef jobj
+        return ()
+    , bench "global reference" $ nfIO $ do
+        _ <- newGlobalRef jobj
+        return ()
+    ,  bench "global reference (no finalizer)" $ nfIO $ do
+        _ <- newGlobalRefNonFinalized jobj
+        return ()
+    , bench "Foreign.Concurrent.newForeignPtr" $ nfIO $ do
+        _ <- Concurrent.newForeignPtr (unsafeObjectToPtr jobj) (return ())
+        return ()
+    , bench "Foreign.ForeignPtr.newForeignPtr" $ nfIO $ do
+        -- Approximate cost of malloc: 50ns. Ideally would move out of benchmark
+        -- but finalizer not idempotent.
+        ptr <- mallocBytes 4
+        _ <- ForeignPtr.newForeignPtr finalizerFree ptr
+        return ()
+    ]
+
 main :: IO ()
 main = withJVM [] $ do
-    Criterion.defaultMain [benchCalls]
+    Criterion.defaultMain [benchCalls, benchRefs]
