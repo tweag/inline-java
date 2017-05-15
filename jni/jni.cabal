@@ -38,6 +38,7 @@ library
     choice >= 0.2.0,
     containers >=0.5,
     constraints >=0.8,
+    deepseq >= 1.4.2,
     inline-c >=0.5.6.1,
     singletons >= 2.0,
     thread-local-storage >=0.1

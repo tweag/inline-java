@@ -66,6 +66,7 @@ module Foreign.JNI.Types
   , jniCtx
   ) where
 
+import Control.DeepSeq (NFData)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Builder as Builder
 import qualified Data.ByteString.Builder.Prim as Prim
@@ -107,19 +108,19 @@ import System.IO.Unsafe (unsafePerformIO)
 
 -- | A JVM instance.
 newtype JVM = JVM_ (Ptr JVM)
-  deriving (Eq, Show, Storable)
+  deriving (Eq, Show, Storable, NFData)
 
 -- | The thread-local JNI context. Do not share this object between threads.
 newtype JNIEnv = JNIEnv_ (Ptr JNIEnv)
-  deriving (Eq, Show, Storable)
+  deriving (Eq, Show, Storable, NFData)
 
 -- | A thread-local reference to a field of an object.
 newtype JFieldID = JFieldID_ (Ptr JFieldID)
-  deriving (Eq, Show, Storable)
+  deriving (Eq, Show, Storable, NFData)
 
 -- | A thread-local reference to a method of an object.
 newtype JMethodID = JMethodID_ (Ptr JMethodID)
-  deriving (Eq, Show, Storable)
+  deriving (Eq, Show, Storable, NFData)
 
 -- | Not part of the JNI. The kind of 'J' type indices. Useful to reflect the
 -- object's class at the type-level.
