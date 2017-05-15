@@ -6,11 +6,20 @@
 
 module Main where
 
+import Control.DeepSeq (NFData(..))
+import Criterion.Main as Criterion
 import Data.Int
 import Data.Singletons (SomeSing(..))
-import Language.Java
 import Foreign.JNI
-import Criterion.Main as Criterion
+import Language.Java
+
+newtype BoxObject = BoxObject JObject
+newtype BoxClass = BoxClass JClass
+
+-- Not much sense in deepseq'ing foreign pointers. But needed for call to 'env'
+-- below.
+instance NFData BoxObject where rnf (BoxObject (J fptr)) = fptr `seq` ()
+instance NFData BoxClass where rnf (BoxClass (J fptr)) = fptr `seq` ()
 
 jabs :: Int32 -> IO Int32
 jabs x = callStatic "java.lang.Math" "abs" [coerce x]
@@ -34,11 +43,10 @@ incrHaskell x = return (x + 1)
 
 foreign import ccall unsafe getpid :: IO Int
 
-main :: IO ()
-main = withJVM [] $ do
-    klass <- findClass (referenceTypeName (SClass "java/lang/Math"))
-    method <- getStaticMethodID klass "abs" (methodSignature [SomeSing (sing :: Sing ('Prim "int"))] (SPrim "int"))
-    Criterion.defaultMain
+benchCalls :: Benchmark
+benchCalls =
+    env ini $ \ ~(BoxClass klass, method) ->
+      bgroup "Calls"
       [ bgroup "Java calls"
         [ bench "static method call: unboxed single arg / unboxed return" $ nfIO $ jabs 1
         , bench "jni static method call: unboxed single arg / unboxed return" $ nfIO $ jniAbs klass method 1
@@ -50,3 +58,12 @@ main = withJVM [] $ do
         , bench "ffi haskell" $ nfIO $ getpid
         ]
       ]
+  where
+    ini = do
+      klass <- findClass (referenceTypeName (SClass "java/lang/Math"))
+      method <- getStaticMethodID klass "abs" (methodSignature [SomeSing (sing :: Sing ('Prim "int"))] (SPrim "int"))
+      return (BoxClass klass, method)
+
+main :: IO ()
+main = withJVM [] $ do
+    Criterion.defaultMain [benchCalls]
