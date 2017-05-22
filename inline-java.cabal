@@ -26,6 +26,8 @@ library
   exposed-modules:
     Language.Java.Inline
     Language.Java.Inline.Cabal
+  other-modules:
+    Language.Java.Inline.Magic
   build-depends:
     -- Can't build at all with GHC < 8.0.2.
     base > 4.9.0.0 && < 5,
@@ -36,7 +38,7 @@ library
     directory >=1.2,
     distributed-closure >=0.3,
     filepath >= 1,
-    ghc-heap-view >= 0.5,
+    ghc-prim >= 0.5,
     inline-c >=0.5,
     jni >= 0.3,
     jvm >= 0.2,
