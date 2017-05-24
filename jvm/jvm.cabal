@@ -29,6 +29,7 @@ library
     constraints >= 0.8,
     choice >= 0.1,
     distributed-closure >=0.3,
+    exceptions >= 0.8,
     jni >= 0.3.0,
     singletons >= 2.0,
     template-haskell >= 2.10,
