@@ -49,22 +49,27 @@
 
 module Language.Java
   ( module Foreign.JNI.Types
+  -- * JVM instance management
   , withJVM
+  -- * JVM calls
   , classOf
   , new
   , newArray
   , call
   , callStatic
   , getStaticField
-  , jvalue
-  , jobject
+  -- * Coercions
   , CoercionFailure(..)
   , Coercible(..)
+  , jvalue
+  , jobject
+  -- * Conversions
   , Reify(..)
   , Reflect(..)
   , Type(..)
   , Uncurry
   , Interp
+  -- * Re-exports
   , sing
   ) where
 
