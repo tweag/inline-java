@@ -2,6 +2,7 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 -- Test that inline-java produces code without warnings.
 {-# OPTIONS_GHC -Wall -Werror #-}
@@ -19,6 +20,8 @@ type ListClass = 'Class "java.util.List"
 
 type JJObject = JObject
 type List a = J (ListClass <> '[a])
+
+imports "java.util.*"
 
 spec :: Spec
 spec = do
@@ -85,3 +88,8 @@ spec = do
         let foo = 1 :: Int32
         ([java| { class Foo { int f() { return $foo; } }; return 1; } |]
           >>= reify) `shouldReturn` (1 :: Int32)
+
+      it "Supports import declarations" $ do
+        -- Arrays comes from the java.util package.
+        _ <- [java| Arrays.asList() |] :: IO JObjectArray
+        return ()
