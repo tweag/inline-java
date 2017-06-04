@@ -211,6 +211,7 @@ import Prelude hiding (String)
 C.context (C.baseCtx <> C.bsCtx <> jniCtx)
 
 C.include "<jni.h>"
+C.include "<stdio.h>"
 C.include "<errno.h>"
 C.include "<stdlib.h>"
 
