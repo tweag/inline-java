@@ -20,11 +20,17 @@ source-repository head
   location: https://github.com/tweag/inline-java
   subdir: jni
 
+flag ljvm
+  description: Needs -ljvm?
+  default: True
+  manual: True
+
 library
   hs-source-dirs: src
   c-sources: src/Foreign/JNI.c
   cc-options: -std=c11
-  extra-libraries: jvm
+  if flag(ljvm)
+    extra-libraries: jvm
   exposed-modules:
     Foreign.JNI
     Foreign.JNI.Types
