@@ -48,6 +48,7 @@
 
 module Language.Java.Inline
   ( java
+  , imports
   , loadJavaWrappers
   ) where
 
@@ -71,6 +72,7 @@ import GHC.StaticPtr
   , unsafeLookupStaticPtr
   )
 import Language.Java
+import qualified Language.Java.Lexer as Java
 import qualified Language.Java.Parser as Java
 import qualified Language.Java.Pretty as Java
 import qualified Language.Java.Syntax as Java
@@ -78,6 +80,7 @@ import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH (Q)
+import Text.Parsec ( runParser )
 import System.FilePath ((</>), (<.>))
 import System.Directory (listDirectory)
 import System.IO.Temp (withSystemTempDirectory)
@@ -211,8 +214,9 @@ makeCompilationUnit
   -> [Java.ImportDecl]
   -> Java.ClassDecl
   -> Java.CompilationUnit
-makeCompilationUnit pkgname imports cls =
-    Java.CompilationUnit (Just (Java.PackageDecl pkgname)) imports [Java.ClassTypeDecl cls]
+makeCompilationUnit pkgname importDecls cls =
+    Java.CompilationUnit
+      (Just (Java.PackageDecl pkgname)) importDecls [Java.ClassTypeDecl cls]
 
 makeClass :: Java.Ident -> [Java.MemberDecl] -> Java.ClassDecl
 makeClass cname methods =
@@ -232,10 +236,11 @@ emit file cdecl = writeFile file (Java.prettyPrint cdecl)
 data FinalizerState = FinalizerState
   { finalizerCount :: Int
   , wrappers :: [Java.MemberDecl]
+  , importList :: [Java.ImportDecl]
   }
 
 initialFinalizerState :: FinalizerState
-initialFinalizerState = FinalizerState 0 []
+initialFinalizerState = FinalizerState 0 [] []
 
 getFinalizerState :: Q FinalizerState
 getFinalizerState = TH.getQ >>= \case
@@ -246,6 +251,22 @@ getFinalizerState = TH.getQ >>= \case
 
 setFinalizerState :: FinalizerState -> Q ()
 setFinalizerState = TH.putQ
+
+-- | Declares /import/ statements to be included in the java compilation unit.
+-- e.g.
+--
+-- > imports "java.util.*"
+--
+imports :: String -> Q [TH.Dec]
+imports imp = do
+    FinalizerState {..} <- getFinalizerState
+    case runParser Java.importDecl () "" $
+           Java.lexer ("import " ++ imp ++ ";") of
+      Left err ->
+        fail $ "imports: " ++ show err
+      Right decl ->
+        setFinalizerState FinalizerState {importList = decl : importList, ..}
+    return []
 
 incrementFinalizerCount :: Q ()
 incrementFinalizerCount =
@@ -273,11 +294,11 @@ pushWrapperGen gen = do
       pushWrapper =<< gen
       isLastFinalizer >>= \case
         True -> do
-          FinalizerState{wrappers} <- getFinalizerState
+          FinalizerState{wrappers, importList} <- getFinalizerState
           thismod <- TH.thisModule
           unless (null wrappers) $ do
             embedAsBytecode "io.tweag.inlinejava" (mangle thismod) $
-              makeCompilationUnit pkgname [] $
+              makeCompilationUnit pkgname importList $
                 makeClass (Java.Ident (mangle thismod)) wrappers
         False -> return ()
   where
