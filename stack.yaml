@@ -15,6 +15,3 @@ docker:
   enable: false
   image: tweag/inline-java
   stack-exe: image
-
-explicit-setup-deps:
-  classpath: true
