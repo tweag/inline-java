@@ -1,4 +1,4 @@
-resolver: lts-8.5
+resolver: lts-8.18
 
 packages:
 - .
@@ -6,13 +6,6 @@ packages:
 - jvm
 - jvm-streaming
 - examples/classpath
-
-extra-deps:
-- choice-0.2.0
-- inline-c-0.5.6.1
-- thread-local-storage-0.1.1
-
-skip-ghc-check: true
 
 nix:
   # Requires Stack >= 1.2.
