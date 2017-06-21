@@ -330,10 +330,11 @@ loadJavaWrappers :: IO ()
 loadJavaWrappers = doit `seq` return ()
   where
     {-# NOINLINE doit #-}
-    doit = unsafePerformIO $ do
+    doit = unsafePerformIO $ push $ do
       keys <- staticPtrKeys
-      loader :: J ('Class "java.lang.ClassLoader") <-
-        callStatic "java.lang.ClassLoader" "getSystemClassLoader" []
+      loader :: J ('Class "java.lang.ClassLoader") <- do
+        thr <- callStatic "java.lang.Thread" "currentThread" []
+        call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" []
       forM_ keys $ \key -> do
         Just clsPtr <- unsafeLookupStaticPtr key
         when (isDotClassStaticKey clsPtr) $ do
@@ -344,6 +345,7 @@ loadJavaWrappers = doit `seq` return ()
               loader
               (classBytecode dc)
           return ()
+      pop
 
 mangle :: TH.Module -> String
 mangle (TH.Module (TH.PkgName pkgname) (TH.ModName mname)) =
