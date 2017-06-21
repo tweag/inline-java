@@ -7,12 +7,12 @@ jobs:
     steps:
     - checkout
     - restore_cache:
-        key: stack-dependencies
+        key: inline-java-stack-dependencies
     - run:
         name: build dependencies
         command: stack --no-terminal build --only-dependencies --prefetch --test --bench
     - save_cache:
-        key: stack-dependencies
+        key: inline-java-stack-dependencies
         paths:
         - ~/.stack
     - run:
