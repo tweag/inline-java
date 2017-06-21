@@ -1,6 +1,6 @@
 # inline-java: Call any JVM function from Haskell
 
-[![wercker status](https://app.wercker.com/status/dfeba78838cc77d4c5e06eedc5c0833d/s/master "wercker status")](https://app.wercker.com/project/byKey/dfeba78838cc77d4c5e06eedc5c0833d)
+[![CircleCI](https://circleci.com/gh/tweag/inline-java.svg?style=svg)](https://circleci.com/gh/tweag/inline-java)
 
 **NOTE: you'll need GHC >= 8.0.2 to compile and use this package.**
 
