@@ -56,15 +56,12 @@ import Control.Monad (forM_, unless, when)
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (isAlphaNum)
 import Data.Generics (everything, everywhere, gmapM, mkM, mkQ, mkT)
-import Data.List (intercalate, isPrefixOf, isSuffixOf, lookup, nub)
-import Data.Maybe (fromJust)
+import Data.List (isPrefixOf, intercalate, isSuffixOf, lookup, nub)
 import Data.Singletons (SomeSing(..))
 import Data.Singletons.Prelude.List (Sing(..))
 import Data.String (fromString)
 import Data.Traversable (forM)
 import Foreign.JNI (defineClass)
-import GHC.Exts (Any)
-import qualified GHC.HeapView as HeapView
 import GHC.StaticPtr
   ( StaticPtr
   , deRefStaticPtr
@@ -73,6 +70,7 @@ import GHC.StaticPtr
   )
 import Language.Java
 import qualified Language.Java.Lexer as Java
+import Language.Java.Inline.Magic
 import qualified Language.Java.Parser as Java
 import qualified Language.Java.Pretty as Java
 import qualified Language.Java.Syntax as Java
@@ -304,19 +302,6 @@ pushWrapperGen gen = do
   where
     pkgname = Java.Name $ map Java.Ident ["io", "tweag", "inlinejava"]
 
--- | A wrapper for class bytecode.
-data DotClass = DotClass
-  { className :: String
-  , classBytecode :: BS.ByteString
-  }
-
-instance TH.Lift DotClass where
-  lift DotClass{..} =
-      [| DotClass
-           $(TH.lift className)
-           (BS.pack $(TH.lift (BS.unpack classBytecode)))
-       |]
-
 embedAsBytecode :: String -> String -> Java.CompilationUnit -> Q ()
 embedAsBytecode pkg name unit = do
   dcs <- TH.runIO $ do
@@ -330,7 +315,7 @@ embedAsBytecode pkg name unit = do
         bcode <- BS.readFile (dir </> classFile)
         -- Strip the .class suffix.
         let klass = pkg ++ "." ++ takeWhile (/= '.') classFile
-        return $ DotClass klass bcode
+        return $ mkDotClass klass bcode
   forM_ (zip dcs [(0 :: Int)..]) $ \(dc, i) -> do
     ptr <- TH.newName $ "_inlinejava__bytecode" ++ show i
     TH.addTopDecls =<<
@@ -350,21 +335,15 @@ loadJavaWrappers = doit `seq` return ()
       loader :: J ('Class "java.lang.ClassLoader") <-
         callStatic "java.lang.ClassLoader" "getSystemClassLoader" []
       forM_ keys $ \key -> do
-        sptr :: StaticPtr Any <- fromJust <$> unsafeLookupStaticPtr key
-        let !x = deRefStaticPtr sptr
-        HeapView.getClosureData x >>= \case
-          HeapView.ConsClosure{..}
-            | "inline-java" `isPrefixOf` pkg
-            , intercalate "." [modl, name] == show 'DotClass -> do
-                clsPtr <- fromJust <$> unsafeLookupStaticPtr key
-                let DotClass clsname bcode = deRefStaticPtr clsPtr
-                _ <-
-                  defineClass
-                   (referenceTypeName (SClass clsname))
-                   loader
-                   bcode
-                return ()
-          _ -> return ()
+        Just clsPtr <- unsafeLookupStaticPtr key
+        when (isDotClassStaticKey clsPtr) $ do
+          let dc = deRefStaticPtr clsPtr
+          _ <-
+            defineClass
+              (referenceTypeName (SClass (className dc)))
+              loader
+              (classBytecode dc)
+          return ()
 
 mangle :: TH.Module -> String
 mangle (TH.Module (TH.PkgName pkgname) (TH.ModName mname)) =
