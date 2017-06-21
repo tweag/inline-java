@@ -39,6 +39,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
@@ -58,6 +60,13 @@ module Language.Java
   , call
   , callStatic
   , getStaticField
+  -- * Reference management
+  , push
+  , pushWithSizeHint
+  , Pop(..)
+  , pop
+  , popWithObject
+  , popWithValue
   -- * Coercions
   , CoercionFailure(..)
   , Coercible(..)
@@ -77,6 +86,8 @@ import Control.Distributed.Closure
 import Control.Distributed.Closure.TH
 import Control.Exception (Exception, throw, finally)
 import Control.Monad
+import Control.Monad.Catch (MonadCatch, onException)
+import Control.Monad.IO.Class
 import Data.Char (chr, ord)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
@@ -105,6 +116,47 @@ import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import GHC.TypeLits (KnownSymbol, symbolVal)
 import System.IO.Unsafe (unsafeDupablePerformIO)
+
+data Pop a where
+  PopValue :: a -> Pop a
+  PopObject
+    :: (Coercible a ty, Coerce.Coercible a (J ty), IsReferenceType ty)
+    => a
+    -> Pop a
+
+-- | Open a new scope for allocating (JNI) local references to JVM objects.
+push :: (MonadCatch m, MonadIO m) => m (Pop a) -> m a
+push = pushWithSizeHint 4
+
+-- | Like 'push', but specify explicitly a minimum size for the frame. You
+-- probably don't need this.
+pushWithSizeHint :: forall a m. (MonadCatch m, MonadIO m) => Int32 -> m (Pop a) -> m a
+pushWithSizeHint capacity m = do
+    liftIO $ pushLocalFrame capacity
+    m `onException` handler >>= \case
+      PopValue x -> do
+        _ <- liftIO $ popLocalFrame jnull
+        return x
+      PopObject x -> do
+        liftIO $ Coerce.coerce <$> popLocalFrame (jobject x)
+  where
+    handler = liftIO $ popLocalFrame jnull
+
+-- | Equivalent to 'popWithValue ()'.
+pop :: Monad m => m (Pop ())
+pop = return (PopValue ())
+
+-- | Pop a frame and return a JVM object.
+popWithObject
+  :: (Coercible a ty, Coerce.Coercible a (J ty), IsReferenceType ty, Monad m)
+  => a
+  -> m (Pop a)
+popWithObject x = return (PopObject x)
+
+-- | Pop a frame and return a value. This value MUST NOT be an object reference
+-- created in the popped frame. In that case use 'popWithObject' instead.
+popWithValue :: Monad m => a -> m (Pop a)
+popWithValue x = return (PopValue x)
 
 -- Note [Class lookup memoization]
 --
