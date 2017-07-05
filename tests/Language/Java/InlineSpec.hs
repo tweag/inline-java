@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 -- Test that inline-java produces code without warnings.
 {-# OPTIONS_GHC -Wall -Werror #-}
 

@@ -25,6 +25,7 @@ Graphical Hello World using Java Swing:
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 module Main where
 
 import Data.Int

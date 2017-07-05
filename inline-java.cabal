@@ -23,9 +23,15 @@ source-repository head
 
 library
   hs-source-dirs: src
+  c-sources: cbits/bctable.c
+  cc-options: -std=c99 -Wall -Werror
+  include-dirs: cbits/
+  includes: bctable.h
+  install-includes: bctable.h
   exposed-modules:
     Language.Java.Inline
     Language.Java.Inline.Cabal
+    Language.Java.Inline.Plugin
   other-modules:
     Language.Java.Inline.Magic
   build-depends:
@@ -38,6 +44,7 @@ library
     directory >=1.2,
     distributed-closure >=0.3,
     filepath >= 1,
+    ghc,
     ghc-prim >= 0.5,
     inline-c >=0.5,
     jni >= 0.3,

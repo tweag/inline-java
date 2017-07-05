@@ -12,6 +12,7 @@
 -- @
 -- {&#45;\# LANGUAGE DataKinds \#&#45;}
 -- {&#45;\# LANGUAGE QuasiQuotes \#&#45;}
+-- {&#45;\# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin \#&#45;}
 -- module Object where
 --
 -- import Language.Java as J
@@ -41,7 +42,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StaticPointers #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -53,24 +53,21 @@ module Language.Java.Inline
   ) where
 
 import Control.Monad (forM_, unless, when)
-import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString as BS
 import Data.Char (isAlphaNum)
+import Data.Data
 import Data.Generics (everything, everywhere, gmapM, mkM, mkQ, mkT)
 import Data.List (isPrefixOf, intercalate, isSuffixOf, lookup, nub)
 import Data.Singletons (SomeSing(..))
 import Data.Singletons.Prelude.List (Sing(..))
 import Data.String (fromString)
 import Data.Traversable (forM)
+import Data.Typeable
+import Data.Word (Word8)
 import Foreign.JNI (defineClass)
-import GHC.StaticPtr
-  ( StaticPtr
-  , deRefStaticPtr
-  , staticPtrKeys
-  , unsafeLookupStaticPtr
-  )
 import Language.Java
-import qualified Language.Java.Lexer as Java
 import Language.Java.Inline.Magic
+import qualified Language.Java.Lexer as Java
 import qualified Language.Java.Parser as Java
 import qualified Language.Java.Pretty as Java
 import qualified Language.Java.Syntax as Java
@@ -315,14 +312,12 @@ embedAsBytecode pkg name unit = do
         bcode <- BS.readFile (dir </> classFile)
         -- Strip the .class suffix.
         let klass = pkg ++ "." ++ takeWhile (/= '.') classFile
-        return $ mkDotClass klass bcode
-  forM_ (zip dcs [(0 :: Int)..]) $ \(dc, i) -> do
-    ptr <- TH.newName $ "_inlinejava__bytecode" ++ show i
-    TH.addTopDecls =<<
-      sequence
-        [ TH.sigD ptr [t| StaticPtr DotClass |]
-        , TH.valD (TH.varP ptr) (TH.normalB [| static $(TH.lift dc) |]) []
-        ]
+        return $ DotClass klass (BS.unpack bcode)
+  tBC <- [t| [DotClass] |]
+  expBC <- TH.lift dcs
+  TH.addTopDecls
+      -- {-# ANN module (dcs :: [DotClass]) #-}
+      [ TH.PragmaD $ TH.AnnP TH.ModuleAnnotation (TH.SigE expBC tBC) ]
 
 -- | Idempotent action that loads all wrappers in every module of the current
 -- program into the JVM. You shouldn't need to call this yourself.
@@ -331,20 +326,12 @@ loadJavaWrappers = doit `seq` return ()
   where
     {-# NOINLINE doit #-}
     doit = unsafePerformIO $ push $ do
-      keys <- staticPtrKeys
       loader :: J ('Class "java.lang.ClassLoader") <- do
         thr <- callStatic "java.lang.Thread" "currentThread" []
         call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" []
-      forM_ keys $ \key -> do
-        Just clsPtr <- unsafeLookupStaticPtr key
-        when (isDotClassStaticKey clsPtr) $ do
-          let dc = deRefStaticPtr clsPtr
-          _ <-
-            defineClass
-              (referenceTypeName (SClass (className dc)))
-              loader
-              (classBytecode dc)
-          return ()
+      forEachDotClass $ \name bc -> do
+        defineClass (referenceTypeName (SClass name)) loader bc
+        return ()
       pop
 
 mangle :: TH.Module -> String
