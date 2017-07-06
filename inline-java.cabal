@@ -50,6 +50,7 @@ library
     jni >= 0.3,
     jvm >= 0.2,
     language-java >= 0.2,
+    mtl >= 2.2.1,
     parsec >= 3.1.11,
     process >= 1.2,
     singletons >= 2.0,

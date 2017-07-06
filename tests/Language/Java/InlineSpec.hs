@@ -5,8 +5,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
--- Test that inline-java produces code without warnings.
-{-# OPTIONS_GHC -Wall -Werror #-}
+-- Test that inline-java produces code without warnings or errors.
+{-# OPTIONS_GHC -dcore-lint -Wall -Werror #-}
 
 module Language.Java.InlineSpec(spec) where
 
@@ -17,7 +17,7 @@ import Language.Java.Inline
 import Test.Hspec
 
 type ObjectClass = 'Class "java.lang.Object"
-type ListClass = 'Class "java.util.List"
+type ListClass = 'Iface "java.util.List"
 
 type JJObject = JObject
 type List a = J (ListClass <> '[a])
@@ -61,7 +61,7 @@ spec = do
           return ()
 
         it "Supports parameterized type synonyms" $ do
-          obj :: List ObjectClass <- [java| new Object() {} |]
+          obj :: List ObjectClass <- [java| new ArrayList() |]
           _ :: List ObjectClass <- [java| $obj |]
           return ()
 
@@ -92,5 +92,5 @@ spec = do
 
       it "Supports import declarations" $ do
         -- Arrays comes from the java.util package.
-        _ <- [java| Arrays.asList() |] :: IO JObjectArray
+        _ <- [java| Arrays.asList().toArray() |] :: IO JObjectArray
         return ()
