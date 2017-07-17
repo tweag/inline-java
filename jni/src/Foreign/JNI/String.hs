@@ -23,6 +23,7 @@ module Foreign.JNI.String
   ) where
 
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Internal as BS
 import qualified Data.ByteString.Unsafe as BS
 import Data.ByteString (ByteString)
 import Data.String (IsString(..))
@@ -33,6 +34,7 @@ import System.IO.Unsafe (unsafeDupablePerformIO)
 import qualified Prelude
 import Prelude hiding (String)
 
+-- A JNI string is represented as a NUL terminated bytestring in UTF-8 encoding.
 newtype String = String ByteString
   deriving (Eq, Ord)
 
@@ -44,8 +46,11 @@ instance IsString String where
 
 fromChars :: Prelude.String -> String
 {-# INLINE [0] fromChars #-}
-fromChars str = unsafeDupablePerformIO $ do
-    String <$> (BS.unsafePackCString =<< GHC.newCString GHC.utf8 str)
+fromChars str = unsafeDupablePerformIO $
+    GHC.withCString GHC.utf8 str $ \cstr -> do
+      -- we need to copy the trailing NUL
+      len <- BS.c_strlen cstr
+      String <$> BS.packCStringLen (cstr, fromIntegral len + 1)
 
 toChars :: String -> Prelude.String
 toChars (String bs) = unsafeDupablePerformIO $ BS.unsafeUseAsCString bs $ GHC.peekCString GHC.utf8
@@ -53,8 +58,9 @@ toChars (String bs) = unsafeDupablePerformIO $ BS.unsafeUseAsCString bs $ GHC.pe
 withString :: String -> (CString -> IO a) -> IO a
 withString (String bs) f = BS.unsafeUseAsCString bs f
 
+-- Discards the trailing NUL.
 toByteString :: String -> ByteString
-toByteString (String bs) = bs
+toByteString (String bs) = BS.init bs
 
 -- | O(1) if the input is null-terminated. Otherwise the input is copied into
 -- a null-terminated buffer first.
