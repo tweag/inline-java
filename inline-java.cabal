@@ -37,29 +37,19 @@ library
   build-depends:
     -- Can't build at all with GHC < 8.0.2.
     base > 4.9.0.0 && < 5,
-    binary >=0.7,
     bytestring >=0.10,
     Cabal >= 1.24.2,
-    containers >=0.5,
     directory >=1.2,
-    distributed-closure >=0.3,
     filepath >= 1,
     ghc,
-    ghc-prim >= 0.5,
-    inline-c >=0.5,
     jni >= 0.3,
     jvm >= 0.2,
     language-java >= 0.2,
     mtl >= 2.2.1,
-    parsec >= 3.1.11,
     process >= 1.2,
-    singletons >= 2.0,
-    syb >= 0.6,
     text >=1.2,
     template-haskell >= 2.10,
-    temporary >= 1.2,
-    thread-local-storage >=0.1,
-    vector >=0.11
+    temporary >= 1.2
   default-language: Haskell2010
 
 test-suite spec
@@ -72,11 +62,9 @@ test-suite spec
     Language.Java.InlineSpec
   build-depends:
     base,
-    bytestring,
     jni,
     jvm,
     hspec,
     inline-java,
-    singletons,
     text
   default-language: Haskell2010
