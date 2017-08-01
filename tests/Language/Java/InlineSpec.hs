@@ -94,3 +94,10 @@ spec = do
         -- Arrays comes from the java.util package.
         _ <- [java| Arrays.asList().toArray() |] :: IO JObjectArray
         return ()
+
+      it "Supports anonymous functions" $ do
+        [java| {
+          List<Integer> xs = Arrays.asList(1, 2);
+          Collections.sort(xs, (a, b) -> b.compareTo(a));
+          return xs.get(0);
+          } |] `shouldReturn` (2 :: Int32)

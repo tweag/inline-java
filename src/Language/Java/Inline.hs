@@ -53,15 +53,12 @@ module Language.Java.Inline
   ) where
 
 import Data.Data
-import Data.Generics (everything, mkQ)
 import Data.List (isPrefixOf, intercalate, isSuffixOf, nub)
 import Data.String (fromString)
 import Foreign.JNI (defineClass)
 import Language.Java
 import Language.Java.Inline.Magic
 import qualified Language.Java.Lexer as Java
-import qualified Language.Java.Parser as Java
-import qualified Language.Java.Syntax as Java
 import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
@@ -116,9 +113,6 @@ java = QuasiQuoter
     , quoteType = error "Language.Java.Inline: quoteType"
     , quoteDec  = error "Language.Java.Inline: quoteDec"
     }
-
-antis :: Java.Block -> [String]
-antis = nub . everything (++) (mkQ [] (\case Java.Name (Java.Ident ('$':av):_) -> [av]; _ -> []))
 
 getValueName :: String -> Q TH.Name
 getValueName v =
@@ -193,12 +187,11 @@ expQQ :: String -> Q TH.Exp
 expQQ input = blockQQ $ "{ return " ++ input ++ "; }"
 
 blockQQ :: String -> Q TH.Exp
-blockQQ input = case Java.parser Java.block input of
-    Left err -> fail $ show err
-    Right block -> do
+blockQQ input = do
       idx <- nextMethodIdx
       let mname = "inline__method_" ++ show idx
-          vnames = antis block
+          vnames = nub
+            [ n | Java.L _ (Java.IdentTok ('$' : n)) <- Java.lexer input ]
       thnames <- mapM getValueName vnames
 
       -- Return a call to the static method we just generated.
