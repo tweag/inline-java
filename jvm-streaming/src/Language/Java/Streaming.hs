@@ -16,6 +16,7 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 
 module Language.Java.Streaming () where
 
