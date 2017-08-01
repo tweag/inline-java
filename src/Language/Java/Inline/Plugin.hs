@@ -1,4 +1,4 @@
--- | This is plugin generates Java bytecode from modules using the java
+-- | This plugin generates Java bytecode from modules using the java
 -- QuasiQuoter and inserts it in a global bytecode table from where the
 -- it is loaded at runtime.
 {-# LANGUAGE LambdaCase #-}
@@ -239,7 +239,7 @@ toJavaType JTypeNames {..} t0 = BS.concat . reverse <$> go t0
         Just [fastStringToByteString fs]
     go _ = Nothing
 
--- | An occurrence of a qqMarker
+-- | An occurrence of 'qqMarker'
 data QQOcc = QQOcc
     { -- The type of the result
       qqOccResTy :: Type
