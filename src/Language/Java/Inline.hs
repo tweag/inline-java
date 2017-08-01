@@ -114,12 +114,6 @@ java = QuasiQuoter
     , quoteDec  = error "Language.Java.Inline: quoteDec"
     }
 
-getValueName :: String -> Q TH.Name
-getValueName v =
-    TH.lookupValueName v >>= \case
-      Nothing -> fail $ "Identifier not in scope: " ++ v
-      Just name -> return name
-
 -- | Private newtype to key the TH state.
 newtype IJState = IJState { methodCount :: Integer }
 
@@ -192,7 +186,7 @@ blockQQ input = do
       let mname = "inline__method_" ++ show idx
           vnames = nub
             [ n | Java.L _ (Java.IdentTok ('$' : n)) <- Java.lexer input ]
-      thnames <- mapM getValueName vnames
+          thnames = map TH.mkName vnames
 
       -- Return a call to the static method we just generated.
       let args = [ [| coerce $(TH.varE name) |] | name <- thnames ]

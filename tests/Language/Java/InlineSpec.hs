@@ -101,3 +101,8 @@ spec = do
           Collections.sort(xs, (a, b) -> b.compareTo(a));
           return xs.get(0);
           } |] `shouldReturn` (2 :: Int32)
+
+      it "Can be used inside brackets" $ do
+        $([| let _x = 1 :: Int32 -- Named _x to avoid spurious "unused" warning
+              in (+1) <$> [java| $_x |]
+           |]) `shouldReturn` (2 :: Int32)
