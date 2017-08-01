@@ -70,21 +70,25 @@ import System.IO.Unsafe (unsafePerformIO)
 -- We know we'll need to declare a new wrapper (a Java static method), but we
 -- don't know the types of the arguments nor the return type. So we first name
 -- this method and generate a Haskell call to it at the quasiquotation site.
--- Then, we register a module finalizer that captures the local scope. At the
--- end of the module, when all type checking is done, our finalizer will be run.
--- By this point the types of all the variables in the local scope that was
--- captured are fully determined. So we can analyze these types to determine
--- what the signature of the wrapper should be, in order to declare it.
+-- Then, we inject a call to 'qqMarker' which carries the needed types to the
+-- plugin phase.
+--
+-- The plugin phase is implemented in Language.Java.Inline.Plugin. In this phase
+-- we make a pass over the module Core to find all the occurrences of
+-- 'qqMarker'. By this point the types of all the variables in the local scope
+-- that was captured are fully determined. So we can analyze these types to
+-- determine what the signature of the wrapper should be, in order to declare
+-- it.
 --
 -- The last step is to ask the Java toolchain to produce .class bytecode from
 -- our declarations. We embed this bytecode in the binary, adding a reference to
--- it in the static pointer table (SPT). That way at runtime we can enumerate
--- the bytecode blobs registered in the SPT, and load them into the JVM one by
--- one.
+-- it in a global bytecode table. That way at runtime we can enumerate
+-- the bytecode blobs, and load them into the JVM one by one.
 
 -- | Java code quasiquoter. Example:
 --
 -- @
+-- {-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 -- imports "javax.swing.JOptionPane"
 --
 -- hello :: IO ()
@@ -102,10 +106,6 @@ import System.IO.Unsafe (unsafePerformIO)
 -- there exists a variable with the name @foo@ in the Haskell context of the
 -- quasiquote, whose type is 'Coercible' to a Java primitive or reference type.
 --
--- __NOTE:__ In GHC 8.0.2 and earlier, due to
--- <https://ghc.haskell.org/trac/ghc/ticket/12778 #12778>, a quasiquote must
--- always return a boxed value (i.e. an object, not void or a primitive type).
--- This limitation may be lifted in the future.
 java :: QuasiQuoter
 java = QuasiQuoter
     { quoteExp = \txt -> blockOrExpQQ txt

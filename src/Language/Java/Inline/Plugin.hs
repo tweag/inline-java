@@ -1,11 +1,6 @@
 -- | This is plugin generates Java bytecode from modules using the java
--- QuasiQuoter.
---
--- All the type information required to generate the Java code is collected
--- in a pass over the annotations that the java QuasiQuoter inserted.
---
--- This plugin produces a C constructor function which inserts bytecode into the
--- bytecode table.
+-- QuasiQuoter and inserts it in a global bytecode table from where the
+-- it is loaded at runtime.
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -44,6 +39,14 @@ import System.Process (callProcess)
 --
 -- 'qqMarker' carries many bits of information that are useful in generating the
 -- QQ code.
+--
+-- This plugin first makes a pass to collect the 'qqMarker' calls in the module
+-- (collectQQMarkers).
+-- Then it generates the java stubs from the information in the found
+-- occurrences (buildJava).
+-- Finally, it calls the java compiler to produce the bytecode and
+-- arranges it to be inserted it in the bytecode table in constructor functions
+-- (cConstructors).
 
 plugin :: Plugin
 plugin = defaultPlugin
