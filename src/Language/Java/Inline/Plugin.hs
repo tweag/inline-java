@@ -129,7 +129,9 @@ buildJava qqOccs jimports = do
         , Builder.byteString qqOccMName
         , "("
         , mconcat $ intersperse "," argtys
-        , ")\n"
+        , ") // .hs:"
+        , Builder.integerDec qqOccLineNumber
+        , "\n"
         , adjustInput qqOccLineNumber qqOccInput
         ]
     thisModule <- getModule
