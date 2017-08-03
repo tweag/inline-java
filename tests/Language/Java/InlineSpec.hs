@@ -27,6 +27,9 @@ imports "java.util.*"
 spec :: Spec
 spec = do
     describe "Java quasiquoter" $ do
+      it "Can return ()" $ do
+        [java| { } |] :: IO ()
+
       it "Evaluates simple expressions" $ do
         ([java| 1 + 1 |] >>= reify) `shouldReturn` (2 :: Int32)
 
