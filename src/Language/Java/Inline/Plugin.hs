@@ -99,7 +99,8 @@ plugin = defaultPlugin
 -- > { return  new Object() {} ; } // .hs:46
 -- > }
 --
--- Where @method_i@ is the method corresponding to the @ith@ quasiquotation.
+-- Where @inline_method_i@ is the method corresponding to the @ith@
+-- quasiquotation.
 buildJava :: [QQOcc] -> [JavaImport] -> CoreM Builder
 buildJava qqOccs jimports = do
     let importsJava = mconcat
