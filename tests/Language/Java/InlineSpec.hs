@@ -11,6 +11,7 @@
 module Language.Java.InlineSpec(spec) where
 
 import Data.Int
+import Foreign.JNI (JVMException)
 import Foreign.JNI.Types (JObject, type (<>))
 import Language.Java
 import Language.Java.Inline
@@ -108,3 +109,7 @@ spec = do
         $([| let _x = 1 :: Int32 -- Named _x to avoid spurious "unused" warning
               in (+1) <$> [java| $_x |]
            |]) `shouldReturn` (2 :: Int32)
+
+      it "Can throw checked exceptions" $ do
+        ([java| { throw new InterruptedException(); } |] :: IO ())
+          `shouldThrow` \(_ :: JVMException) -> True

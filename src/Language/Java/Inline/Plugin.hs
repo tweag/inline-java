@@ -130,7 +130,7 @@ buildJava qqOccs jimports = do
         , Builder.byteString qqOccMName
         , "("
         , mconcat $ intersperse "," argtys
-        , ") // .hs:"
+        , ") throws Throwable // .hs:"
         , Builder.integerDec qqOccLineNumber
         , "\n"
         , adjustInput qqOccLineNumber qqOccInput
