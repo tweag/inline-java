@@ -1,4 +1,4 @@
-require-stack-version: ">= 1.2"
+require-stack-version: ">= 1.5"
 
 resolver: lts-9.0
 
