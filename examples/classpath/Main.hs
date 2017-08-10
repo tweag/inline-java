@@ -1,17 +1,22 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 module Main where
 
-import Data.Int (Int32)
 import Data.String (fromString)
 import Foreign.JNI (withJVM)
+import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline
-import System.Environment (getArgs)
+import System.Environment (lookupEnv)
 
-main :: IO Int32
+main :: IO ()
 main = do
-    args <- getArgs
-    withJVM (map fromString args) $ [java| {
+    let -- We use the classpath provided at build time.
+        jvmArgs = case $(TH.lift =<< TH.runIO (lookupEnv "CLASSPATH")) of
+          Nothing -> []
+          Just cp -> [ fromString ("-Djava.class.path=" ++ cp) ]
+    withJVM jvmArgs [java| {
       org.apache.commons.collections4.OrderedMap map =
         new org.apache.commons.collections4.map.LinkedMap();
       map.put("FIVE", "5");
@@ -20,6 +25,5 @@ main = do
       System.out.println(map.firstKey());
       System.out.println(map.nextKey("FIVE"));
       System.out.println(map.nextKey("SIX"));
-      return 0;
       }
    |]
