@@ -12,8 +12,6 @@ category:            FFI, JVM, Java
 build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
-extra-tmp-files:
-  src/Foreign/JNI.c
 
 source-repository head
   type: git
@@ -22,7 +20,8 @@ source-repository head
 
 library
   hs-source-dirs: src
-  c-sources: src/Foreign/JNI.c
+  if impl(ghc < 8.2.1)
+    c-sources: src/Foreign/JNI.c
   cc-options: -std=c11
   extra-libraries: jvm
   exposed-modules:
