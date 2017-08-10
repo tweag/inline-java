@@ -2,12 +2,25 @@ require-stack-version: ">= 1.5"
 
 resolver: lts-9.0
 
+compiler: ghc-8.2.1
+allow-newer: true
+skip-ghc-check: true
+
 packages:
 - .
 - jni
 - jvm
 - jvm-streaming
 - examples/classpath
+
+# Required for GHC >= 8.2.1.
+extra-deps:
+- deepseq-1.4.3.0
+- inline-c-0.6.0.4
+- singletons-2.3
+- th-desugar-1.7
+- array-0.5.1.1
+- filepath-1.4.1.1
 
 nix:
   shell-file: shell.nix
