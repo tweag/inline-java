@@ -28,6 +28,7 @@ import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH
 import Language.Java.Inline.Magic
 import TyCoRep
+import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>))
 import System.IO (withFile, IOMode(WriteMode))
@@ -220,7 +221,7 @@ findJTypeNames = do
 -- | Produces a java type from a Core 'Type' if the type is sufficiently
 -- instantiated and it is of kind 'JType'.
 toJavaType :: JTypeNames -> Type -> Maybe BS.ByteString
-toJavaType JTypeNames {..} t0 = BS.concat . reverse <$> go t0
+toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
   where
     go :: Type -> Maybe [BS.ByteString]
     go (TyConApp c [LitTy (StrTyLit fs)])
@@ -230,10 +231,12 @@ toJavaType JTypeNames {..} t0 = BS.concat . reverse <$> go t0
         Just [fastStringToByteString fs]
     go (TyConApp c [t])
       | Just n <- nameArray, tyConName c == n =
-         ("[]":) <$> go t
-    go (TyConApp c [t, _])
-      | Just n <- nameGeneric, tyConName c == n =
-        go t
+        (++ ["[]"]) <$> go t
+    go (TyConApp c [t, ts])
+      | Just n <- nameGeneric, tyConName c == n = do
+        bs <- go t
+        args_ts <- listGo ts
+        Just $ bs ++ "<" : concat (intersperse [","] args_ts) ++ [">"]
     go (TyConApp c [])
       | Just n <- nameVoid, tyConName c == n =
         Just ["void"]
@@ -241,6 +244,12 @@ toJavaType JTypeNames {..} t0 = BS.concat . reverse <$> go t0
       | Just n <- namePrim, tyConName c == n =
         Just [fastStringToByteString fs]
     go _ = Nothing
+
+    listGo :: Type -> Maybe [[BS.ByteString]]
+    listGo (TyConApp c [_]) | nilDataConName == tyConName c = Just []
+    listGo (TyConApp c [_, tx, txs]) | consDataConName == tyConName c =
+      (:) <$> go tx <*> listGo txs
+    listGo _ = Nothing
 
 -- | An occurrence of 'qqMarker'
 data QQOcc = QQOcc

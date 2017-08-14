@@ -113,3 +113,9 @@ spec = do
       it "Can throw checked exceptions" $ do
         ([java| { throw new InterruptedException(); } |] :: IO ())
           `shouldThrow` \(_ :: JVMException) -> True
+
+      it "Type-checks generics" $ do
+          obj :: List ('Class "java.lang.String") <-
+            [java| new ArrayList<String>() |]
+          _ :: List ('Class "java.lang.String") <- [java| $obj |]
+          return ()
