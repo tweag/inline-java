@@ -342,8 +342,10 @@ collectQQMarkers qqMarkerName p0 = do
       return (Case e0' b t alts')
     expMarkers (Cast e c) = flip Cast c <$> expMarkers e
     expMarkers (Tick t e) = Tick t <$> expMarkers e
-    -- Coercion, Lit, Var, Type
-    expMarkers e = return e
+    expMarkers e@(Coercion {}) = return e
+    expMarkers e@(Lit {}) = return e
+    expMarkers e@(Var {}) = return e
+    expMarkers e@(Type {}) = return e
 
     -- @parseArgTys (t_1, (t_2, ... (t_n, ()) ... )) = Just [t_1, t_2, ... t_n]@
     --
