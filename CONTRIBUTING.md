@@ -27,7 +27,8 @@ writing code. The main criteria for acceptance are:
   applications unless there is overriding consensus on the value of
   doing this.
 * A patch must adhere to the [code style guidelines][style-guide] of
-  the project.
+  the project. C code is written in
+  the [Linux kernel coding style][linux-style].
 
 Please include a [changelog][changelog] entry and full Haddock
 documentation updates with your pull request.
@@ -35,6 +36,7 @@ documentation updates with your pull request.
 [changelog]: https://github.com/tweag/inline-java/blob/master/CHANGELOG.md
 [pull-requests]: https://help.github.com/articles/about-pull-requests/
 [style-guide]: https://github.com/tweag/guides/blob/master/style/Haskell.md
+[linux-style]: https://www.kernel.org/doc/html/latest/process/coding-style.html
 
 ## Continuous integration
 
