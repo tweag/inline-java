@@ -1,7 +1,9 @@
+#include <stdlib.h>
+
 /// A type of bytecodes
 struct inline_java_dot_class {
 	char *name;
-	int bytecode_sz;
+	size_t bytecode_sz;
 	unsigned char *bytecode;
 };
 
