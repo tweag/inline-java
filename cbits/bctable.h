@@ -1,17 +1,17 @@
 /// A type of bytecodes
 struct inline_java_dot_class {
-	char *ij_dc_class_name;
-	int ij_dc_bc_count;
-	unsigned char *ij_dc_class_bytecode;
+	char *name;
+	int bytecode_sz;
+	unsigned char *bytecode;
 };
 
 /// A type of linked lists for bytecode
 ///
 /// NULL is the empty linked list.
 struct inline_java_linked_list {
-	int ij_ll_dc_count;
-	struct inline_java_dot_class *ij_ll_dc;
-	struct inline_java_linked_list *ij_ll_next;
+	int count;
+	struct inline_java_dot_class *element;
+	struct inline_java_linked_list *next;
 };
 
 /// The bytecode table
@@ -20,7 +20,7 @@ struct inline_java_linked_list {
 /// they are loaded.
 ///
 /// inline-java reads this table to load the classes in loadJavaWrappers.
-extern struct inline_java_linked_list *inline_java_bctable;
+extern struct inline_java_linked_list *inline_java_bytecode_table;
 
 /// Adds an array of bytecodes at the front of the bctable.
 ///
