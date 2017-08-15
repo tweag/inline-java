@@ -20,7 +20,6 @@ import Data.Monoid (Endo(..))
 import Data.IORef (readIORef)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import Data.Word
 import ErrUtils (ghcExit)
 import Foreign.JNI.Types (JType(..))
 import GhcPlugins
@@ -177,9 +176,6 @@ mangle :: Module -> String
 mangle m = mangleClassName (unitIdString (moduleUnitId m))
                            (moduleNameString (moduleName m))
 
--- | The bytecode corresponding to a java class
-data DotClass = DotClass String [Word8]
-
 -- Call the java compiler and feeds it the given Java code in Builder form.
 buildBytecode :: Builder -> CoreM [DotClass]
 buildBytecode unit = do
@@ -194,7 +190,7 @@ buildBytecode unit = do
         bcode <- BS.readFile (dir </> classFile)
         -- Strip the .class suffix.
         let klass = "io.tweag.inlinejava." ++ takeWhile (/= '.') classFile
-        return $ DotClass klass (BS.unpack bcode)
+        return $ DotClass klass bcode
 
 -- | The names of 'JType' data constructors
 data JTypeNames = JTypeNames
@@ -382,7 +378,7 @@ dotClasses dcs = vcat $
       text "static int dc_count =" <+> int (length dcs) <> semi
     : [ vcat
         [ text "static unsigned char bc" <> int i <> text "[] ="
-        , braces (pprWithCommas (text . show) bc) <> semi
+        , braces (pprWithCommas (text . show) (BS.unpack bc)) <> semi
         ]
       | (i, DotClass _ bc) <- zip [0..] dcs
       ]
@@ -392,7 +388,7 @@ dotClasses dcs = vcat $
           (pprWithCommas
             (\(i, DotClass name bc) ->
                braces $ pprWithCommas id
-                 [ text (show name), int (length bc), text "bc" <> int i])
+                 [ text (show name), int (BS.length bc), text "bc" <> int i])
             (zip [0..] dcs)
           ) <> semi
       ]
@@ -403,7 +399,7 @@ cConstructors :: SDoc
 cConstructors = vcat
     [ text "static void hs_inline_java_init(void) __attribute__((constructor));"
     , text "static void hs_inline_java_init(void)"
-    , text "{ inline_java_linked_list_cons(dcs, dc_count); }"
+    , text "{ inline_java_bctable = inline_java_new_pack(inline_java_bctable, dcs, dc_count); }"
     ]
 
 --------------------------------------------

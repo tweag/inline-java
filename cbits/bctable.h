@@ -1,30 +1,32 @@
 #include <stdlib.h>
 
-/// A type of bytecodes
+/** List of JVM class bytecode definitions. The content corresponds to
+ * that of a .class file. */
 struct inline_java_dot_class {
 	char *name;
 	size_t bytecode_sz;
 	unsigned char *bytecode;
 };
 
-/// A type of linked lists for bytecode
-///
-/// NULL is the empty linked list.
-struct inline_java_linked_list {
-	int count;
-	struct inline_java_dot_class *element;
-	struct inline_java_linked_list *next;
+
+/** A set of .class files contents. */
+struct inline_java_pack {
+	struct inline_java_pack *next;
+	struct inline_java_dot_class *classes;
+	size_t size;
 };
 
-/// The bytecode table
-///
-/// All modules insert the bytecode of the classes they need when
-/// they are loaded.
-///
-/// inline-java reads this table to load the classes in loadJavaWrappers.
-extern struct inline_java_linked_list *inline_java_bytecode_table;
+/** Smart constructor for class file packs. */
+struct inline_java_pack *inline_java_new_pack(
+	struct inline_java_pack *next,
+	struct inline_java_dot_class classes[],
+	size_t size);
 
-/// Adds an array of bytecodes at the front of the bctable.
-///
-/// dc_count indicates the amount of bytecodes in the array.
-void inline_java_linked_list_cons(struct inline_java_dot_class *dc, int dc_count);
+/** Global list of class files.
+ *
+ * All modules insert the bytecode of the classes they need when they
+ * are loaded.
+ *
+ * inline-java reads this table to load the classes in loadJavaWrappers.
+ */
+extern struct inline_java_pack *inline_java_bctable;

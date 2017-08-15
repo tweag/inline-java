@@ -162,8 +162,8 @@ loadJavaWrappers = doit `seq` return ()
       loader :: J ('Class "java.lang.ClassLoader") <- do
         thr <- callStatic "java.lang.Thread" "currentThread" []
         call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" []
-      forEachDotClass $ \name bc -> do
-        _ <- defineClass (referenceTypeName (SClass name)) loader bc
+      forEachDotClass $ \DotClass{..} -> do
+        _ <- defineClass (referenceTypeName (SClass className)) loader classBytecode
         return ()
       pop
 

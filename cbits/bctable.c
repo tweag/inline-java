@@ -1,15 +1,17 @@
-#include <Rts.h>
 #include "bctable.h"
+#include <stdlib.h>
 
-struct inline_java_linked_list* inline_java_bctable;
+struct inline_java_pack *inline_java_new_pack(
+	struct inline_java_pack *next,
+	struct inline_java_dot_class classes[],
+	size_t size)
+{
+	struct inline_java_pack *new = malloc(sizeof(struct inline_java_pack));
+	new->next = next;
+	new->size = size;
+	new->classes = classes;
 
-void inline_java_linked_list_cons(struct inline_java_dot_class *dc, int dc_count) {
-	struct inline_java_linked_list *n =
-		(struct inline_java_linked_list*)
-		malloc(sizeof(struct inline_java_linked_list));
-	n->count = dc_count;
-	n->element = dc;
-	n->next = inline_java_bytecode_table;
-	inline_java_bytecode_table = n;
+	return new;
 }
-;
+
+struct inline_java_pack *inline_java_bctable;
