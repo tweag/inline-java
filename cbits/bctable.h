@@ -1,6 +1,3 @@
-#include <Rts.h>
-#include <stdlib.h>
-
 /// A type of bytecodes
 struct inline_java_dot_class {
     char* ij_dc_class_name;
