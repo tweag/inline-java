@@ -249,9 +249,9 @@ toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
 
 -- | An occurrence of 'qqMarker'
 data QQOcc = QQOcc
-    { -- The type of the result
+    { -- | The type of the result
       qqOccResTy :: Type
-      -- The type of the arguments
+      -- | The type of the arguments
     , qqOccArgTys :: [Type]
       -- | The input of the quasiquoter
     , qqOccInput :: BS.ByteString

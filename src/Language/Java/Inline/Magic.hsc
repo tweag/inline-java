@@ -106,8 +106,9 @@ qqMarker
   -> IO b
   -> IO b
 qqMarker _ _ _ _ _ = withFrozenCallStack $
-    error $ "Please, pass -fplugin=Language.Java.Inline.Plugin"
-            ++ " to ghc when building this module."
+    error $
+      "Please pass -fplugin=Language.Java.Inline.Plugin"
+      ++ " to ghc when building this module."
 
 class Coercibles xs (tys :: k) | xs -> tys
 instance Coercibles () ()
