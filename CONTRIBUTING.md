@@ -36,7 +36,7 @@ documentation updates with your pull request.
 [changelog]: https://github.com/tweag/inline-java/blob/master/CHANGELOG.md
 [pull-requests]: https://help.github.com/articles/about-pull-requests/
 [style-guide]: https://github.com/tweag/guides/blob/master/style/Haskell.md
-[linux-style]: https://www.kernel.org/doc/html/latest/process/coding-style.html#commenting
+[linux-style]: https://www.kernel.org/doc/html/latest/process/coding-style.html
 
 ## Continuous integration
 
