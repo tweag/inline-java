@@ -27,6 +27,7 @@ import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Magic
+import NameCache (nsNames)
 import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
