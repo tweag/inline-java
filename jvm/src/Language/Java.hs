@@ -688,7 +688,7 @@ withStatic [d|
       array <- newArray n :: IO (J ('Array (Interp a)))
       forM_ (zip [0..n-1] xs) $ \(i, x) -> do
         jx <- reflect x
-        setObjectArrayElement (unsafeCast array) i jx
+        setObjectArrayElement array i jx
         deleteLocalRef jx
       return array
   |]

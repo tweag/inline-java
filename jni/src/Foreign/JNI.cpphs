@@ -851,16 +851,25 @@ releaseStringChars jstr chars = withJNIEnv $ \env ->
                                             $fptr-ptr:(jstring jstr),
                                             $(jchar *chars)) } |]
 
-getObjectArrayElement :: Coercible o (JArray a) => o -> Int32 -> IO (J a)
-getObjectArrayElement (coerce -> upcast -> array) i = withJNIEnv $ \env ->
-    unsafeCast <$> (objectFromPtr =<<)
+getObjectArrayElement
+  :: forall a o. (IsReferenceType a, Coercible o (J a))
+  => JArray a -> Int32 -> IO o
+getObjectArrayElement (arrayUpcast -> array) i = withJNIEnv $ \env ->
+    ( (coerce :: J a -> o)
+    . (unsafeCast :: JObject -> J a)
+    ) <$> (objectFromPtr =<<)
     [C.exp| jobject {
       (*$(JNIEnv *env))->GetObjectArrayElement($(JNIEnv *env),
                                                $fptr-ptr:(jarray array),
                                                $(jsize i)) } |]
 
-setObjectArrayElement :: Coercible o (J a) => JObjectArray -> Int32 -> o -> IO ()
-setObjectArrayElement array i (coerce -> upcast -> x) = withJNIEnv $ \env ->
+setObjectArrayElement
+  :: forall a o. (IsReferenceType a, Coercible o (J a))
+  => JArray a -> Int32 -> o -> IO ()
+setObjectArrayElement (arrayUpcast -> array)
+                      i
+                      ((coerce :: o -> J a) -> upcast -> x) =
+    withJNIEnv $ \env ->
     [C.exp| void {
       (*$(JNIEnv *env))->SetObjectArrayElement($(JNIEnv *env),
                                                $fptr-ptr:(jobjectArray array),
