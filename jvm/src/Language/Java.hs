@@ -435,11 +435,11 @@ type family Interp (a :: k) :: JType
 -- Instances of this class /must/ guarantee that the result is managed on the
 -- Haskell heap. That is, the Haskell runtime has /global ownership/ of the
 -- result.
-class (Interp a ~ ty, SingI ty, IsReferenceType ty)
-      => Reify a ty where
-  reify :: J ty -> IO a
+class (SingI (Interp a), IsReferenceType (Interp a))
+      => Reify a where
+  reify :: J (Interp a) -> IO a
 
-  default reify :: Coercible a ty => J ty -> IO a
+  default reify :: Coercible a (Interp a) => J (Interp a) -> IO a
   reify x = (unsafeUncoerce . JObject) <$> newGlobalRef x
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
@@ -447,11 +447,11 @@ class (Interp a ~ ty, SingI ty, IsReferenceType ty)
 -- reflection induces allocations and copies.
 --
 -- Instances of this class /must not/ claim global ownership.
-class (Interp a ~ ty, SingI ty, IsReferenceType ty)
-      => Reflect a ty where
-  reflect :: a -> IO (J ty)
+class (SingI (Interp a), IsReferenceType (Interp a))
+      => Reflect a where
+  reflect :: a -> IO (J (Interp a))
 
-  default reflect :: Coercible a ty => a -> IO (J ty)
+  default reflect :: Coercible a (Interp a) => a -> IO (J (Interp a))
   reflect x = newLocalRef (jobject x)
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
@@ -493,25 +493,25 @@ withStatic [d|
   -- Haskell heap until the Haskell garbage collector determines that it is
   -- inaccessible. Objects that need to survive the dynamic scope delimited by
   -- the topmost Java frame on the call stack must have global ownership.
-  instance (SingI ty, IsReferenceType ty) => Reify (J ty) ty where
+  instance (SingI ty, IsReferenceType ty) => Reify (J ty) where
     reify x = newGlobalRef x
 
   -- Use this instance to relinquish global ownership of a Java object. You
   -- /must not/ refer to the argument anywhere after a call to 'reflect'.
-  instance (SingI ty, IsReferenceType ty) => Reflect (J ty) ty where
+  instance (SingI ty, IsReferenceType ty) => Reflect (J ty) where
     reflect x = newLocalRef x
 
   type instance Interp () = 'Class "java.lang.Object"
 
-  instance Reify () ('Class "java.lang.Object") where
+  instance Reify () where
     reify _ = return ()
 
-  instance Reflect () ('Class "java.lang.Object") where
+  instance Reflect () where
     reflect () = new []
 
   type instance Interp ByteString = 'Array ('Prim "byte")
 
-  instance Reify ByteString ('Array ('Prim "byte")) where
+  instance Reify ByteString where
     reify jobj = do
         n <- getArrayLength (unsafeCast jobj)
         bytes <- getByteArrayElements jobj
@@ -521,7 +521,7 @@ withStatic [d|
         releaseByteArrayElements jobj bytes
         return bs
 
-  instance Reflect ByteString ('Array ('Prim "byte")) where
+  instance Reflect ByteString where
     reflect bs = BS.unsafeUseAsCStringLen bs $ \(content, n) -> do
         arr <- newByteArray (fromIntegral n)
         setByteArrayRegion arr 0 (fromIntegral n) content
@@ -529,7 +529,7 @@ withStatic [d|
 
   type instance Interp Bool = 'Class "java.lang.Boolean"
 
-  instance Reify Bool ('Class "java.lang.Boolean") where
+  instance Reify Bool where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
               klass <- findClass
@@ -540,12 +540,12 @@ withStatic [d|
               return m
         callBooleanMethod jobj method []
 
-  instance Reflect Bool ('Class "java.lang.Boolean") where
+  instance Reflect Bool where
     reflect x = new [JBoolean (fromIntegral (fromEnum x))]
 
   type instance Interp CChar = 'Class "java.lang.Byte"
 
-  instance Reify CChar ('Class "java.lang.Byte") where
+  instance Reify CChar where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
               klass <- findClass (referenceTypeName (SClass "java.lang.Byte"))
@@ -555,12 +555,12 @@ withStatic [d|
               return m
         callByteMethod jobj method []
 
-  instance Reflect CChar ('Class "java.lang.Byte") where
+  instance Reflect CChar where
     reflect x = Language.Java.new [JByte x]
 
   type instance Interp Int16 = 'Class "java.lang.Short"
 
-  instance Reify Int16 ('Class "java.lang.Short") where
+  instance Reify Int16 where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
               klass <- findClass (referenceTypeName (SClass "java.lang.Short"))
@@ -570,12 +570,12 @@ withStatic [d|
               return m
         callShortMethod jobj method []
 
-  instance Reflect Int16 ('Class "java.lang.Short") where
+  instance Reflect Int16 where
     reflect x = new [JShort x]
 
   type instance Interp Int32 = 'Class "java.lang.Integer"
 
-  instance Reify Int32 ('Class "java.lang.Integer") where
+  instance Reify Int32 where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
               klass <- findClass
@@ -586,12 +586,12 @@ withStatic [d|
               return m
         callIntMethod jobj method []
 
-  instance Reflect Int32 ('Class "java.lang.Integer") where
+  instance Reflect Int32 where
     reflect x = new [JInt x]
 
   type instance Interp Int64 = 'Class "java.lang.Long"
 
-  instance Reify Int64 ('Class "java.lang.Long") where
+  instance Reify Int64 where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
               klass <- findClass (referenceTypeName (SClass "java.lang.Long"))
@@ -601,12 +601,12 @@ withStatic [d|
               return m
         callLongMethod jobj method []
 
-  instance Reflect Int64 ('Class "java.lang.Long") where
+  instance Reflect Int64 where
     reflect x = new [JLong x]
 
   type instance Interp Word16 = 'Class "java.lang.Character"
 
-  instance Reify Word16 ('Class "java.lang.Character") where
+  instance Reify Word16 where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
               klass <- findClass
@@ -617,12 +617,12 @@ withStatic [d|
               return m
         fromIntegral <$> callCharMethod jobj method []
 
-  instance Reflect Word16 ('Class "java.lang.Character") where
+  instance Reflect Word16 where
     reflect x = new [JChar x]
 
   type instance Interp Double = 'Class "java.lang.Double"
 
-  instance Reify Double ('Class "java.lang.Double") where
+  instance Reify Double where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
               klass <- findClass (referenceTypeName (SClass "java.lang.Double"))
@@ -632,12 +632,12 @@ withStatic [d|
               return m
         callDoubleMethod jobj method []
 
-  instance Reflect Double ('Class "java.lang.Double") where
+  instance Reflect Double where
     reflect x = new [JDouble x]
 
   type instance Interp Float = 'Class "java.lang.Float"
 
-  instance Reify Float ('Class "java.lang.Float") where
+  instance Reify Float where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
               klass <- findClass (referenceTypeName (SClass "java.lang.Float"))
@@ -647,12 +647,12 @@ withStatic [d|
               return m
         callFloatMethod jobj method []
 
-  instance Reflect Float ('Class "java.lang.Float") where
+  instance Reflect Float where
     reflect x = new [JFloat x]
 
   type instance Interp Text = 'Class "java.lang.String"
 
-  instance Reify Text ('Class "java.lang.String") where
+  instance Reify Text where
     reify jobj = do
         sz <- getStringLength jobj
         cs <- getStringChars jobj
@@ -660,7 +660,7 @@ withStatic [d|
         releaseStringChars jobj cs
         return txt
 
-  instance Reflect Text ('Class "java.lang.String") where
+  instance Reflect Text where
     reflect x =
         Text.useAsPtr x $ \ptr len ->
           newString ptr (fromIntegral len)
@@ -670,24 +670,24 @@ withStatic [d|
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
   type instance Interp (IOVector Int32) = 'Array ('Prim "int")
 
-  instance Reify (IOVector Int32) ('Array ('Prim "int")) where
+  instance Reify (IOVector Int32) where
     reify = reifyMVector (getIntArrayElements) (releaseIntArrayElements)
 
-  instance Reflect (IOVector Int32) ('Array ('Prim "int")) where
+  instance Reflect (IOVector Int32) where
     reflect = reflectMVector (newIntArray) (setIntArrayRegion)
 
   type instance Interp (Vector Int32) = 'Array ('Prim "int")
 
-  instance Reify (Vector Int32) ('Array ('Prim "int")) where
+  instance Reify (Vector Int32) where
     reify = Vector.freeze <=< reify
 
-  instance Reflect (Vector Int32) ('Array ('Prim "int")) where
+  instance Reflect (Vector Int32) where
     reflect = reflect <=< Vector.thaw
 #endif
 
   type instance Interp [a] = 'Array (Interp a)
 
-  instance Reify a ty => Reify [a] ('Array ty) where
+  instance Reify a => Reify [a] where
     reify jobj = do
         n <- getArrayLength jobj
         forM [0..n-1] $ \i -> do
@@ -696,10 +696,10 @@ withStatic [d|
           deleteLocalRef jx
           return x
 
-  instance Reflect a ty => Reflect [a] ('Array ty) where
+  instance Reflect a => Reflect [a] where
     reflect xs = do
       let n = fromIntegral (length xs)
-      array <- newArray n :: IO (J ('Array ty))
+      array <- newArray n :: IO (J ('Array (Interp a)))
       forM_ (zip [0..n-1] xs) $ \(i, x) -> do
         jx <- reflect x
         setObjectArrayElement (unsafeCast array) i jx
