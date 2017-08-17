@@ -47,7 +47,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Language.Java
   ( module Foreign.JNI.Types
@@ -75,14 +74,11 @@ module Language.Java
   -- * Conversions
   , Reify(..)
   , Reflect(..)
-  , Type(..)
-  , Uncurry
   , Interp
   -- * Re-exports
   , sing
   ) where
 
-import Control.Distributed.Closure
 import Control.Distributed.Closure.TH
 import Control.Exception (Exception, throw, finally)
 import Control.Monad
@@ -429,37 +425,8 @@ jobject x
   | JObject jobj <- coerce x = unsafeCast jobj
   | otherwise = error "impossible"
 
--- | Classifies Java types according to whether they are base types (data) or
--- higher-order types (objects representing functions).
-data Type a
-  = Fun [Type a] (Type a) -- ^ Pure function
-  | Act [Type a] (Type a) -- ^ IO action
-  | Proc [Type a]         -- ^ Procedure (i.e void returning action)
-  | Base a                -- ^ Any first-order type.
-
--- | Haskell functions are curried, but Java functions are not. This type family
--- maps Haskell types to an uncurried (non-inductive) type representation,
--- useful to select the right 'Reify' / 'Reflect' instance without overlap.
-type family Uncurry (a :: *) :: Type * where
-  Uncurry (Closure (a -> b -> c -> d -> IO ())) = 'Proc '[Uncurry a, Uncurry b, Uncurry c, Uncurry d]
-  Uncurry (Closure (a -> b -> c -> IO ())) = 'Proc '[Uncurry a, Uncurry b, Uncurry c]
-  Uncurry (Closure (a -> b -> IO ())) = 'Proc '[Uncurry a, Uncurry b]
-  Uncurry (Closure (a -> IO ())) = 'Proc '[Uncurry a]
-  Uncurry (IO ()) = 'Proc '[]
-  Uncurry (Closure (a -> b -> c -> d -> IO e)) = 'Act '[Uncurry a, Uncurry b, Uncurry c, Uncurry d] (Uncurry e)
-  Uncurry (Closure (a -> b -> c -> IO d)) = 'Act '[Uncurry a, Uncurry b, Uncurry c] (Uncurry d)
-  Uncurry (Closure (a -> b -> IO c)) = 'Act '[Uncurry a, Uncurry b] (Uncurry c)
-  Uncurry (Closure (a -> IO b)) = 'Act '[Uncurry a] (Uncurry b)
-  Uncurry (Closure (IO a)) = 'Act '[] (Uncurry a)
-  Uncurry (Closure (a -> b -> c -> d -> e)) = 'Fun '[Uncurry a, Uncurry b, Uncurry c, Uncurry d] (Uncurry e)
-  Uncurry (Closure (a -> b -> c -> d)) = 'Fun '[Uncurry a, Uncurry b, Uncurry c] (Uncurry d)
-  Uncurry (Closure (a -> b -> c)) = 'Fun '[Uncurry a, Uncurry b] (Uncurry c)
-  Uncurry (Closure (a -> b)) = 'Fun '[Uncurry a] (Uncurry b)
-  Uncurry a = 'Base a
-
 -- | Map a Haskell type to the symbolic representation of a Java type.
 type family Interp (a :: k) :: JType
-type instance Interp ('Base a) = Interp a
 
 -- | Extract a concrete Haskell value from the space of Java objects. That is to
 -- say, unmarshall a Java object to a Haskell value. Unlike coercing, in general
@@ -468,7 +435,7 @@ type instance Interp ('Base a) = Interp a
 -- Instances of this class /must/ guarantee that the result is managed on the
 -- Haskell heap. That is, the Haskell runtime has /global ownership/ of the
 -- result.
-class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
+class (Interp a ~ ty, SingI ty, IsReferenceType ty)
       => Reify a ty where
   reify :: J ty -> IO a
 
@@ -480,7 +447,7 @@ class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
 -- reflection induces allocations and copies.
 --
 -- Instances of this class /must not/ claim global ownership.
-class (Interp (Uncurry a) ~ ty, SingI ty, IsReferenceType ty)
+class (Interp a ~ ty, SingI ty, IsReferenceType ty)
       => Reflect a ty where
   reflect :: a -> IO (J ty)
 
@@ -718,7 +685,7 @@ withStatic [d|
     reflect = reflect <=< Vector.thaw
 #endif
 
-  type instance Interp [a] = 'Array (Interp (Uncurry a))
+  type instance Interp [a] = 'Array (Interp a)
 
   instance Reify a ty => Reify [a] ('Array ty) where
     reify jobj = do
