@@ -56,6 +56,7 @@ module Language.Java
   , classOf
   , new
   , newArray
+  , toArray
   , call
   , callStatic
   , getStaticField
@@ -310,6 +311,16 @@ newArray sz = do
                 deleteLocalRef lk
                 return gk
           unsafeCast <$> newObjectArray sz klass
+
+-- | Creates an array from a list of references.
+toArray :: forall ty. (SingI ty, IsReferenceType ty)
+        => [J ty] -> IO (J ('Array ty))
+toArray xs = do
+    let n = fromIntegral (length xs)
+    jxs <- newArray n
+    forM_ (zip [0 .. n - 1] xs) $
+      uncurry (setObjectArrayElement jxs)
+    return jxs
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
 -- any data type coercible to one, the name of a method, and a list of
