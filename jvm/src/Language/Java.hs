@@ -487,20 +487,6 @@ reflectMVector newfun fill mv = do
 #endif
 
 withStatic [d|
-  type instance Interp (J ty) = ty
-
-  -- Use this instance to claim global ownership of a Java object on the
-  -- Haskell heap until the Haskell garbage collector determines that it is
-  -- inaccessible. Objects that need to survive the dynamic scope delimited by
-  -- the topmost Java frame on the call stack must have global ownership.
-  instance (SingI ty, IsReferenceType ty) => Reify (J ty) where
-    reify x = newGlobalRef x
-
-  -- Use this instance to relinquish global ownership of a Java object. You
-  -- /must not/ refer to the argument anywhere after a call to 'reflect'.
-  instance (SingI ty, IsReferenceType ty) => Reflect (J ty) where
-    reflect x = newLocalRef x
-
   type instance Interp () = 'Class "java.lang.Object"
 
   instance Reify () where
