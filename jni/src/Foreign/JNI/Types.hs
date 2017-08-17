@@ -27,6 +27,7 @@ module Foreign.JNI.Types
   , J(..)
   , jnull
   , upcast
+  , arrayUpcast
   , unsafeCast
   , generic
   , unsafeUngeneric
@@ -214,6 +215,10 @@ jnull = J $ unsafePerformIO $ newForeignPtr_ nullPtr
 -- | Any object can be cast to @Object@.
 upcast :: J a -> JObject
 upcast = unsafeCast
+
+-- | Any array of a reference type can be casted to an array of @Object@s.
+arrayUpcast :: IsReferenceType ty => J ('Array ty) -> JObjectArray
+arrayUpcast = unsafeCast
 
 -- | Unsafe type cast. Should only be used to downcast.
 unsafeCast :: J a -> J b
