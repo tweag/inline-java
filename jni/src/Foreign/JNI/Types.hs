@@ -46,7 +46,6 @@ module Foreign.JNI.Types
   , JValue(..)
   , withJValues
     -- * Conversions
-  , objectFromPtr
   , unsafeObjectToPtr
     -- * JNI defined object types
   , JObject
@@ -378,10 +377,6 @@ methodSignature args ret =
     mconcat (map (\(SomeSing s) -> signatureBuilder s) args) <>
     Builder.char7 ')' <>
     signatureBuilder ret
-
--- | Turn the raw pointer into an object.
-objectFromPtr :: Ptr (J a) -> IO (J a)
-objectFromPtr ptr = J <$> newForeignPtr_ ptr
 
 -- | Get a raw pointer to an object. This is unsafe because if the argument is
 -- the last usage occurrence of the given foreign pointer, then its finalizer(s)

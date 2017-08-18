@@ -197,10 +197,11 @@ import Foreign.ForeignPtr
   )
 import Foreign.JNI.Internal
 import Foreign.JNI.NativeMethod
+import qualified Foreign.JNI.Trace as JNI
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Array
-import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.Ptr (Ptr, nullPtr, ptrToIntPtr)
 import GHC.ForeignPtr (newConcForeignPtr)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
@@ -348,6 +349,7 @@ newJVM options = JVM_ <$> do
     useAsCStrings options $ \cstrs -> do
       withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
         let n = fromIntegral (length cstrs) :: C.CInt
+        JNI.tracePushLocalFrame Nothing
         [C.block| JavaVM * {
           JavaVM *jvm;
           JNIEnv *env;
@@ -366,6 +368,7 @@ newJVM options = JVM_ <$> do
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
+    JNI.tracePopLocalFrame jnull
     acquireWriteLock globalJVMLock
     [C.block| void { (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm)); } |]
 
@@ -639,6 +642,12 @@ deleteGlobalRefNonFinalized (coerce -> upcast -> obj) = do
                                                             ,$fptr-ptr:(jobject obj));
                         } |]
 
+-- | Turn the raw pointer into an object.
+objectFromPtr :: Ptr (J a) -> IO (J a)
+objectFromPtr ptr = do
+    JNI.traceNewLocalRef (ptrToIntPtr ptr)
+    J <$> newForeignPtr_ ptr
+
 -- NB: Cannot add a finalizer to local references because it may
 -- run in a thread where the reference is not valid.
 newLocalRef :: Coercible o (J ty) => o -> IO (J ty)
@@ -649,13 +658,17 @@ newLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
                                      $fptr-ptr:(jobject obj)) } |]
 
 deleteLocalRef :: Coercible o (J ty) => o -> IO ()
-deleteLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+deleteLocalRef (coerce -> upcast -> obj) =
+    (JNI.traceDeleteLocalRef obj >>) $
+    withJNIEnv $ \env ->
     [CU.exp| void {
       (*$(JNIEnv *env))->DeleteLocalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
 
 pushLocalFrame :: Int32 -> IO ()
-pushLocalFrame (coerce -> capacity) = withJNIEnv $ \env ->
+pushLocalFrame (coerce -> capacity) =
+    (JNI.tracePushLocalFrame (Just capacity) >>) $
+    withJNIEnv $ \env ->
     -- We ignore the output as it is always 0 on success and throws an
     -- exception otherwise.
     throwIfException env $ void $
@@ -664,7 +677,9 @@ pushLocalFrame (coerce -> capacity) = withJNIEnv $ \env ->
                                         $(jint capacity)); } |]
 
 popLocalFrame :: Coercible o (J ty) => o -> IO o
-popLocalFrame (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+popLocalFrame (coerce -> upcast -> obj) =
+    (JNI.tracePopLocalFrame obj >>) $
+    withJNIEnv $ \env ->
     coerce <$> (objectFromPtr =<<)
     [CU.exp| jobject {
       (*$(JNIEnv *env))->PopLocalFrame($(JNIEnv *env),
