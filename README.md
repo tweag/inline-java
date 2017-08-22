@@ -24,21 +24,19 @@ Graphical Hello World using Java Swing:
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 module Main where
 
-import Data.Int
 import Data.Text (Text)
 import Language.Java
 import Language.Java.Inline
 
-main :: IO Int32
+main :: IO ()
 main = withJVM [] $ do
     message <- reflect ("Hello World!" :: Text)
-    rc <- [java| { javax.swing.JOptionPane.showMessageDialog(null, $message);
-                   return 0; } |]
-    reify rc
+    [java| {
+      javax.swing.JOptionPane.showMessageDialog(null, $message);
+      } |]
 ```
 
 ## Building it
@@ -77,6 +75,16 @@ nix:
 [stack-nix]: https://docs.haskellstack.org/en/stable/nix_integration/#configuration
 [nix]: http://nixos.org/nix
 [osx-java-se]: https://support.apple.com/kb/dl1572?locale=fr_FR
+
+## Debugging
+
+The generated java output can be dumped to stderr by passing to GHC
+```
+-fplugin-opt=Language.Java.Inline.Plugin:dump-java
+```
+
+If `-ddump-to-file` is in effect (as when using `stack`), the java code
+is dumped to `<module>.dump-java` instead.
 
 ## License
 

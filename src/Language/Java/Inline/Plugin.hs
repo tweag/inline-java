@@ -30,7 +30,7 @@ import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>))
-import System.IO (withFile, IOMode(WriteMode))
+import System.IO (withFile, IOMode(WriteMode), hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (callProcess)
 
@@ -54,12 +54,12 @@ plugin = defaultPlugin
     }
   where
     install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
-    install _ todo = do
+    install args todo = do
       reinitializeGlobals
-      return (CoreDoPluginPass "inline-java" qqPass : todo)
+      return (CoreDoPluginPass "inline-java" (qqPass args) : todo)
 
-    qqPass :: ModGuts -> CoreM ModGuts
-    qqPass guts = do
+    qqPass :: [CommandLineOption] -> ModGuts -> CoreM ModGuts
+    qqPass args guts = do
       findTHName 'qqMarker >>= \case
         -- If qqMarker cannot be found we assume the module does not use
         -- inline-java.
@@ -67,7 +67,9 @@ plugin = defaultPlugin
         Just qqMarkerName -> do
           (binds, qqOccs) <- collectQQMarkers qqMarkerName (mg_binds guts)
           let jimports = getModuleAnnotations guts :: [JavaImport]
-          dcs <- buildJava qqOccs jimports >>= buildBytecode
+          dcs <- buildJava qqOccs jimports
+                   >>= maybeDumpJava args
+                   >>= buildBytecode
           return guts
             { mg_binds = binds
             , mg_foreign = appendStubC (mg_foreign guts) $
@@ -75,6 +77,23 @@ plugin = defaultPlugin
                            $$ dotClasses dcs
                            $$ cConstructors
             }
+
+    -- Dumps the java code to stderr or a file, depending on the set flags.
+    maybeDumpJava :: [CommandLineOption] -> Builder -> CoreM Builder
+    maybeDumpJava args b
+      | elem "dump-java" args = do
+        dflags <- getDynFlags
+        if gopt Opt_DumpToFile dflags then do
+          thisModule <- getModule
+          let fname = moduleNameString (moduleName thisModule) ++ ".dump-java"
+              path = maybe fname (</> fname) (dumpDir dflags)
+          liftIO $ withFile path WriteMode $ \h -> Builder.hPutBuilder h b
+        else liftIO $ do
+          hPutStrLn stderr "=== inline-java (dump-java) BEGIN ==="
+          Builder.hPutBuilder stderr b
+          hPutStrLn stderr "=== inline-java (dump-java) END ==="
+        return b
+    maybeDumpJava _ b = return b
 
 -- | Produces a Java compilation unit from the quasiquotation occurrences and
 -- the java imports.
