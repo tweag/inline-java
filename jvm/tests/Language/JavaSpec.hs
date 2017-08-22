@@ -10,6 +10,7 @@ module Language.JavaSpec where
 import Data.Int
 import qualified Data.Text as Text
 import Data.Text (Text)
+import Foreign.JNI (getArrayLength)
 import Language.Java
 import Test.Hspec
 
@@ -70,13 +71,16 @@ spec = do
 
     describe "newArray" $ do
       it "Supports object arrays" $ do
-        xs :: [JObject] <- reify =<< newArray 10
-        length xs `shouldBe` 10
+        jxs <- newArray 10
+        getArrayLength (jxs :: J ('Array ('Class "java.lang.Object")))
+          `shouldReturn` 10
 
       it "supports generics" $ do
-        xs <- reify =<< newArray 10
-        length (xs :: [J ('Class "java.util.List" <> '[ 'Class "java.lang.Long"])])
-          `shouldBe` 10
+        jxs <- newArray 10
+        getArrayLength (jxs ::
+            J ('Array ('Class "java.util.List" <> '[ 'Class "java.lang.Long"]))
+            )
+          `shouldReturn` 10
 
     describe "reify" $ do
       -- Applications need extra conversions if the following doesn't hold.

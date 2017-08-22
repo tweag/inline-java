@@ -50,7 +50,7 @@ isPoppableStream ref = do
         writeIORef ref (Streaming.cons x stream)
         return $ fromIntegral $ fromEnum True
 
-popStream :: Reflect a ty => IORef (Stream (Of a) IO ()) -> IO (J ty)
+popStream :: Reflect a => IORef (Stream (Of a) IO ()) -> IO (J (Interp a))
 popStream ref = do
     stream <- readIORef ref
     Streaming.uncons stream >>= \case
@@ -89,7 +89,7 @@ freeIterator _ _ ptr = do
     freeStablePtr sptr
 
 newIterator
-  :: Reflect a ty
+  :: Reflect a
   => Stream (Of a) IO ()
   -> IO (J ('Iface "java.util.Iterator"))
 newIterator stream = do
@@ -141,7 +141,7 @@ newIterator stream = do
 withStatic [d|
   type instance Interp (Stream (Of a) m r) = 'Iface "java.util.Iterator"
 
-  instance Reify a ty => Reify (Stream (Of a) IO ()) ('Iface "java.util.Iterator") where
+  instance Reify a => Reify (Stream (Of a) IO ()) where
     reify itLocal = do
       -- We make sure the iterator remains valid while we reference it.
       it <- JNI.newGlobalRef itLocal
@@ -152,6 +152,6 @@ withStatic [d|
             obj <- call it "next" []
             Left <$> reify (unsafeCast (obj :: JObject))
 
-  instance Reflect a ty => Reflect (Stream (Of a) IO ()) ('Iface "java.util.Iterator") where
+  instance Reflect a => Reflect (Stream (Of a) IO ()) where
     reflect x = newIterator x
   |]
