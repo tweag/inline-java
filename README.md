@@ -24,21 +24,19 @@ Graphical Hello World using Java Swing:
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 module Main where
 
-import Data.Int
 import Data.Text (Text)
 import Language.Java
 import Language.Java.Inline
 
-main :: IO Int32
+main :: IO ()
 main = withJVM [] $ do
     message <- reflect ("Hello World!" :: Text)
-    rc <- [java| { javax.swing.JOptionPane.showMessageDialog(null, $message);
-                   return 0; } |]
-    reify rc
+    [java| {
+      javax.swing.JOptionPane.showMessageDialog(null, $message);
+      } |]
 ```
 
 ## Building it
