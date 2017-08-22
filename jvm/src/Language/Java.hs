@@ -313,8 +313,10 @@ newArray sz = do
           unsafeCast <$> newObjectArray sz klass
 
 -- | Creates an array from a list of references.
-toArray :: forall ty. (SingI ty, IsReferenceType ty)
-        => [J ty] -> IO (J ('Array ty))
+toArray
+  :: forall ty. (SingI ty, IsReferenceType ty)
+  => [J ty]
+  -> IO (J ('Array ty))
 toArray xs = do
     let n = fromIntegral (length xs)
     jxs <- newArray n
