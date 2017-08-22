@@ -320,8 +320,7 @@ toArray
 toArray xs = do
     let n = fromIntegral (length xs)
     jxs <- newArray n
-    forM_ (zip [0 .. n - 1] xs) $
-      uncurry (setObjectArrayElement jxs)
+    zipWithM_ (setObjectArrayElement jxs) [0 .. n - 1] xs
     return jxs
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
