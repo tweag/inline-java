@@ -78,6 +78,16 @@ nix:
 [nix]: http://nixos.org/nix
 [osx-java-se]: https://support.apple.com/kb/dl1572?locale=fr_FR
 
+## Debugging
+
+The generated java output can be dumped to stderr by passing to GHC
+```
+-fplugin-opt=Language.Java.Inline.Plugin:dump-java
+```
+
+If `-ddump-to-file` is in effect (as when using `stack`), the java code
+is dumped to `<module>.dump-java` instead.
+
 ## License
 
 Copyright (c) 2015-2016 EURL Tweag.
