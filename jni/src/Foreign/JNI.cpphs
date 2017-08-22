@@ -175,21 +175,25 @@ module Foreign.JNI
   , releaseStringChars
   , getObjectArrayElement
   , setObjectArrayElement
+    -- * Thread management
+  , attachCurrentThreadAsDaemon
+  , detachCurrentThread
+  , asDaemonThread
   ) where
 
+import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Exception (Exception, bracket, finally, throwIO)
+import Control.Exception (Exception, bracket, bracket_, finally, throwIO)
 import Control.Monad (join, unless, void, when)
 import Data.Choice
 import Data.Coerce
 import Data.Int
-import Data.IORef (IORef, newIORef, readIORef, atomicModifyIORef)
+import Data.IORef (IORef, newIORef, atomicModifyIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Monoid ((<>))
 import Data.Typeable (Typeable)
-import Data.TLS.PThread
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
   ( finalizeForeignPtr
@@ -200,8 +204,10 @@ import Foreign.JNI.Internal
 import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
+import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array
 import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.Storable (peek)
 import GHC.ForeignPtr (newConcForeignPtr)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
@@ -215,6 +221,9 @@ C.include "<jni.h>"
 C.include "<stdio.h>"
 C.include "<errno.h>"
 C.include "<stdlib.h>"
+
+-- A thread-local variable to store the JNI environment
+$(C.verbatim "static __thread JNIEnv* jniEnv; ")
 
 -- | A JNI call may cause a (Java) exception to be raised. This module raises it
 -- as a Haskell exception wrapping the Java exception.
@@ -237,6 +246,24 @@ data NullPointer = NullPointer
   deriving (Show, Typeable)
 
 instance Exception NullPointer
+
+-- | Thrown when an JNI call is made from a thread not attached to the JVM.
+data ThreadNotAttached = ThreadNotAttached
+  deriving (Show, Typeable)
+
+instance Exception ThreadNotAttached
+
+-- | Thrown when an JNI call is made from an unbound thread.
+data ThreadNotBound = ThreadNotBound
+  deriving (Show, Typeable)
+
+instance Exception ThreadNotBound
+
+-- | Thrown when an JNI call is made from an unbound thread.
+data JNIError = JNIError JNI.String Int32
+  deriving (Show, Typeable)
+
+instance Exception JNIError
 
 -- | Map Java exceptions to Haskell exceptions.
 throwIfException :: Ptr JNIEnv -> IO a -> IO a
@@ -317,32 +344,79 @@ globalJVMLock :: RWLock
 globalJVMLock = unsafePerformIO newRWLock
 {-# NOINLINE globalJVMLock #-}
 
--- | A global mutable cell holding the TLS variable, whose content is set once
--- for each thread.
-envTlsRef :: IORef (TLS (Ptr JNIEnv))
-{-# NOINLINE envTlsRef #-}
-envTlsRef = unsafePerformIO $ do
-    -- It doesn't matter if this computation ends up running twice, say because
-    -- of lazy blackholing.
-    !tls <- mkTLS $ [C.block| JNIEnv* {
-      jsize num_jvms;
-      JavaVM *jvm;
-      /* Assume there's at most one JVM. The current JNI spec (2016) says only
-       * one JVM per process is supported anyways. */
-      JNI_GetCreatedJavaVMs(&jvm, 1, &num_jvms);
-      JNIEnv *env;
+jni_ok :: Int32
+jni_ok = [CU.pure| jint { JNI_OK } |]
+{-# NOINLINE jni_ok #-}
 
-      if(!num_jvms) {
-              fprintf(stderr, "No JVM has been initialized yet.\n");
-              exit(EFAULT);
-      }
+attachCurrentThreadAsDaemon :: IO ()
+attachCurrentThreadAsDaemon = do
+    rc <- [CU.exp| jint {
+        (*$(JavaVM* jvm))->AttachCurrentThreadAsDaemon($(JavaVM* jvm), &jniEnv, NULL)
+      } |]
+    when (rc /= jni_ok) $
+      throwIO $ JNIError "attachCurrentThreadAsDaemon" rc
 
-      /* Attach as daemon to match GHC's usual semantics for threads, which are
-       * daemonic.
-       */
-      (*jvm)->AttachCurrentThreadAsDaemon(jvm, (void**)&env, NULL);
-      return env; } |]
-    newIORef tls
+detachCurrentThread :: IO ()
+detachCurrentThread = do
+    rc <- [CU.block| jint {
+        int rc = (*$(JavaVM* jvm))->DetachCurrentThread($(JavaVM* jvm));
+        if (rc == JNI_OK)
+          jniEnv = NULL;
+        return rc;
+      } |]
+    when (rc /= jni_ok) $
+      throwIO $ JNIError "detachCurrentThread" rc
+
+-- | Attaches the calling thread to the JVM, runs the given IO action and
+-- then detaches the thread.
+--
+-- If the thread is already attached no attaching and detaching is performed.
+--
+asDaemonThread :: IO a -> IO a
+asDaemonThread io = getJNIEnv >>= maybe
+    (bracket_ attachCurrentThreadAsDaemon detachCurrentThread io)
+    (const io)
+
+-- | The current JVM
+--
+-- Assumes there's at most one JVM. The current JNI spec (2016) says only
+-- one JVM per process is supported anyways.
+{-# NOINLINE jvm #-}
+jvm :: Ptr JVM
+jvm = unsafePerformIO $ alloca $ \pjvm -> alloca $ \pnum_jvms -> do
+    rc <- [CU.exp| jint {
+        JNI_GetCreatedJavaVMs($(JavaVM** pjvm), 1, $(jsize* pnum_jvms))
+      }|]
+    when (rc /= jni_ok) $
+      throwIO $ JNIError "JNI_GetCreatedJavaVMs" rc
+    num_jvms <- peek pnum_jvms
+    when (num_jvms == 0) $
+      fail "JNI_GetCreatedJavaVMs: No JVM has been initialized yet."
+    when (num_jvms > 1) $
+      fail "JNI_GetCreatedJavaVMs: There are multiple JVMs but only one is supported."
+    peek pjvm
+
+-- | Yields the JNIEnv of the calling thread.
+--
+-- Yields @Nothing@ if the calling thread is not attached to the JVM.
+getJNIEnv :: IO (Maybe (Ptr JNIEnv))
+getJNIEnv = do
+    env0 <- [CU.exp| JNIEnv* { jniEnv } |]
+    if nullPtr /= env0 then
+      return $ Just env0
+    else do
+      rc <- [CU.exp| jint {
+          (*$(JavaVM* jvm))->GetEnv($(JavaVM* jvm), (void**)&jniEnv, JNI_VERSION_1_6)
+        }|]
+      when (rc == [CU.pure| jint { JNI_EVERSION } |]) $
+        fail "GetEnv: Unsupported version."
+      if rc == [CU.pure| jint { JNI_EDETACHED } |] then
+        return Nothing
+      else do
+        when (rc /= jni_ok) $
+          throwIO $ JNIError "GetEnv" rc
+        env <- [CU.exp| JNIEnv* { jniEnv } |]
+        return $ Just env
 
 -- | Run an action against the appropriate 'JNIEnv'.
 --
@@ -350,7 +424,7 @@ envTlsRef = unsafePerformIO $ do
 --
 -- TODO check whether this call is only safe from a (bound) thread.
 withJNIEnv :: (Ptr JNIEnv -> IO a) -> IO a
-withJNIEnv f = f =<< getTLS =<< readIORef envTlsRef
+withJNIEnv f = maybe (throwIO ThreadNotAttached) f =<< getJNIEnv
 
 useAsCStrings :: [ByteString] -> ([Ptr CChar] -> IO a) -> IO a
 useAsCStrings strs m =
@@ -363,6 +437,7 @@ newJVM options = JVM_ <$> do
     useAsCStrings options $ \cstrs -> do
       withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
         let n = fromIntegral (length cstrs) :: C.CInt
+        checkBoundness
         [C.block| JavaVM * {
           JavaVM *jvm;
           JNIEnv *env;
@@ -377,6 +452,12 @@ newJVM options = JVM_ <$> do
           JNI_CreateJavaVM(&jvm, (void**)&env, &vm_args);
           free(options);
           return jvm; } |]
+
+  where
+    checkBoundness :: IO ()
+    checkBoundness = when rtsSupportsBoundThreads $ do
+      bound <- isCurrentThreadBound
+      unless bound (throwIO ThreadNotBound)
 
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()

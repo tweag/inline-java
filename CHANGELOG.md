@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+### Added
+
+* attachCurrentThreadAsDaemon, detachCurrentThread and asDaemonThread
+  are provided to have the application attach and detach threads.
+
+### Changed
+
+* Threads are no longer attached automatically to the JVM.
+* We check that the calling thread is bound when creating the JVM.
+
 ## [0.7.0] - 2017-08-31
 
 ### Added
