@@ -146,6 +146,7 @@ module Foreign.JNI
   , getArrayLength
   , getStringLength
   , ArrayCopyFailed(..)
+  , NullPointer(..)
   , getBooleanArrayElements
   , getByteArrayElements
   , getCharArrayElements
@@ -231,6 +232,13 @@ data ArrayCopyFailed = ArrayCopyFailed CallStack
 
 instance Exception ArrayCopyFailed
 
+-- | Thrown when a null reference is found where a non-null reference was
+-- expected.
+data NullPointer = NullPointer CallStack
+  deriving (Show, Typeable)
+
+instance Exception NullPointer
+
 -- | Map Java exceptions to Haskell exceptions.
 throwIfException :: HasCallStack => Ptr JNIEnv -> IO a -> IO a
 throwIfException env m = m `finally` do
@@ -254,6 +262,16 @@ throwIfNull m = do
       hPutStrLn stderr $ prettyCallStack callStack
       throwIO (ArrayCopyFailed callStack)
     else return ptr
+
+-- | Throws an error if the given reference is null, otherwise performs
+-- the given io action.
+throwIfJNull :: HasCallStack => J ty -> IO a -> IO a
+throwIfJNull j io =
+    if j == jnull then do
+      hPutStrLn stderr $ "Foreign.JNI.NullPointer exception\n"
+                         ++ prettyCallStack callStack
+      throwIO (NullPointer callStack)
+    else io
 
 -- | A read-write lock
 --
@@ -420,8 +438,8 @@ throw (coerce -> upcast -> obj) = withJNIEnv $ \env -> void $ do
        (*$(JNIEnv *env))->Throw($(JNIEnv *env),
                                 $fptr-ptr:(jobject obj)) } |]
 
-throwNew :: JClass -> JNI.String -> IO ()
-throwNew cls msg = withJNIEnv $ \env ->
+throwNew :: HasCallStack => JClass -> JNI.String -> IO ()
+throwNew cls msg = throwIfJNull cls $ withJNIEnv $ \env ->
     JNI.withString msg $ \msgp -> void $ do
     [CU.exp| jint {
        (*$(JNIEnv *env))->ThrowNew($(JNIEnv *env),
@@ -439,7 +457,7 @@ findClass (coerce -> name) = withJNIEnv $ \env ->
     [CU.exp| jclass { (*$(JNIEnv *env))->FindClass($(JNIEnv *env), $(char *namep)) } |]
 
 newObject :: HasCallStack => JClass -> MethodSignature -> [JValue] -> IO JObject
-newObject cls (coerce -> sig) args = withJNIEnv $ \env ->
+newObject cls (coerce -> sig) args = throwIfJNull cls $ withJNIEnv $ \env ->
     throwIfException env $
     withJValues args $ \cargs -> do
       constr <- getMethodID cls "<init>" sig
@@ -455,7 +473,8 @@ getFieldID
   -> JNI.String -- ^ Field name
   -> Signature -- ^ JNI signature
   -> IO JFieldID
-getFieldID cls fieldname (coerce -> sig) = withJNIEnv $ \env ->
+getFieldID cls fieldname (coerce -> sig) = throwIfJNull cls $
+    withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString fieldname $ \fieldnamep ->
     JNI.withString sig $ \sigp ->
@@ -471,7 +490,8 @@ getStaticFieldID
   -> JNI.String -- ^ Field name
   -> Signature -- ^ JNI signature
   -> IO JFieldID
-getStaticFieldID cls fieldname (coerce -> sig) = withJNIEnv $ \env ->
+getStaticFieldID cls fieldname (coerce -> sig) = throwIfJNull cls $
+    withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString fieldname $ \fieldnamep ->
     JNI.withString sig $ \sigp ->
@@ -508,7 +528,8 @@ GET_FIELD(Double, Double, jdouble)
 #define GET_STATIC_FIELD(name, hs_rettype, c_rettype) \
 getStatic/**/name/**/Field \
   :: HasCallStack => JClass -> JFieldID -> IO hs_rettype; \
-getStatic/**/name/**/Field klass field = withJNIEnv $ \env -> \
+getStatic/**/name/**/Field klass field = throwIfJNull klass $ \
+    withJNIEnv $ \env -> \
     throwIfException env $ \
     [CU.exp| c_rettype { \
       (*$(JNIEnv *env))->GetStatic/**/name/**/Field($(JNIEnv *env), \
@@ -561,7 +582,7 @@ SET_FIELD(Double, Double, jdouble)
 #define SET_STATIC_FIELD(name, hs_fieldtype, c_fieldtype) \
 setStatic/**/name/**/Field \
   :: HasCallStack => JClass -> JFieldID -> hs_fieldtype -> IO (); \
-setStatic/**/name/**/Field klass field x = \
+setStatic/**/name/**/Field klass field x = throwIfJNull klass $ \
     withJNIEnv $ \env -> \
     throwIfException env $ \
     [CU.block| void { \
@@ -589,7 +610,8 @@ getMethodID
   -> JNI.String -- ^ Field name
   -> MethodSignature -- ^ JNI signature
   -> IO JMethodID
-getMethodID cls methodname (coerce -> sig) = withJNIEnv $ \env ->
+getMethodID cls methodname (coerce -> sig) = throwIfJNull cls $
+    withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString methodname $ \methodnamep ->
     JNI.withString sig $ \sigp ->
@@ -605,7 +627,8 @@ getStaticMethodID
   -> JNI.String -- ^ Field name
   -> MethodSignature -- ^ JNI signature
   -> IO JMethodID
-getStaticMethodID cls methodname (coerce -> sig) = withJNIEnv $ \env ->
+getStaticMethodID cls methodname (coerce -> sig) = throwIfJNull cls $
+    withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString methodname $ \methodnamep ->
     JNI.withString sig $ \sigp ->
@@ -616,7 +639,8 @@ getStaticMethodID cls methodname (coerce -> sig) = withJNIEnv $ \env ->
                                            $(char *sigp)) } |]
 
 getObjectClass :: (Coercible o (J ty), HasCallStack) => o -> IO JClass
-getObjectClass (coerce -> upcast -> obj) = withJNIEnv $ \env ->
+getObjectClass (coerce -> upcast -> obj) = throwIfJNull obj $
+    withJNIEnv $ \env ->
     objectFromPtr =<<
     [CU.exp| jclass {
       (*$(JNIEnv *env))->GetObjectClass($(JNIEnv *env),
@@ -740,7 +764,8 @@ CALL_METHOD(Double, Double, jdouble)
 #define CALL_STATIC_METHOD(name, hs_rettype, c_rettype) \
 callStatic/**/name/**/Method \
   :: HasCallStack => JClass -> JMethodID -> [JValue] -> IO hs_rettype; \
-callStatic/**/name/**/Method cls method args = withJNIEnv $ \env -> \
+callStatic/**/name/**/Method cls method args = throwIfJNull cls $ \
+    withJNIEnv $ \env -> \
     throwIfException env $ \
     withJValues args $ \cargs -> \
     [C.exp| c_rettype { \
@@ -769,7 +794,7 @@ CALL_STATIC_METHOD(Float, Float, jfloat)
 CALL_STATIC_METHOD(Double, Double, jdouble)
 
 newObjectArray :: HasCallStack => Int32 -> JClass -> IO JObjectArray
-newObjectArray sz cls = withJNIEnv $ \env ->
+newObjectArray sz cls = throwIfJNull cls $ withJNIEnv $ \env ->
     throwIfException env $
     objectFromPtr =<<
     [CU.exp| jobjectArray {
@@ -805,14 +830,15 @@ newString ptr len = withJNIEnv $ \env ->
                                    $(jchar *ptr),
                                    $(jsize len)) } |]
 
-getArrayLength :: Coercible o (JArray a) => o -> IO Int32
-getArrayLength (coerce -> upcast -> array) = withJNIEnv $ \env ->
+getArrayLength :: (Coercible o (JArray a), HasCallStack) => o -> IO Int32
+getArrayLength (coerce -> upcast -> array) = throwIfJNull array $
+    withJNIEnv $ \env ->
     [C.exp| jsize {
       (*$(JNIEnv *env))->GetArrayLength($(JNIEnv *env),
                                         $fptr-ptr:(jarray array)) } |]
 
 getStringLength :: JString -> IO Int32
-getStringLength jstr = withJNIEnv $ \env ->
+getStringLength jstr = throwIfJNull jstr $ withJNIEnv $ \env ->
     [CU.exp| jsize {
       (*$(JNIEnv *env))->GetStringLength($(JNIEnv *env),
                                          $fptr-ptr:(jstring jstr)) } |]
@@ -820,7 +846,8 @@ getStringLength jstr = withJNIEnv $ \env ->
 #define GET_ARRAY_ELEMENTS(name, hs_rettype, c_rettype) \
 get/**/name/**/ArrayElements \
   :: HasCallStack => J/**/name/**/Array -> IO (Ptr hs_rettype); \
-get/**/name/**/ArrayElements (upcast -> array) = withJNIEnv $ \env -> \
+get/**/name/**/ArrayElements (upcast -> array) = throwIfJNull array $ \
+    withJNIEnv $ \env -> \
     throwIfNull $ \
     [CU.exp| c_rettype* { \
       (*$(JNIEnv *env))->Get/**/name/**/ArrayElements($(JNIEnv *env), \
@@ -837,7 +864,7 @@ GET_ARRAY_ELEMENTS(Float, Float, jfloat)
 GET_ARRAY_ELEMENTS(Double, Double, jdouble)
 
 getStringChars :: HasCallStack => JString -> IO (Ptr Word16)
-getStringChars jstr = withJNIEnv $ \env ->
+getStringChars jstr = throwIfJNull jstr $ withJNIEnv $ \env ->
     throwIfNull $
     [CU.exp| const jchar* {
       (*$(JNIEnv *env))->GetStringChars($(JNIEnv *env),
@@ -852,7 +879,8 @@ set/**/name/**/ArrayRegion \
   -> Int32 \
   -> Ptr hs_argtype \
   -> IO (); \
-set/**/name/**/ArrayRegion array start len buf = withJNIEnv $ \env -> \
+set/**/name/**/ArrayRegion array start len buf = throwIfJNull array $ \
+    withJNIEnv $ \env -> \
     throwIfException env $ \
     [CU.exp| void { \
       (*$(JNIEnv *env))->Set/**/name/**/ArrayRegion($(JNIEnv *env), \
@@ -872,7 +900,8 @@ SET_ARRAY_REGION(Double, Double, jdouble)
 
 #define RELEASE_ARRAY_ELEMENTS(name, hs_argtype, c_argtype) \
 release/**/name/**/ArrayElements :: J/**/name/**/Array -> Ptr hs_argtype -> IO (); \
-release/**/name/**/ArrayElements (upcast -> array) xs = withJNIEnv $ \env -> \
+release/**/name/**/ArrayElements (upcast -> array) xs = throwIfJNull array $ \
+    withJNIEnv $ \env -> \
     [CU.exp| void { \
       (*$(JNIEnv *env))->Release/**/name/**/ArrayElements($(JNIEnv *env), \
                                                           $fptr-ptr:(jobject array), \
@@ -889,7 +918,7 @@ RELEASE_ARRAY_ELEMENTS(Float, Float, jfloat)
 RELEASE_ARRAY_ELEMENTS(Double, Double, jdouble)
 
 releaseStringChars :: JString -> Ptr Word16 -> IO ()
-releaseStringChars jstr chars = withJNIEnv $ \env ->
+releaseStringChars jstr chars = throwIfJNull jstr $ withJNIEnv $ \env ->
     [CU.exp| void {
       (*$(JNIEnv *env))->ReleaseStringChars($(JNIEnv *env),
                                             $fptr-ptr:(jstring jstr),
@@ -904,7 +933,8 @@ getObjectArrayElement
   => JArray a
   -> Int32
   -> IO o
-getObjectArrayElement (arrayUpcast -> array) i = withJNIEnv $ \env ->
+getObjectArrayElement (arrayUpcast -> array) i = throwIfJNull array $
+    withJNIEnv $ \env ->
     ( (coerce :: J a -> o)
     . (unsafeCast :: JObject -> J a)
     ) <$> (objectFromPtr =<<)
@@ -926,6 +956,7 @@ setObjectArrayElement
 setObjectArrayElement (arrayUpcast -> array)
                       i
                       ((coerce :: o -> J a) -> upcast -> x) =
+    throwIfJNull array $
     withJNIEnv $ \env ->
     [C.exp| void {
       (*$(JNIEnv *env))->SetObjectArrayElement($(JNIEnv *env),
