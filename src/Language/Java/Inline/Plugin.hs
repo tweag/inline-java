@@ -4,7 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 module Language.Java.Inline.Plugin (plugin) where
 
@@ -25,6 +25,7 @@ import Foreign.JNI.Types (JType(..))
 import GhcPlugins
 import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH
+import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Magic
 import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
@@ -73,11 +74,21 @@ plugin = defaultPlugin
           return guts
             { mg_binds = binds
             , mg_foreign = appendStubC (mg_foreign guts) $
-                             text "#include \"bctable.h\""
+                             text bctable_header
                            $$ dotClasses dcs
                            $$ cConstructors
             }
 
+    -- The contents of bctable.h
+    --
+    -- #include "bctable.h" wouldn't work when ghc is used from the
+    -- command line without saying -package inline-java.
+    bctable_header :: String
+    bctable_header = $(do
+        let f = "cbits/bctable.h"
+        TH.addDependentFile f
+        TH.lift =<< TH.runIO (readFile f)
+      )
     -- Dumps the java code to stderr or a file, depending on the set flags.
     maybeDumpJava :: [CommandLineOption] -> Builder -> CoreM Builder
     maybeDumpJava args b
