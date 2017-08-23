@@ -852,8 +852,11 @@ releaseStringChars jstr chars = withJNIEnv $ \env ->
                                             $(jchar *chars)) } |]
 
 getObjectArrayElement
-  :: forall a o. (IsReferenceType a, Coercible o (J a))
-  => JArray a -> Int32 -> IO o
+  :: forall a o.
+     (IsReferenceType a, Coercible o (J a))
+  => JArray a
+  -> Int32
+  -> IO o
 getObjectArrayElement (arrayUpcast -> array) i = withJNIEnv $ \env ->
     ( (coerce :: J a -> o)
     . (unsafeCast :: JObject -> J a)
@@ -864,8 +867,12 @@ getObjectArrayElement (arrayUpcast -> array) i = withJNIEnv $ \env ->
                                                $(jsize i)) } |]
 
 setObjectArrayElement
-  :: forall a o. (IsReferenceType a, Coercible o (J a))
-  => JArray a -> Int32 -> o -> IO ()
+  :: forall a o.
+     (IsReferenceType a, Coercible o (J a))
+  => JArray a
+  -> Int32
+  -> o
+  -> IO ()
 setObjectArrayElement (arrayUpcast -> array)
                       i
                       ((coerce :: o -> J a) -> upcast -> x) =
