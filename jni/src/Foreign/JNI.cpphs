@@ -287,9 +287,8 @@ releaseReadLock (RWLock ref) = do
 acquireWriteLock :: RWLock -> IO ()
 acquireWriteLock (RWLock ref) = do
     mv <- newEmptyMVar
-    join $ atomicModifyIORef ref $ \case
-      (0, _) -> ((0, Writing mv),   return ())
-      st     -> (               st, takeMVar mv)
+    join $ atomicModifyIORef ref $ \(readers, _) ->
+      ((readers, Writing mv), when (readers > 0) (takeMVar mv))
 
 -- | This lock is used to avoid the JVM from dying before any finalizers
 -- deleting global references are finished.
