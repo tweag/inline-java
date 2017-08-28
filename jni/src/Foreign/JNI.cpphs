@@ -280,7 +280,7 @@ releaseReadLock (RWLock ref) = do
             \st@(readers, aim) -> ((readers - 1, aim), st)
     case st of
       -- Notify the writer if I'm the last reader.
-      (0, Writing mv) -> putMVar mv ()
+      (1, Writing mv) -> putMVar mv ()
       _               -> return ()
 
 -- | Waits until the current read locks are released and grants a write lock.
