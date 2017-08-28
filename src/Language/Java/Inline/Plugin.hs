@@ -13,6 +13,7 @@ import Convert (thRdrNameGuesses)
 import qualified Data.ByteString as BS
 import Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as Builder
+import Data.Char (chr, ord)
 import Data.Data (Data)
 import Data.List (intersperse, isSuffixOf)
 import Data.Maybe (mapMaybe)
@@ -252,9 +253,9 @@ toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
     go :: Type -> Maybe [BS.ByteString]
     go (TyConApp c [LitTy (StrTyLit fs)])
       | Just n <- nameClass, tyConName c == n =
-        Just [fastStringToByteString fs]
+        Just [substDollar $ fastStringToByteString fs]
       | Just n <- nameIface, tyConName c == n =
-        Just [fastStringToByteString fs]
+        Just [substDollar $ fastStringToByteString fs]
     go (TyConApp c [t])
       | Just n <- nameArray, tyConName c == n =
         (++ ["[]"]) <$> go t
@@ -276,6 +277,15 @@ toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
     listGo (TyConApp c [_, tx, txs]) | consDataConName == tyConName c =
       (:) <$> go tx <*> listGo txs
     listGo _ = Nothing
+
+    -- Substitutes '$' with '.' in java names.
+    substDollar :: BS.ByteString -> BS.ByteString
+    substDollar xs
+      | fromIntegral (ord '$') `BS.elem` xs =
+        let subst (chr . fromIntegral -> '$') = fromIntegral (ord '.')
+            subst x = x
+         in BS.map subst xs
+      | otherwise = xs
 
 -- | An occurrence of 'qqMarker'
 data QQOcc = QQOcc
