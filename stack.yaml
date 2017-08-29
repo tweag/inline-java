@@ -1,10 +1,6 @@
-require-stack-version: ">= 1.5"
+require-stack-version: ">= 1.2"
 
-resolver: nightly-2017-08-15
-
-compiler: ghc-8.2.1
-allow-newer: true
-skip-ghc-check: true
+resolver: lts-9.0
 
 packages:
 - .
@@ -12,10 +8,6 @@ packages:
 - jvm
 - jvm-streaming
 - examples/classpath
-
-extra-deps:
-- streaming-0.1.4.5
-- thread-local-storage-0.1.2
 
 nix:
   shell-file: shell.nix
