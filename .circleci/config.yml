@@ -7,7 +7,7 @@ jobs:
     steps:
     - checkout
     - restore_cache:
-        key: inline-java-stack-dependencies
+        key: inline-java-stack-dependencies-{{ checksum "stack.yaml" }}
     - run:
         name: build dependencies
         command: stack --no-terminal build --only-dependencies --prefetch --test --bench
