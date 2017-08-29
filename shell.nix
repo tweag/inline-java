@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> {}, ghc ? pkgs.haskell.compiler.ghc802 }:
+{ pkgs ? import <nixpkgs> {}, ghc ? pkgs.haskell.compiler.ghc821 }:
 
 with pkgs;
 
@@ -18,7 +18,7 @@ in
 haskell.lib.buildStackProject ({
   name = "inline-java";
   buildInputs = [ git openjdk gradle ];
-  ghc = haskell.compiler.ghc802;
+  ghc = ghc;
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   LANG = "en_US.utf8";
 } // libHack)
