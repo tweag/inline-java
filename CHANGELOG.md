@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Next release
+
+### Changed
+
+* Functions that produce JNI strings for names, signatures etc now
+  return newtype wrappers. These functions hence produce values that
+  bear a proof of well-formation. See #41 for details.
+* The representation of `Sing (t :: JType)` has changed.
+
+### Fixed
+
 ## [0.6.4] - 2017-04-09
 
 ### Fixed
