@@ -13,6 +13,10 @@ packages:
 - jvm-streaming
 - examples/classpath
 
+extra-deps:
+- streaming-0.1.4.5
+- thread-local-storage-0.1.2
+
 nix:
   shell-file: shell.nix
 
