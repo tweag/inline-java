@@ -1,6 +1,7 @@
 -- | This plugin generates Java bytecode from modules using the java
 -- QuasiQuoter and inserts it in a global bytecode table from where the
 -- it is loaded at runtime.
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -27,7 +28,9 @@ import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Magic
+#if MIN_VERSION_ghc(8, 2, 1)
 import NameCache (nsNames)
+#endif
 import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
