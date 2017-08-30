@@ -119,3 +119,8 @@ spec = do
             [java| new ArrayList<String>() |]
           _ :: List ('Class "java.lang.String") <- [java| $obj |]
           return ()
+
+      it "Can access inner classes" $ do
+          st :: J ('Class "java.lang.Thread$State") <-
+            [java| Thread.State.NEW |]
+          [java| $st == Thread.State.NEW |] `shouldReturn` True
