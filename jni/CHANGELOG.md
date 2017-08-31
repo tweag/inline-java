@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * Add support for inline-c-0.6 so `src/Foreign/JNI.c`
   does not cause unnecessary recompilation.
 * `instance Show (Sing (a :: JType))`.
-* `singToIsReferenceType`, to construct IsReferenceType instances from singletons.
+* `singToIsReferenceType`, to construct IsReferenceType instances from
+  singletons.
 
 ### Changed
 
@@ -36,7 +37,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 
 * `ojectFromPtr`/`unsafeObjectToPtr` to convert from/to a pointer type.
-* `newJVM`/`destroyJVM`, for use in GHCi, where `withJVM` isn't appropriate.
+* `newJVM`/`destroyJVM`, for use in GHCi, where `withJVM` isn't
+  appropriate.
 
 ### Changed
 

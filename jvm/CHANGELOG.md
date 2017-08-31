@@ -15,10 +15,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   deallocating whole groups of references at once when popping the
   frames.
 * Benchmarks to quantify the cost of references.
-* `newArray`, a polymorphic way to create new arrays on top of the raw newXXXArray JNI functions.
-* `getStaticField`, to get the values of fields using any of the `getStaticXXXField` JNI functions.
+* `newArray`, a polymorphic way to create new arrays on top of the raw
+  newXXXArray JNI functions.
+* `getStaticField`, to get the values of fields using any of the
+  `getStaticXXXField` JNI functions.
 * `CChar` instance for `Reify`.
-* Expose `jobject` to get Java references from Haskell values with a Coercible instance with a reference type.
+* Expose `jobject` to get Java references from Haskell values with a
+  Coercible instance with a reference type.
 
 ### Changed
 
