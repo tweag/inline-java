@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 
 * `arrayUpcast` for upcasting array types.
+* `NFData` instances.
+* Add support for inline-c-0.6 so `src/Foreign/JNI.c`
+  does not cause unnecessary recompilation.
+* `instance Show (Sing (a :: JType))`.
+* `singToIsReferenceType`, to construct IsReferenceType instances from singletons.
 
 ### Changed
 
@@ -23,6 +28,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * `NUL` character handling. `fromChars` didn't always yield a string
   with a terminating `NUL` character. `toByteStringe` in addition, was
   not discarding the terminating `NUL` character properly.
+* `Foreign.JNI` now includes `stdio.h` to help builds in Android.
+* Fixed random lockups in the read-write locks used to finalize JNI.
 
 ## [0.3.1] - 2017-05-01
 
