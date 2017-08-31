@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+## [0.3.0] - 2017-08-31
+
 ### Added
 
 * Marshalling lists of refs to a Java array.

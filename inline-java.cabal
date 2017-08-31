@@ -43,7 +43,7 @@ library
     filepath >= 1,
     ghc >= 8.0.2 && < 8.3,
     jni >= 0.4,
-    jvm >= 0.2,
+    jvm >= 0.3,
     language-java >= 0.2,
     mtl >= 2.2.1,
     process >= 1.2,
