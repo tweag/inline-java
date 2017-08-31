@@ -24,4 +24,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [0.2.2] - 2017-05-03
 
+### Added
+
+* Added TH convenience function to produce Coercible and Reify
+  instances for newtype wrappers of Java references.
+* Made Choice Coercible to a Java boolean.
+
 ## [0.2.0] - 2017-02-21
