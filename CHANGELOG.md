@@ -6,14 +6,29 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+### Added
+
+* Plugin option to dump the generated Java to the console or a file.
+* Partial support for inner classes. Antiquoted variables and
+  quasiquotation results can refer to inner classes now.
+
 ### Changed
 
-* Functions that produce JNI strings for names, signatures etc now
-  return newtype wrappers. These functions hence produce values that
-  bear a proof of well-formation. See #41 for details.
-* The representation of `Sing (t :: JType)` has changed.
+* Use a compiler plugin to build the bytecode table and to generate
+  Java code. We no longer need static pointers to find the bytecode
+  at runtime, and we can check at build-time that values are
+  marshaled between matching types in Java and Haskell when using
+  antiquated variables or the result of quasiquotations. Also, now
+  java quasiquotes work inside Template Haskell brackets ([| ... |]).
+* Use only the lexer in `language-java`. This defers most parsing
+  errors to the `javac` compiler which produces better error
+  messages and might support newer syntactic constructs like
+  anonymous functions.
+* Java checked exceptions are now allowed in java quasiquotes.
 
 ### Fixed
+
+* Gradle hooks now produce a correct build-time classpath.
 
 ## [0.6.5] - 2017-04-13
 
