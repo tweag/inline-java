@@ -447,6 +447,13 @@ type family Interp (a :: k) :: JType
 -- Instances of this class /must/ guarantee that the result is managed on the
 -- Haskell heap. That is, the Haskell runtime has /global ownership/ of the
 -- result.
+--
+-- WARNING: The default method just creates a global reference to the Java
+-- object. Widespread use of this mechanism can cause memory problems since
+-- objects in the Java heap cause no pressure on the Haskell garbage collector.
+-- If the Haskell's GC is not executed by the time the Java heap is full, the
+-- Java code might sporadically fail with OutOfMemory exceptions.
+--
 class (SingI (Interp a), IsReferenceType (Interp a))
       => Reify a where
   reify :: J (Interp a) -> IO a
