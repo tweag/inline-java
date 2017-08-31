@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Fixed
 
+## [0.6.5] - 2017-04-13
+
+## Added
+
+* Exposed loadJavaWrappers.
+
 ## [0.6.4] - 2017-04-09
 
 ### Fixed
