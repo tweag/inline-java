@@ -36,6 +36,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * The Uncurry type family.
 * `Reify` and `Reflect` instances for `J ty`.
 * Second parameter of Reflect/Reify.
+* TH convenience function to produce Coercible and Reify instances for
+  newtype wrappers of Java references. This is less useful now that
+  we don't provide `Reify` and `Reflect` instances for `J ty`.
 
 ### Fixed
 
