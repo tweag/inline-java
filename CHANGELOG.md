@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+## [0.7.0] - 2017-08-31
+
 ### Added
 
 * Plugin option to dump the generated Java to the console or a file.
