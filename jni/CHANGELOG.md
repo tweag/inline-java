@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+## [0.4.0] - 2017-08-31
+
 ### Added
 
 * `arrayUpcast` for upcasting array types.
