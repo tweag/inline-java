@@ -1,5 +1,5 @@
 name:                jvm-streaming
-version:             0.2
+version:             0.2.1
 synopsis:            Expose Java iterators as streams from the streaming package.
 description:         Please see README.md.
 homepage:            http://github.com/tweag/inline-java/tree/master/jvm-streaming#readme
