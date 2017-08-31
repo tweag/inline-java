@@ -14,13 +14,30 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   reclaiming of local references, by pushing new frames and
   deallocating whole groups of references at once when popping the
   frames.
+* Benchmarks to quantify the cost of references.
+* `newArray`, a polymorphic way to create new arrays on top of the raw newXXXArray JNI functions.
+* `getStaticField`, to get the values of fields using any of the `getStaticXXXField` JNI functions.
+* `CChar` instance for `Reify`.
+* Expose `jobject` to get Java references from Haskell values with a Coercible instance with a reference type.
 
 ### Changed
 
 * Simplify the `Reify` and `Reflect` machinery. These type classes now
   each take a single argument. The `Uncurry` type class, to avoid
   overlapping instances in `sparkle`, has been removed.
-* Remove `Reify` and `Reflect` instances for `J ty`.
+* `callStatic` takes a `JNI.String` instead of a singleton.
+* `classOf` returns a JNI.String instead of a singleton.
+
+### Removed
+
+* The Uncurry type family.
+* `Reify` and `Reflect` instances for `J ty`.
+* Second parameter of Reflect/Reify.
+
+### Fixed
+
+* Tests in conditional compilation for ghc-8.0.1.
+* Use global refs in finalizers associated to IOVectors.
 
 ## [0.2.2] - 2017-05-03
 
