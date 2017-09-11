@@ -37,12 +37,13 @@ import GHC.Stable
   , freeStablePtr
   , newStablePtr
   )
+import GHC.Stack (HasCallStack)
 import Language.Java
 import Language.Java.Inline
 import Streaming (Stream, Of)
 import qualified Streaming.Prelude as Streaming
 
-isPoppableStream :: IORef (Stream (Of a) IO ()) -> IO Word8
+isPoppableStream :: HasCallStack => IORef (Stream (Of a) IO ()) -> IO Word8
 isPoppableStream ref = do
     readIORef ref >>= Streaming.uncons >>= \case
       Nothing -> return $ fromIntegral $ fromEnum False
@@ -50,7 +51,10 @@ isPoppableStream ref = do
         writeIORef ref (Streaming.cons x stream)
         return $ fromIntegral $ fromEnum True
 
-popStream :: Reflect a => IORef (Stream (Of a) IO ()) -> IO (J (Interp a))
+popStream
+  :: (HasCallStack, Reflect a)
+  => IORef (Stream (Of a) IO ())
+  -> IO (J (Interp a))
 popStream ref = do
     stream <- readIORef ref
     Streaming.uncons stream >>= \case
@@ -89,7 +93,7 @@ freeIterator _ _ ptr = do
     freeStablePtr sptr
 
 newIterator
-  :: Reflect a
+  :: (HasCallStack, Reflect a)
   => Stream (Of a) IO ()
   -> IO (J ('Iface "java.util.Iterator"))
 newIterator stream = do

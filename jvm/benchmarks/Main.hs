@@ -15,6 +15,7 @@ import qualified Foreign.ForeignPtr as ForeignPtr
 import Foreign.JNI
 import Foreign.Marshal.Alloc (mallocBytes, finalizerFree)
 import Language.Java
+import System.IO.Unsafe (unsafeDupablePerformIO)
 
 newtype BoxObject = BoxObject JObject
 newtype BoxClass = BoxClass JClass
@@ -24,8 +25,16 @@ newtype BoxClass = BoxClass JClass
 instance NFData BoxObject where rnf (BoxObject (J fptr)) = fptr `seq` ()
 instance NFData BoxClass where rnf (BoxClass (J fptr)) = fptr `seq` ()
 
+{-# NOINLINE klassMath #-}
+klassMath :: JClass
+klassMath = unsafeDupablePerformIO $ do
+    lk <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Math")))
+    gk <- newGlobalRef lk
+    deleteLocalRef lk
+    return gk
+
 jabs :: Int32 -> IO Int32
-jabs x = callStatic "java.lang.Math" "abs" [coerce x]
+jabs x = callStaticJClass klassMath "abs" retsingInt [coerce x]
 
 jniAbs :: JClass -> JMethodID -> Int32 -> IO Int32
 jniAbs klass method x = callStaticIntMethod klass method [coerce x]
@@ -33,13 +42,25 @@ jniAbs klass method x = callStaticIntMethod klass method [coerce x]
 intValue :: Int32 -> IO Int32
 intValue x = do
     jx <- reflect x
-    call jx "intValue" []
+    callJClass jx klassInteger "intValue" retsingInt []
+
+{-# NOINLINE retsingInt #-}
+retsingInt :: Sing ('Prim "int")
+retsingInt = sing
+
+{-# NOINLINE klassInteger #-}
+klassInteger :: JClass
+klassInteger = unsafeDupablePerformIO $ do
+    lk <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Integer")))
+    gk <- newGlobalRef lk
+    deleteLocalRef lk
+    return gk
 
 compareTo :: Int32 -> Int32 -> IO Int32
 compareTo x y = do
     jx <- reflect x
     jy <- reflect y
-    call jx "compareTo" [coerce jy]
+    callJClass jx klassInteger "compareTo" retsingInt [coerce jy]
 
 incrHaskell :: Int32 -> IO Int32
 incrHaskell x = return (x + 1)

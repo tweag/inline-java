@@ -59,6 +59,8 @@ module Language.Java
   , toArray
   , call
   , callStatic
+  , callJClass
+  , callStaticJClass
   , getStaticField
   -- * Reference management
   , push
@@ -111,6 +113,7 @@ import Foreign.C (CChar)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
+import GHC.Stack (HasCallStack)
 import GHC.TypeLits (KnownSymbol, symbolVal)
 import System.IO.Unsafe (unsafeDupablePerformIO)
 
@@ -122,12 +125,13 @@ data Pop a where
     -> Pop a
 
 -- | Open a new scope for allocating (JNI) local references to JVM objects.
-push :: (MonadCatch m, MonadIO m) => m (Pop a) -> m a
+push :: (MonadCatch m, MonadIO m, HasCallStack) => m (Pop a) -> m a
 push = pushWithSizeHint 4
 
 -- | Like 'push', but specify explicitly a minimum size for the frame. You
 -- probably don't need this.
-pushWithSizeHint :: forall a m. (MonadCatch m, MonadIO m) => Int32 -> m (Pop a) -> m a
+pushWithSizeHint
+  :: forall a m. (MonadCatch m, MonadIO m, HasCallStack) => Int32 -> m (Pop a) -> m a
 pushWithSizeHint capacity m = do
     liftIO $ pushLocalFrame capacity
     m `onException` handler >>= \case
@@ -167,7 +171,7 @@ popWithValue x = return (PopValue x)
 -- instance of this type class for that data type.
 class SingI ty => Coercible a (ty :: JType) | a -> ty where
   coerce :: a -> JValue
-  unsafeUncoerce :: JValue -> a
+  unsafeUncoerce :: HasCallStack => JValue -> a
 
   default coerce
     :: Coerce.Coercible a (J ty)
@@ -176,7 +180,7 @@ class SingI ty => Coercible a (ty :: JType) | a -> ty where
   coerce x = JObject (Coerce.coerce x :: J ty)
 
   default unsafeUncoerce
-    :: Coerce.Coercible (J ty) a
+    :: (Coerce.Coercible (J ty) a, HasCallStack)
     => JValue
     -> a
   unsafeUncoerce (JObject obj) = Coerce.coerce (unsafeCast obj :: J ty)
@@ -260,6 +264,7 @@ new
   :: forall a sym.
      ( Coerce.Coercible a (J ('Class sym))
      , Coercible a ('Class sym)
+     , HasCallStack
      )
   => [JValue]
   -> IO a
@@ -286,7 +291,9 @@ new args = do
 -- @
 newArray
   :: forall ty.
-     SingI ty
+     ( SingI ty
+     , HasCallStack
+     )
   => Int32
   -> IO (J ('Array ty))
 {-# INLINE newArray #-}
@@ -314,7 +321,7 @@ newArray sz = do
 
 -- | Creates an array from a list of references.
 toArray
-  :: forall ty. (SingI ty, IsReferenceType ty)
+  :: forall ty. (SingI ty, IsReferenceType ty, HasCallStack)
   => [J ty]
   -> IO (J ('Array ty))
 toArray xs = do
@@ -333,20 +340,44 @@ toArray xs = do
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
 call
-  :: forall a b ty1 ty2. (IsReferenceType ty1, Coercible a ty1, Coercible b ty2, Coerce.Coercible a (J ty1))
+  :: forall a b ty1 ty2.
+     ( IsReferenceType ty1
+     , Coercible a ty1
+     , Coercible b ty2
+     , Coerce.Coercible a (J ty1)
+     , HasCallStack
+     )
   => a -- ^ Any object or value 'Coercible' to one
   -> JNI.String -- ^ Method name
   -> [JValue] -- ^ Arguments
   -> IO b
 {-# INLINE call #-}
 call obj mname args = do
-    let argsings = map jtypeOf args
-        retsing = sing :: Sing ty2
+    let retsing = sing :: Sing ty2
         klass = unsafeDupablePerformIO $ do
                   lk <- findClass (referenceTypeName (sing :: Sing ty1))
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
                   return gk
+    callJClass obj klass mname retsing args
+
+callJClass
+  :: forall a b ty1 ty2.
+     ( IsReferenceType ty1
+     , Coercible a ty1
+     , Coercible b ty2
+     , Coerce.Coercible a (J ty1)
+     , HasCallStack
+     )
+  => a -- ^ Any object or value 'Coercible' to one
+  -> JClass
+  -> JNI.String -- ^ Method name
+  -> Sing (ty2 :: JType)
+  -> [JValue] -- ^ Arguments
+  -> IO b
+{-# INLINE callJClass #-}
+callJClass obj klass mname retsing args = do
+    let argsings = map jtypeOf args
         method = unsafeDupablePerformIO $ getMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callBooleanMethod obj method args
@@ -365,21 +396,38 @@ call obj mname args = do
 
 -- | Same as 'call', but for static methods.
 callStatic
-  :: forall a ty. Coercible a ty
+  :: forall a ty.
+     ( Coercible a ty
+     , HasCallStack
+     )
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
   -> [JValue] -- ^ Arguments
   -> IO a
 {-# INLINE callStatic #-}
 callStatic cname mname args = do
-    let argsings = map jtypeOf args
-        retsing = sing :: Sing ty
+    let retsing = sing :: Sing ty
         klass = unsafeDupablePerformIO $ do
                   lk <- findClass
                           (referenceTypeName (SClass (JNI.toChars cname)))
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
                   return gk
+    callStaticJClass klass mname retsing args
+
+callStaticJClass
+  :: forall a ty.
+     ( Coercible a ty
+     , HasCallStack
+     )
+  => JClass
+  -> JNI.String
+  -> Sing (ty :: JType)
+  -> [JValue] -- ^ Arguments
+  -> IO a
+{-# INLINE callStaticJClass #-}
+callStaticJClass klass mname retsing args = do
+    let argsings = map jtypeOf args
         method = unsafeDupablePerformIO $ getStaticMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callStaticBooleanMethod klass method args
@@ -398,7 +446,10 @@ callStatic cname mname args = do
 
 -- | Get a static field.
 getStaticField
-  :: forall a ty. Coercible a ty
+  :: forall a ty.
+     ( Coercible a ty
+     , HasCallStack
+     )
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Static field name
   -> IO a
@@ -456,9 +507,10 @@ type family Interp (a :: k) :: JType
 --
 class (SingI (Interp a), IsReferenceType (Interp a))
       => Reify a where
-  reify :: J (Interp a) -> IO a
+  reify :: HasCallStack => J (Interp a) -> IO a
 
-  default reify :: Coercible a (Interp a) => J (Interp a) -> IO a
+  default reify
+    :: (Coercible a (Interp a), HasCallStack) => J (Interp a) -> IO a
   reify x = (unsafeUncoerce . JObject) <$> newGlobalRef x
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
@@ -468,14 +520,15 @@ class (SingI (Interp a), IsReferenceType (Interp a))
 -- Instances of this class /must not/ claim global ownership.
 class (SingI (Interp a), IsReferenceType (Interp a))
       => Reflect a where
-  reflect :: a -> IO (J (Interp a))
+  reflect :: HasCallStack => a -> IO (J (Interp a))
 
-  default reflect :: Coercible a (Interp a) => a -> IO (J (Interp a))
+  default reflect
+    :: (Coercible a (Interp a), HasCallStack) => a -> IO (J (Interp a))
   reflect x = newLocalRef (jobject x)
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 reifyMVector
-  :: Storable a
+  :: (Storable a, HasCallStack)
   => (JArray ty -> IO (Ptr a))
   -> (JArray ty -> Ptr a -> IO ())
   -> JArray ty
@@ -493,7 +546,7 @@ reifyMVector mk finalize jobj0 = do
     return (MVector.unsafeFromForeignPtr0 fptr (fromIntegral n))
 
 reflectMVector
-  :: Storable a
+  :: (Storable a, HasCallStack)
   => (Int32 -> IO (JArray ty))
   -> (JArray ty -> Int32 -> Int32 -> Ptr a -> IO ())
   -> IOVector a
