@@ -59,6 +59,8 @@ module Language.Java
   , toArray
   , call
   , callStatic
+  , callJClass
+  , callStaticJClass
   , getStaticField
   -- * Reference management
   , push
@@ -351,13 +353,31 @@ call
   -> IO b
 {-# INLINE call #-}
 call obj mname args = do
-    let argsings = map jtypeOf args
-        retsing = sing :: Sing ty2
+    let retsing = sing :: Sing ty2
         klass = unsafeDupablePerformIO $ do
                   lk <- findClass (referenceTypeName (sing :: Sing ty1))
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
                   return gk
+    callJClass obj klass mname retsing args
+
+callJClass
+  :: forall a b ty1 ty2.
+     ( IsReferenceType ty1
+     , Coercible a ty1
+     , Coercible b ty2
+     , Coerce.Coercible a (J ty1)
+     , HasCallStack
+     )
+  => a -- ^ Any object or value 'Coercible' to one
+  -> JClass
+  -> JNI.String -- ^ Method name
+  -> Sing (ty2 :: JType)
+  -> [JValue] -- ^ Arguments
+  -> IO b
+{-# INLINE callJClass #-}
+callJClass obj klass mname retsing args = do
+    let argsings = map jtypeOf args
         method = unsafeDupablePerformIO $ getMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callBooleanMethod obj method args
@@ -386,14 +406,28 @@ callStatic
   -> IO a
 {-# INLINE callStatic #-}
 callStatic cname mname args = do
-    let argsings = map jtypeOf args
-        retsing = sing :: Sing ty
+    let retsing = sing :: Sing ty
         klass = unsafeDupablePerformIO $ do
                   lk <- findClass
                           (referenceTypeName (SClass (JNI.toChars cname)))
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
                   return gk
+    callStaticJClass klass mname retsing args
+
+callStaticJClass
+  :: forall a ty.
+     ( Coercible a ty
+     , HasCallStack
+     )
+  => JClass
+  -> JNI.String
+  -> Sing (ty :: JType)
+  -> [JValue] -- ^ Arguments
+  -> IO a
+{-# INLINE callStaticJClass #-}
+callStaticJClass klass mname retsing args = do
+    let argsings = map jtypeOf args
         method = unsafeDupablePerformIO $ getStaticMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> unsafeUncoerce . coerce <$> callStaticBooleanMethod klass method args
