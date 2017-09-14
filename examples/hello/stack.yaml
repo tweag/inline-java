@@ -1,0 +1,14 @@
+require-stack-version: ">= 1.2"
+
+resolver: lts-9.0
+
+packages:
+- .
+
+extra-deps:
+- jni-0.4.0
+- jvm-0.3.0
+- inline-java-0.7.0
+
+nix:
+  shell-file: shell.nix
