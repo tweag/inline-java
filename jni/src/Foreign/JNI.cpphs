@@ -287,7 +287,7 @@ throwIfNull m = do
 throwIfJNull :: J ty -> IO a -> IO a
 throwIfJNull j io =
     if j == jnull
-	then throwIO NullPointer
+    then throwIO NullPointer
     else io
 
 -- | A read-write lock
