@@ -210,11 +210,13 @@ import Foreign.Marshal.Array
 import Foreign.Ptr (Ptr, nullPtr)
 import Foreign.Storable (peek)
 import GHC.ForeignPtr (newConcForeignPtr)
+import GHC.Stack (HasCallStack, callStack, getCallStack, prettySrcLoc)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
 import System.IO (fixIO)
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (String)
+import qualified Prelude
 
 C.context (C.baseCtx <> C.bsCtx <> jniCtx)
 
@@ -252,7 +254,7 @@ data ThreadNotBound = ThreadNotBound
   deriving (Exception, Show, Typeable)
 
 -- | Thrown when an JNI call is made from an unbound thread.
-data JNIError = JNIError JNI.String Int32
+data JNIError = JNIError Prelude.String Int32
   deriving (Show, Typeable)
 
 instance Exception JNIError
@@ -336,28 +338,29 @@ globalJVMLock :: RWLock
 globalJVMLock = unsafePerformIO newRWLock
 {-# NOINLINE globalJVMLock #-}
 
-jni_ok :: Int32
-jni_ok = [CU.pure| jint { JNI_OK } |]
-{-# NOINLINE jni_ok #-}
+throwIfNotOK_ :: HasCallStack => IO Int32 -> IO ()
+throwIfNotOK_ m = m >>= \rc ->
+    when (rc /= [CU.pure| jint { JNI_OK } |]) $
+      throwIO $ JNIError (prettySrcLoc loc) rc
+  where
+    (_, loc):_ = getCallStack callStack
 
 attachCurrentThreadAsDaemon :: IO ()
 attachCurrentThreadAsDaemon = do
-    rc <- [CU.exp| jint {
+    throwIfNotOK_
+      [CU.exp| jint {
         (*$(JavaVM* jvm))->AttachCurrentThreadAsDaemon($(JavaVM* jvm), &jniEnv, NULL)
       } |]
-    when (rc /= jni_ok) $
-      throwIO $ JNIError "attachCurrentThreadAsDaemon" rc
 
 detachCurrentThread :: IO ()
-detachCurrentThread = do
-    rc <- [CU.block| jint {
-        int rc = (*$(JavaVM* jvm))->DetachCurrentThread($(JavaVM* jvm));
-        if (rc == JNI_OK)
-          jniEnv = NULL;
-        return rc;
-      } |]
-    when (rc /= jni_ok) $
-      throwIO $ JNIError "detachCurrentThread" rc
+detachCurrentThread =
+    throwIfNotOK_
+    [CU.block| jint {
+      int rc = (*$(JavaVM* jvm))->DetachCurrentThread($(JavaVM* jvm));
+      if (rc == JNI_OK)
+        jniEnv = NULL;
+      return rc;
+    } |]
 
 -- | Attaches the calling thread to the JVM, runs the given IO action and
 -- then detaches the thread.
@@ -376,11 +379,10 @@ asDaemonThread io = getJNIEnv >>= maybe
 {-# NOINLINE jvm #-}
 jvm :: Ptr JVM
 jvm = unsafePerformIO $ alloca $ \pjvm -> alloca $ \pnum_jvms -> do
-    rc <- [CU.exp| jint {
+    throwIfNotOK_
+      [CU.exp| jint {
         JNI_GetCreatedJavaVMs($(JavaVM** pjvm), 1, $(jsize* pnum_jvms))
       }|]
-    when (rc /= jni_ok) $
-      throwIO $ JNIError "JNI_GetCreatedJavaVMs" rc
     num_jvms <- peek pnum_jvms
     when (num_jvms == 0) $
       fail "JNI_GetCreatedJavaVMs: No JVM has been initialized yet."
