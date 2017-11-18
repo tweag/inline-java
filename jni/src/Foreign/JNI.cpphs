@@ -16,6 +16,7 @@
 
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -236,27 +237,19 @@ instance Exception JVMException
 -- because it wanted to copy the array contents but couldn't. In this case the
 -- JVM doesn't throw OutOfMemory according to the JNI spec.
 data ArrayCopyFailed = ArrayCopyFailed
-  deriving (Show, Typeable)
-
-instance Exception ArrayCopyFailed
+  deriving (Exception, Show, Typeable)
 
 -- | A null reference is found where a non-null reference was expected.
 data NullPointerException = NullPointerException
-  deriving (Show, Typeable)
+  deriving (Exception, Show, Typeable)
 
-instance Exception NullPointer
-
--- | Thrown when an JNI call is made from a thread not attached to the JVM.
+-- | A JNI call is made from a thread not attached to the JVM.
 data ThreadNotAttached = ThreadNotAttached
-  deriving (Show, Typeable)
+  deriving (Exception, Show, Typeable)
 
-instance Exception ThreadNotAttached
-
--- | Thrown when an JNI call is made from an unbound thread.
+-- | A JNI call is made from an unbound thread.
 data ThreadNotBound = ThreadNotBound
-  deriving (Show, Typeable)
-
-instance Exception ThreadNotBound
+  deriving (Exception, Show, Typeable)
 
 -- | Thrown when an JNI call is made from an unbound thread.
 data JNIError = JNIError JNI.String Int32
