@@ -340,9 +340,11 @@ globalJVMLock = unsafePerformIO newRWLock
 {-# NOINLINE globalJVMLock #-}
 
 throwIfNotOK_ :: HasCallStack => IO Int32 -> IO ()
-throwIfNotOK_ m = m >>= \rc ->
-    when (rc /= [CU.pure| jint { JNI_OK } |]) $
-      throwIO $ JNIError (prettySrcLoc loc) rc
+throwIfNotOK_ m = m >>= \case
+  rc
+    | rc == [CU.pure| jint { JNI_OK } |] -> return ()
+    | rc == [CU.pure| jint { JNI_EDETACHED } |] -> throwIO ThreadNotAttached
+    | otherwise -> throwIO $ JNIError (prettySrcLoc loc) rc
   where
     (_, loc):_ = getCallStack callStack
 
