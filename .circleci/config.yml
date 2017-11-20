@@ -6,8 +6,13 @@ jobs:
     - image: tweag/inline-java
     steps:
     - checkout
+    - run:
+        name: compute checksum
+        command: |
+          find . -path ./.git -prune -o -name "*.cabal" -print0 | sort -z | xargs -0 -n1 sha1sum > checksum.txt
+          sha1sum stack.yaml >> checksum.txt
     - restore_cache:
-        key: inline-java-stack-dependencies-{{ checksum "stack.yaml" }}
+        key: inline-java-stack-dependencies-{{ checksum "checksum.txt" }}
     - run:
         name: build dependencies
         command: stack --no-terminal build --only-dependencies --prefetch --test --bench
