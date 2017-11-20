@@ -8,8 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
-* attachCurrentThreadAsDaemon, detachCurrentThread and asDaemonThread
-  are provided to have the application attach and detach threads.
+* attachCurrentThreadAsDaemon, detachCurrentThread and
+  runInAttachedThread are provided to have the application attach and
+  detach threads.
 
 ### Changed
 

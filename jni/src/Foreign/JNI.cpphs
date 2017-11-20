@@ -179,12 +179,12 @@ module Foreign.JNI
     -- * Thread management
   , attachCurrentThreadAsDaemon
   , detachCurrentThread
-  , asDaemonThread
+  , runInAttachedThread
   ) where
 
 import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Exception (Exception, bracket, bracket_, finally, throwIO)
+import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
 import Control.Monad (join, unless, void, when)
 import Data.Choice
 import Data.Coerce
@@ -369,10 +369,16 @@ detachCurrentThread =
 -- then detaches the thread.
 --
 -- If the thread is already attached no attaching and detaching is performed.
-asDaemonThread :: IO a -> IO a
-asDaemonThread io = getJNIEnv >>= maybe
-    (bracket_ attachCurrentThreadAsDaemon detachCurrentThread io)
-    (const io)
+runInAttachedThread :: IO a -> IO a
+runInAttachedThread io = do
+    attached <-
+      catch (getJNIEnv >> return True) (\ThreadNotBound -> return False)
+    if attached
+    then io
+    else bracket_
+          attachCurrentThreadAsDaemon
+          detachCurrentThread
+          io
 
 -- | The current JVM
 --
