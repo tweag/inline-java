@@ -17,7 +17,7 @@ jobs:
         name: build dependencies
         command: stack --no-terminal build --only-dependencies --prefetch --test --bench
     - save_cache:
-        key: inline-java-stack-dependencies-{{ checksum "stack.yaml" }}
+        key: inline-java-stack-dependencies-{{ checksum "checksum.txt" }}
         paths:
         - ~/.stack
     - run:
