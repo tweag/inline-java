@@ -506,13 +506,13 @@ reflectMVector newfun fill mv = do
 #endif
 
 withStatic [d|
-  type instance Interp () = 'Class "java.lang.Object"
+  type instance Interp () = 'Class "java.lang.Short"
 
   instance Reify () where
     reify _ = return ()
 
   instance Reflect () where
-    reflect () = new []
+    reflect () = new [JShort 0]
 
   type instance Interp ByteString = 'Array ('Prim "byte")
 
