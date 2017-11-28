@@ -506,6 +506,8 @@ reflectMVector newfun fill mv = do
 #endif
 
 withStatic [d|
+  -- Ugly work around the fact that java has no equivalent of the 'unit' type:
+  -- We take an arbitrary serializable type to represent it.
   type instance Interp () = 'Class "java.lang.Short"
 
   instance Reify () where
