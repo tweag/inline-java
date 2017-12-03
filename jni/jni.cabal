@@ -32,16 +32,16 @@ library
   other-modules:
     Foreign.JNI.NativeMethod
   build-depends:
-    base >= 4.7 && < 5,
+    base >=4.7 && <5,
     bytestring >=0.10,
-    choice >= 0.2.0,
+    choice >=0.2.0,
     containers >=0.5,
     constraints >=0.8,
-    deepseq >= 1.4.2,
-    singletons >= 2.0
+    deepseq >=1.4.2,
+    singletons >=2.0
   if impl(ghc < 8.2.1)
     build-depends:
-      inline-c >=0.5.6.1
+      inline-c >=0.5.6.1 && <0.6
   else
     build-depends:
       inline-c >=0.6
