@@ -4,9 +4,6 @@
 
 **NOTE 1: you'll need GHC >= 8.0.2 to compile and use this package.**
 
-**NOTE 2: you'll need Stack HEAD (future v1.6) to compile with GHC >=
-8.2.1. It is recommended to stick to GHC-8.0.2 for now.**
-
 The Haskell standard includes a native foreign function interface
 (FFI). Using it can be a bit involved and only C support is
 implemented in GHC. `inline-java` lets you call any JVM function
