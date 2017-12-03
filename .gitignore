@@ -1,2 +1,4 @@
 .stack-work
+.gradle
+build/
 jni/src/Foreign/JNI.c
