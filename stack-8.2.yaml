@@ -1,11 +1,8 @@
 # Requires Stack HEAD - i.e. as of yet unreleased Stack 1.6.
 require-stack-version: ">= 1.5"
 
-resolver: nightly-2017-08-15
-
+resolver: nightly-2017-12-01
 compiler: ghc-8.2.1
-allow-newer: true
-skip-ghc-check: true
 
 packages:
 - .
@@ -15,6 +12,7 @@ packages:
 - examples/classpath
 
 extra-deps:
+- mmorph-1.0.9
 - streaming-0.1.4.5
 
 nix:
