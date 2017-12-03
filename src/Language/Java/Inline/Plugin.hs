@@ -61,7 +61,9 @@ plugin = defaultPlugin
   where
     install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
     install args todo = do
+#if !MIN_VERSION_ghc(8,2,1)
       reinitializeGlobals
+#endif
       return (CoreDoPluginPass "inline-java" (qqPass args) : todo)
 
     qqPass :: [CommandLineOption] -> ModGuts -> CoreM ModGuts
