@@ -405,9 +405,11 @@ getStaticField
 {-# INLINE getStaticField #-}
 getStaticField cname fname = do
   let retsing = sing :: Sing ty
-      klass = unsafeDupablePerformIO $
-                findClass (referenceTypeName (SClass (JNI.toChars cname)))
-                  >>= newGlobalRef
+      klass = unsafeDupablePerformIO $ do
+                lk <- findClass (referenceTypeName (SClass (JNI.toChars cname)))
+                gk <- newGlobalRef lk
+                deleteLocalRef lk
+                return gk
       field = unsafeDupablePerformIO $ getStaticFieldID klass fname (signature retsing)
   case retsing of
     SPrim "boolean" -> unsafeUncoerce . coerce . w2b <$> getStaticBooleanField klass field
