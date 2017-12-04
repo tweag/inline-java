@@ -41,7 +41,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -117,7 +116,7 @@ import System.IO.Unsafe (unsafeDupablePerformIO)
 data Pop a where
   PopValue :: a -> Pop a
   PopObject
-    :: (Coercible a ty, Coerce.Coercible a (J ty), IsReferenceType ty)
+    :: (ty ~ Ty a, Coercible a, Coerce.Coercible a (J ty), IsReferenceType ty)
     => a
     -> Pop a
 
@@ -145,7 +144,7 @@ pop = return (PopValue ())
 
 -- | Pop a frame and return a JVM object.
 popWithObject
-  :: (Coercible a ty, Coerce.Coercible a (J ty), IsReferenceType ty, Monad m)
+  :: (ty ~ Ty a, Coercible a, Coerce.Coercible a (J ty), IsReferenceType ty, Monad m)
   => a
   -> m (Pop a)
 popWithObject x = return (PopObject x)
@@ -165,26 +164,28 @@ popWithValue x = return (PopValue x)
 -- | Tag data types that can be coerced in O(1) time without copy to a Java
 -- object or primitive type (i.e. have the same representation) by declaring an
 -- instance of this type class for that data type.
-class SingI ty => Coercible a (ty :: JType) | a -> ty where
+class SingI (Ty a) => Coercible a where
+  type Ty a :: JType
   coerce :: a -> JValue
   unsafeUncoerce :: JValue -> a
 
   default coerce
-    :: Coerce.Coercible a (J ty)
+    :: Coerce.Coercible a (J (Ty a))
     => a
     -> JValue
-  coerce x = JObject (Coerce.coerce x :: J ty)
+  coerce x = JObject (Coerce.coerce x :: J (Ty a))
 
   default unsafeUncoerce
-    :: Coerce.Coercible (J ty) a
+    :: Coerce.Coercible (J (Ty a)) a
     => JValue
     -> a
-  unsafeUncoerce (JObject obj) = Coerce.coerce (unsafeCast obj :: J ty)
+  unsafeUncoerce (JObject obj) = Coerce.coerce (unsafeCast obj :: J (Ty a))
   unsafeUncoerce _ =
       error "Cannot unsafeUncoerce: object expected but value of primitive type found."
 
 -- | The identity instance.
-instance SingI ty => Coercible (J ty) ty
+instance SingI ty => Coercible (J ty) where
+  type Ty (J ty) = ty
 
 -- | A JNI call may cause a (Java) exception to be raised. This module raises it
 -- as a Haskell exception wrapping the Java exception.
@@ -202,51 +203,65 @@ instance Show CoercionFailure where
 withTypeRep :: Typeable a => (TypeRep -> a) -> a
 withTypeRep f = let x = f (typeOf x) in x
 
-instance Coercible Bool ('Prim "boolean") where
+instance Coercible Bool where
+  type Ty Bool = 'Prim "boolean"
   coerce x = JBoolean (fromIntegral (fromEnum x))
   unsafeUncoerce (JBoolean x) = toEnum (fromIntegral x)
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible CChar ('Prim "byte") where
+instance Coercible CChar where
+  type Ty CChar = 'Prim "byte"
   coerce = JByte
   unsafeUncoerce (JByte x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Char ('Prim "char") where
+instance Coercible Char where
+  type Ty Char = 'Prim "char"
   coerce x = JChar (fromIntegral (ord x))
   unsafeUncoerce (JChar x) = chr (fromIntegral x)
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Word16 ('Prim "char") where
+instance Coercible Word16 where
+  type Ty Word16 = 'Prim "char"
   coerce = JChar
   unsafeUncoerce (JChar x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Int16 ('Prim "short") where
+instance Coercible Int16 where
+  type Ty Int16 = 'Prim "short"
   coerce = JShort
   unsafeUncoerce (JShort x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Int32 ('Prim "int") where
+instance Coercible Int32 where
+  type Ty Int32 = 'Prim "int"
   coerce = JInt
   unsafeUncoerce (JInt x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Int64 ('Prim "long") where
+instance Coercible Int64 where
+  type Ty Int64 = 'Prim "long"
   coerce = JLong
   unsafeUncoerce (JLong x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Float ('Prim "float") where
+instance Coercible Float where
+  type Ty Float = 'Prim "float"
   coerce = JFloat
   unsafeUncoerce (JFloat x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Double ('Prim "double") where
+instance Coercible Double where
+  type Ty Double = 'Prim "double"
   coerce = JDouble
   unsafeUncoerce (JDouble x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible () 'Void where
+instance Coercible () where
+  type Ty () = 'Void
   coerce = error "Void value undefined."
   unsafeUncoerce _ = ()
-instance Coercible (Choice.Choice a) ('Prim "boolean") where
+instance Coercible (Choice.Choice a) where
+  type Ty (Choice.Choice a) = 'Prim "boolean"
   coerce = coerce . Choice.toBool
   unsafeUncoerce = Choice.fromBool . unsafeUncoerce
 
 -- | Get the Java class of an object or anything 'Coercible' to one.
-classOf :: forall a sym. (Coercible a ('Class sym), KnownSymbol sym) => a -> JNI.String
+classOf
+  :: forall a sym. (Ty a ~ 'Class sym, Coercible a, KnownSymbol sym)
+  => a
+  -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
 -- | Creates a new instance of the class whose name is resolved from the return
@@ -258,8 +273,9 @@ classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 -- @
 new
   :: forall a sym.
-     ( Coerce.Coercible a (J ('Class sym))
-     , Coercible a ('Class sym)
+     ( Ty a ~ 'Class sym
+     , Coerce.Coercible a (J ('Class sym))
+     , Coercible a
      )
   => [JValue]
   -> IO a
@@ -333,7 +349,7 @@ toArray xs = do
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
 call
-  :: forall a b ty1 ty2. (IsReferenceType ty1, Coercible a ty1, Coercible b ty2, Coerce.Coercible a (J ty1))
+  :: forall a b ty1 ty2. (ty1 ~ Ty a, ty2 ~ Ty b, IsReferenceType ty1, Coercible a, Coercible b, Coerce.Coercible a (J ty1))
   => a -- ^ Any object or value 'Coercible' to one
   -> JNI.String -- ^ Method name
   -> [JValue] -- ^ Arguments
@@ -365,7 +381,7 @@ call obj mname args = do
 
 -- | Same as 'call', but for static methods.
 callStatic
-  :: forall a ty. Coercible a ty
+  :: forall a ty. (ty ~ Ty a, Coercible a)
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
   -> [JValue] -- ^ Arguments
@@ -398,7 +414,7 @@ callStatic cname mname args = do
 
 -- | Get a static field.
 getStaticField
-  :: forall a ty. Coercible a ty
+  :: forall a ty. (ty ~ Ty a, Coercible a)
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Static field name
   -> IO a
@@ -429,12 +445,12 @@ getStaticField cname fname = do
 -- | Inject a value (of primitive or reference type) to a 'JValue'. This
 -- datatype is useful for e.g. passing arguments as a list of homogeneous type.
 -- Synonym for 'coerce'.
-jvalue :: Coercible a ty => a -> JValue
+jvalue :: (ty ~ Ty a, Coercible a) => a -> JValue
 jvalue = coerce
 
 -- | If @ty@ is a reference type, then it should be possible to get an object
 -- from a value.
-jobject :: (Coercible a ty, IsReferenceType ty) => a -> J ty
+jobject :: (ty ~ Ty a, Coercible a, IsReferenceType ty) => a -> J ty
 jobject x
   | JObject jobj <- coerce x = unsafeCast jobj
   | otherwise = error "impossible"
@@ -460,7 +476,7 @@ class (SingI (Interp a), IsReferenceType (Interp a))
       => Reify a where
   reify :: J (Interp a) -> IO a
 
-  default reify :: Coercible a (Interp a) => J (Interp a) -> IO a
+  default reify :: (Coercible a, Interp a ~ Ty a) => J (Interp a) -> IO a
   reify x = (unsafeUncoerce . JObject) <$> newGlobalRef x
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
@@ -472,7 +488,7 @@ class (SingI (Interp a), IsReferenceType (Interp a))
       => Reflect a where
   reflect :: a -> IO (J (Interp a))
 
-  default reflect :: Coercible a (Interp a) => a -> IO (J (Interp a))
+  default reflect :: (Coercible a, Interp a ~ Ty a) => a -> IO (J (Interp a))
   reflect x = newLocalRef (jobject x)
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
