@@ -7,12 +7,13 @@
 --
 -- @
 -- {&#45;\# LANGUAGE DataKinds \#&#45;}
+-- {&#45;\# LANGUAGE DeriveAnyClass \#&#45;}
 -- module Object where
 --
 -- import Language.Java as J
 --
 -- newtype Object = Object ('J' (''Class' "java.lang.Object"))
--- instance 'Coercible' Object
+--   deriving (J.Coercible, J.Reify, J.Reflect)
 --
 -- clone :: Object -> IO Object
 -- clone obj = J.'call' obj "clone" []
@@ -26,8 +27,8 @@
 -- To call Java methods using quasiquoted Java syntax instead, see
 -- "Language.Java.Inline".
 --
--- __NOTE 1:__ To use any function in this module, you'll need an initialized JVM in the
--- current process, using 'withJVM' or otherwise.
+-- __NOTE 1:__ To use any function in this module, you'll need an initialized
+-- JVM in the current process, using 'withJVM' or otherwise.
 --
 -- __NOTE 2:__ Functions in this module memoize (cache) any implicitly performed
 -- class and method lookups, for performance. This memoization is safe only when
@@ -461,35 +462,22 @@ type family Interp (a :: k) :: JType
 -- | Extract a concrete Haskell value from the space of Java objects. That is to
 -- say, unmarshall a Java object to a Haskell value. Unlike coercing, in general
 -- reifying induces allocations and copies.
---
--- Instances of this class /must/ guarantee that the result is managed on the
--- Haskell heap. That is, the Haskell runtime has /global ownership/ of the
--- result.
---
--- WARNING: The default method just creates a global reference to the Java
--- object. Widespread use of this mechanism can cause memory problems since
--- objects in the Java heap cause no pressure on the Haskell garbage collector.
--- If the Haskell's GC is not executed by the time the Java heap is full, the
--- Java code might sporadically fail with OutOfMemory exceptions.
---
 class (SingI (Interp a), IsReferenceType (Interp a))
       => Reify a where
   reify :: J (Interp a) -> IO a
 
   default reify :: (Coercible a, Interp a ~ Ty a) => J (Interp a) -> IO a
-  reify x = (unsafeUncoerce . JObject) <$> newGlobalRef x
+  reify x = return (unsafeUncoerce (JObject x))
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
 -- say, marshall a Haskell value to a Java object. Unlike coercing, in general
 -- reflection induces allocations and copies.
---
--- Instances of this class /must not/ claim global ownership.
 class (SingI (Interp a), IsReferenceType (Interp a))
       => Reflect a where
   reflect :: a -> IO (J (Interp a))
 
   default reflect :: (Coercible a, Interp a ~ Ty a) => a -> IO (J (Interp a))
-  reflect x = newLocalRef (jobject x)
+  reflect x = return (jobject x)
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 reifyMVector
