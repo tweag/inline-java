@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * It is now possible to `-XGeneralizedNewtypeDeriving` all 3 type
   classes (`Coercible`, `Reify`, `Reflect`) for the common use case of
   newtype-wrapped JVM object references. #97
+* The `Reify`/`Reflect` instances for `()` is now mapped to
+  a *serializable* small JVM object. This is a more useful instance
+  for sparkle users.
 
 ## [0.3.0] - 2017-08-31
 
