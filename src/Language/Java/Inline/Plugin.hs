@@ -23,6 +23,7 @@ import Data.IORef (readIORef)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import ErrUtils (ghcExit)
+import FamInstEnv (normaliseType)
 import Foreign.JNI.Types (JType(..))
 import GhcPlugins
 import IfaceEnv (lookupOrigNameCache)
@@ -75,7 +76,7 @@ plugin = defaultPlugin
         Just qqMarkerName -> do
           (binds, qqOccs) <- collectQQMarkers qqMarkerName (mg_binds guts)
           let jimports = getModuleAnnotations guts :: [JavaImport]
-          dcs <- buildJava qqOccs jimports
+          dcs <- buildJava guts qqOccs jimports
                    >>= maybeDumpJava args
                    >>= buildBytecode
           return guts
@@ -138,8 +139,8 @@ plugin = defaultPlugin
 --
 -- Where @inline_method_i@ is the method corresponding to the @ith@
 -- quasiquotation.
-buildJava :: [QQOcc] -> [JavaImport] -> CoreM Builder
-buildJava qqOccs jimports = do
+buildJava :: ModGuts -> [QQOcc] -> [JavaImport] -> CoreM Builder
+buildJava guts qqOccs jimports = do
     let importsJava = mconcat
           [ mconcat [ "import ", Builder.stringUtf8 jimp
                     , "; // .hs:", Builder.integerDec n
@@ -147,9 +148,12 @@ buildJava qqOccs jimports = do
                     ]
           | JavaImport jimp n <- jimports
           ]
+    p_fam_env <- getPackageFamInstEnv
+    let fam_envs = (p_fam_env, mg_fam_inst_env guts)
     methods <- forM qqOccs $ \QQOcc {..} -> do
+      let (_, normty) = normaliseType fam_envs Nominal (expandTypeSynonyms qqOccResTy)
       jTypeNames <- findJTypeNames
-      resty <- case toJavaType jTypeNames (expandTypeSynonyms qqOccResTy) of
+      resty <- case toJavaType jTypeNames normty of
         Just resty -> return resty
         Nothing -> failWith $ hsep
           [ parens (text "line" <+> integer qqOccLineNumber) <> ":"
@@ -352,14 +356,14 @@ collectQQMarkers qqMarkerName p0 = do
 
     expMarkers :: CoreExpr -> QQJavaM CoreExpr
     expMarkers (App (App (App (App (App (App (App (App (App (App (App (App (App
-                 (App (App (App (App (App (App (Var fid) _)
+                 (App (App (App (App (App (App (App (Var fid) _)
                  (Type (parseArgTys -> Just tyargs)))
                  (Type tyres))
                  (Type (LitTy (StrTyLit fs_input))))
                  (Type (LitTy (StrTyLit fs_mname))))
                  (Type (LitTy (StrTyLit fs_antiqs))))
                  (Type (LitTy (NumTyLit lineNumber))))
-                 _) _) _) _) _) _) _) _) _) _) _)
+                 _) _) _) _) _) _) _) _) _) _) _) _)
                  e
                )
         | qqMarkerName == idName fid = do

@@ -7,12 +7,13 @@
 --
 -- @
 -- {&#45;\# LANGUAGE DataKinds \#&#45;}
+-- {&#45;\# LANGUAGE DeriveAnyClass \#&#45;}
 -- module Object where
 --
 -- import Language.Java as J
 --
 -- newtype Object = Object ('J' (''Class' "java.lang.Object"))
--- instance 'Coercible' Object
+--   deriving (J.Coercible, J.Interpretation, J.Reify, J.Reflect)
 --
 -- clone :: Object -> IO Object
 -- clone obj = J.'call' obj "clone" []
@@ -26,8 +27,8 @@
 -- To call Java methods using quasiquoted Java syntax instead, see
 -- "Language.Java.Inline".
 --
--- __NOTE 1:__ To use any function in this module, you'll need an initialized JVM in the
--- current process, using 'withJVM' or otherwise.
+-- __NOTE 1:__ To use any function in this module, you'll need an initialized
+-- JVM in the current process, using 'withJVM' or otherwise.
 --
 -- __NOTE 2:__ Functions in this module memoize (cache) any implicitly performed
 -- class and method lookups, for performance. This memoization is safe only when
@@ -41,12 +42,12 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Language.Java
   ( module Foreign.JNI.Types
@@ -73,9 +74,9 @@ module Language.Java
   , jvalue
   , jobject
   -- * Conversions
+  , Interpretation(..)
   , Reify(..)
   , Reflect(..)
-  , Interp
   -- * Re-exports
   , sing
   ) where
@@ -117,7 +118,7 @@ import System.IO.Unsafe (unsafeDupablePerformIO)
 data Pop a where
   PopValue :: a -> Pop a
   PopObject
-    :: (Coercible a ty, Coerce.Coercible a (J ty), IsReferenceType ty)
+    :: (ty ~ Ty a, Coercible a, Coerce.Coercible a (J ty), IsReferenceType ty)
     => a
     -> Pop a
 
@@ -145,7 +146,7 @@ pop = return (PopValue ())
 
 -- | Pop a frame and return a JVM object.
 popWithObject
-  :: (Coercible a ty, Coerce.Coercible a (J ty), IsReferenceType ty, Monad m)
+  :: (ty ~ Ty a, Coercible a, Coerce.Coercible a (J ty), IsReferenceType ty, Monad m)
   => a
   -> m (Pop a)
 popWithObject x = return (PopObject x)
@@ -165,26 +166,28 @@ popWithValue x = return (PopValue x)
 -- | Tag data types that can be coerced in O(1) time without copy to a Java
 -- object or primitive type (i.e. have the same representation) by declaring an
 -- instance of this type class for that data type.
-class SingI ty => Coercible a (ty :: JType) | a -> ty where
+class SingI (Ty a) => Coercible a where
+  type Ty a :: JType
   coerce :: a -> JValue
   unsafeUncoerce :: JValue -> a
 
   default coerce
-    :: Coerce.Coercible a (J ty)
+    :: Coerce.Coercible a (J (Ty a))
     => a
     -> JValue
-  coerce x = JObject (Coerce.coerce x :: J ty)
+  coerce x = JObject (Coerce.coerce x :: J (Ty a))
 
   default unsafeUncoerce
-    :: Coerce.Coercible (J ty) a
+    :: Coerce.Coercible (J (Ty a)) a
     => JValue
     -> a
-  unsafeUncoerce (JObject obj) = Coerce.coerce (unsafeCast obj :: J ty)
+  unsafeUncoerce (JObject obj) = Coerce.coerce (unsafeCast obj :: J (Ty a))
   unsafeUncoerce _ =
       error "Cannot unsafeUncoerce: object expected but value of primitive type found."
 
 -- | The identity instance.
-instance SingI ty => Coercible (J ty) ty
+instance SingI ty => Coercible (J ty) where
+  type Ty (J ty) = ty
 
 -- | A JNI call may cause a (Java) exception to be raised. This module raises it
 -- as a Haskell exception wrapping the Java exception.
@@ -202,51 +205,65 @@ instance Show CoercionFailure where
 withTypeRep :: Typeable a => (TypeRep -> a) -> a
 withTypeRep f = let x = f (typeOf x) in x
 
-instance Coercible Bool ('Prim "boolean") where
+instance Coercible Bool where
+  type Ty Bool = 'Prim "boolean"
   coerce x = JBoolean (fromIntegral (fromEnum x))
   unsafeUncoerce (JBoolean x) = toEnum (fromIntegral x)
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible CChar ('Prim "byte") where
+instance Coercible CChar where
+  type Ty CChar = 'Prim "byte"
   coerce = JByte
   unsafeUncoerce (JByte x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Char ('Prim "char") where
+instance Coercible Char where
+  type Ty Char = 'Prim "char"
   coerce x = JChar (fromIntegral (ord x))
   unsafeUncoerce (JChar x) = chr (fromIntegral x)
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Word16 ('Prim "char") where
+instance Coercible Word16 where
+  type Ty Word16 = 'Prim "char"
   coerce = JChar
   unsafeUncoerce (JChar x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Int16 ('Prim "short") where
+instance Coercible Int16 where
+  type Ty Int16 = 'Prim "short"
   coerce = JShort
   unsafeUncoerce (JShort x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Int32 ('Prim "int") where
+instance Coercible Int32 where
+  type Ty Int32 = 'Prim "int"
   coerce = JInt
   unsafeUncoerce (JInt x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Int64 ('Prim "long") where
+instance Coercible Int64 where
+  type Ty Int64 = 'Prim "long"
   coerce = JLong
   unsafeUncoerce (JLong x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Float ('Prim "float") where
+instance Coercible Float where
+  type Ty Float = 'Prim "float"
   coerce = JFloat
   unsafeUncoerce (JFloat x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible Double ('Prim "double") where
+instance Coercible Double where
+  type Ty Double = 'Prim "double"
   coerce = JDouble
   unsafeUncoerce (JDouble x) = x
   unsafeUncoerce val = withTypeRep (throw . CoercionFailure val)
-instance Coercible () 'Void where
+instance Coercible () where
+  type Ty () = 'Void
   coerce = error "Void value undefined."
   unsafeUncoerce _ = ()
-instance Coercible (Choice.Choice a) ('Prim "boolean") where
+instance Coercible (Choice.Choice a) where
+  type Ty (Choice.Choice a) = 'Prim "boolean"
   coerce = coerce . Choice.toBool
   unsafeUncoerce = Choice.fromBool . unsafeUncoerce
 
 -- | Get the Java class of an object or anything 'Coercible' to one.
-classOf :: forall a sym. (Coercible a ('Class sym), KnownSymbol sym) => a -> JNI.String
+classOf
+  :: forall a sym. (Ty a ~ 'Class sym, Coercible a, KnownSymbol sym)
+  => a
+  -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
 -- | Creates a new instance of the class whose name is resolved from the return
@@ -258,8 +275,9 @@ classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 -- @
 new
   :: forall a sym.
-     ( Coerce.Coercible a (J ('Class sym))
-     , Coercible a ('Class sym)
+     ( Ty a ~ 'Class sym
+     , Coerce.Coercible a (J ('Class sym))
+     , Coercible a
      )
   => [JValue]
   -> IO a
@@ -333,7 +351,7 @@ toArray xs = do
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
 call
-  :: forall a b ty1 ty2. (IsReferenceType ty1, Coercible a ty1, Coercible b ty2, Coerce.Coercible a (J ty1))
+  :: forall a b ty1 ty2. (ty1 ~ Ty a, ty2 ~ Ty b, IsReferenceType ty1, Coercible a, Coercible b, Coerce.Coercible a (J ty1))
   => a -- ^ Any object or value 'Coercible' to one
   -> JNI.String -- ^ Method name
   -> [JValue] -- ^ Arguments
@@ -365,7 +383,7 @@ call obj mname args = do
 
 -- | Same as 'call', but for static methods.
 callStatic
-  :: forall a ty. Coercible a ty
+  :: forall a ty. (ty ~ Ty a, Coercible a)
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
   -> [JValue] -- ^ Arguments
@@ -398,7 +416,7 @@ callStatic cname mname args = do
 
 -- | Get a static field.
 getStaticField
-  :: forall a ty. Coercible a ty
+  :: forall a ty. (ty ~ Ty a, Coercible a)
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Static field name
   -> IO a
@@ -429,51 +447,40 @@ getStaticField cname fname = do
 -- | Inject a value (of primitive or reference type) to a 'JValue'. This
 -- datatype is useful for e.g. passing arguments as a list of homogeneous type.
 -- Synonym for 'coerce'.
-jvalue :: Coercible a ty => a -> JValue
+jvalue :: (ty ~ Ty a, Coercible a) => a -> JValue
 jvalue = coerce
 
 -- | If @ty@ is a reference type, then it should be possible to get an object
 -- from a value.
-jobject :: (Coercible a ty, IsReferenceType ty) => a -> J ty
+jobject :: (ty ~ Ty a, Coercible a, IsReferenceType ty) => a -> J ty
 jobject x
   | JObject jobj <- coerce x = unsafeCast jobj
   | otherwise = error "impossible"
 
--- | Map a Haskell type to the symbolic representation of a Java type.
-type family Interp (a :: k) :: JType
+-- | The 'Interp' type family is used by both 'Reify' and 'Reflect'. In order to
+-- benefit from @-XGeneralizedNewtypeDeriving@ of new instances, we make this an
+-- /associated/ type family instead of a standalone one.
+class (SingI (Interp a), IsReferenceType (Interp a)) => Interpretation (a :: k) where
+  -- | Map a Haskell type to the symbolic representation of a Java type.
+  type Interp a :: JType
 
 -- | Extract a concrete Haskell value from the space of Java objects. That is to
 -- say, unmarshall a Java object to a Haskell value. Unlike coercing, in general
 -- reifying induces allocations and copies.
---
--- Instances of this class /must/ guarantee that the result is managed on the
--- Haskell heap. That is, the Haskell runtime has /global ownership/ of the
--- result.
---
--- WARNING: The default method just creates a global reference to the Java
--- object. Widespread use of this mechanism can cause memory problems since
--- objects in the Java heap cause no pressure on the Haskell garbage collector.
--- If the Haskell's GC is not executed by the time the Java heap is full, the
--- Java code might sporadically fail with OutOfMemory exceptions.
---
-class (SingI (Interp a), IsReferenceType (Interp a))
-      => Reify a where
+class Interpretation a => Reify a where
   reify :: J (Interp a) -> IO a
 
-  default reify :: Coercible a (Interp a) => J (Interp a) -> IO a
-  reify x = (unsafeUncoerce . JObject) <$> newGlobalRef x
+  default reify :: (Coercible a, Interp a ~ Ty a) => J (Interp a) -> IO a
+  reify x = return (unsafeUncoerce (JObject x))
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
 -- say, marshall a Haskell value to a Java object. Unlike coercing, in general
 -- reflection induces allocations and copies.
---
--- Instances of this class /must not/ claim global ownership.
-class (SingI (Interp a), IsReferenceType (Interp a))
-      => Reflect a where
+class Interpretation a => Reflect a where
   reflect :: a -> IO (J (Interp a))
 
-  default reflect :: Coercible a (Interp a) => a -> IO (J (Interp a))
-  reflect x = newLocalRef (jobject x)
+  default reflect :: (Coercible a, Interp a ~ Ty a) => a -> IO (J (Interp a))
+  reflect x = return (jobject x)
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 reifyMVector
@@ -508,17 +515,18 @@ reflectMVector newfun fill mv = do
 #endif
 
 withStatic [d|
+  instance (SingI ty, IsReferenceType ty) => Interpretation (J ty) where type Interp (J ty) = ty
+  instance Interpretation (J ty) => Reify (J ty)
+  instance Interpretation (J ty) => Reflect (J ty)
+
   -- Ugly work around the fact that java has no equivalent of the 'unit' type:
   -- We take an arbitrary serializable type to represent it.
-  type instance Interp () = 'Class "java.lang.Short"
+  instance Interpretation () where type Interp () = 'Class "java.lang.Short"
+  instance Reify () where reify _ = return ()
+  instance Reflect () where reflect () = new [JShort 0]
 
-  instance Reify () where
-    reify _ = return ()
-
-  instance Reflect () where
-    reflect () = new [JShort 0]
-
-  type instance Interp ByteString = 'Array ('Prim "byte")
+  instance Interpretation ByteString where
+    type Interp ByteString = 'Array ('Prim "byte")
 
   instance Reify ByteString where
     reify jobj = do
@@ -536,7 +544,8 @@ withStatic [d|
         setByteArrayRegion arr 0 (fromIntegral n) content
         return arr
 
-  type instance Interp Bool = 'Class "java.lang.Boolean"
+  instance Interpretation Bool where
+    type Interp Bool = 'Class "java.lang.Boolean"
 
   instance Reify Bool where
     reify jobj = do
@@ -552,7 +561,8 @@ withStatic [d|
   instance Reflect Bool where
     reflect x = new [JBoolean (fromIntegral (fromEnum x))]
 
-  type instance Interp CChar = 'Class "java.lang.Byte"
+  instance Interpretation CChar where
+    type Interp CChar = 'Class "java.lang.Byte"
 
   instance Reify CChar where
     reify jobj = do
@@ -567,7 +577,8 @@ withStatic [d|
   instance Reflect CChar where
     reflect x = Language.Java.new [JByte x]
 
-  type instance Interp Int16 = 'Class "java.lang.Short"
+  instance Interpretation Int16 where
+    type Interp Int16 = 'Class "java.lang.Short"
 
   instance Reify Int16 where
     reify jobj = do
@@ -582,7 +593,8 @@ withStatic [d|
   instance Reflect Int16 where
     reflect x = new [JShort x]
 
-  type instance Interp Int32 = 'Class "java.lang.Integer"
+  instance Interpretation Int32 where
+    type Interp Int32 = 'Class "java.lang.Integer"
 
   instance Reify Int32 where
     reify jobj = do
@@ -598,7 +610,8 @@ withStatic [d|
   instance Reflect Int32 where
     reflect x = new [JInt x]
 
-  type instance Interp Int64 = 'Class "java.lang.Long"
+  instance Interpretation Int64 where
+    type Interp Int64 = 'Class "java.lang.Long"
 
   instance Reify Int64 where
     reify jobj = do
@@ -613,7 +626,8 @@ withStatic [d|
   instance Reflect Int64 where
     reflect x = new [JLong x]
 
-  type instance Interp Word16 = 'Class "java.lang.Character"
+  instance Interpretation Word16 where
+    type Interp Word16 = 'Class "java.lang.Character"
 
   instance Reify Word16 where
     reify jobj = do
@@ -629,7 +643,8 @@ withStatic [d|
   instance Reflect Word16 where
     reflect x = new [JChar x]
 
-  type instance Interp Double = 'Class "java.lang.Double"
+  instance Interpretation Double where
+    type Interp Double = 'Class "java.lang.Double"
 
   instance Reify Double where
     reify jobj = do
@@ -644,7 +659,8 @@ withStatic [d|
   instance Reflect Double where
     reflect x = new [JDouble x]
 
-  type instance Interp Float = 'Class "java.lang.Float"
+  instance Interpretation Float where
+    type Interp Float = 'Class "java.lang.Float"
 
   instance Reify Float where
     reify jobj = do
@@ -659,7 +675,8 @@ withStatic [d|
   instance Reflect Float where
     reflect x = new [JFloat x]
 
-  type instance Interp Text = 'Class "java.lang.String"
+  instance Interpretation Text where
+    type Interp Text = 'Class "java.lang.String"
 
   instance Reify Text where
     reify jobj = do
@@ -677,7 +694,8 @@ withStatic [d|
 -- Instances can't be compiled on GHC 8.0.1 due to
 -- https://ghc.haskell.org/trac/ghc/ticket/12082.
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
-  type instance Interp (IOVector Int32) = 'Array ('Prim "int")
+  instance Interpretation (IOVector Int32) where
+    type Interp (IOVector Int32) = 'Array ('Prim "int")
 
   instance Reify (IOVector Int32) where
     reify = reifyMVector (getIntArrayElements) (releaseIntArrayElements)
@@ -685,7 +703,8 @@ withStatic [d|
   instance Reflect (IOVector Int32) where
     reflect = reflectMVector (newIntArray) (setIntArrayRegion)
 
-  type instance Interp (Vector Int32) = 'Array ('Prim "int")
+  instance Interpretation (Vector Int32) where
+    type Interp (Vector Int32) = 'Array ('Prim "int")
 
   instance Reify (Vector Int32) where
     reify = Vector.freeze <=< reify
@@ -693,8 +712,8 @@ withStatic [d|
   instance Reflect (Vector Int32) where
     reflect = reflect <=< Vector.thaw
 #endif
-
-  type instance Interp [a] = 'Array (Interp a)
+  instance Interpretation a => Interpretation [a] where
+    type Interp [a] = 'Array (Interp a)
 
   instance Reify a => Reify [a] where
     reify jobj = do

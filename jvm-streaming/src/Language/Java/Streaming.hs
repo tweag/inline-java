@@ -139,7 +139,8 @@ newIterator stream = do
     return iterator
 
 withStatic [d|
-  type instance Interp (Stream (Of a) m r) = 'Iface "java.util.Iterator"
+  instance Interpretation (Stream (Of a) m r) where
+    type Interp (Stream (Of a) m r) = 'Iface "java.util.Iterator"
 
   instance Reify a => Reify (Stream (Of a) IO ()) where
     reify itLocal = do

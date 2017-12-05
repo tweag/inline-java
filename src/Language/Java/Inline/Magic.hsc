@@ -5,6 +5,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
@@ -37,7 +38,7 @@ import Foreign.Storable
 import GHC.Stack (HasCallStack, withFrozenCallStack)
 import GHC.TypeLits (Nat, Symbol)
 import qualified Language.Haskell.TH.Syntax as TH
-import Language.Java (Coercible)
+import Language.Java (Coercible, Ty)
 
 #include "bctable.h"
 
@@ -96,7 +97,7 @@ qqMarker
      (line :: Nat)       -- line number of the quasiquotation
      args_tuple          -- uncoerced argument types
      b.                  -- uncoerced result type
-     (Coercibles args_tuple args_tys, Coercible b tyres, HasCallStack)
+     (tyres ~ Ty b, Coercibles args_tuple args_tys, Coercible b, HasCallStack)
   => Proxy input
   -> Proxy mname
   -> Proxy antiqs
@@ -112,4 +113,4 @@ qqMarker _ _ _ _ _ = withFrozenCallStack $
 
 class Coercibles xs (tys :: k) | xs -> tys
 instance Coercibles () ()
-instance (Coercible x ty, Coercibles xs tys) => Coercibles (x, xs) '(ty, tys)
+instance (ty ~ Ty x, Coercible x, Coercibles xs tys) => Coercibles (x, xs) '(ty, tys)
