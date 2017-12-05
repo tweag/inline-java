@@ -26,9 +26,9 @@ library
   build-depends:
     base >= 4.7 && < 5,
     distributed-closure >= 0.3,
-    jni >= 0.4.0,
-    jvm >= 0.3.0,
-    inline-java >= 0.7,
+    jni >= 0.4.0 && <0.6,
+    jvm >= 0.4.0 && <0.5,
+    inline-java >= 0.7 && <0.8,
     singletons >= 2.2,
     streaming >= 0.1.4
 
