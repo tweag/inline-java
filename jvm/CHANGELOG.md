@@ -10,10 +10,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 * The `Coercible` type class now also takes a single parameter, like
   `Reify` and `Reflect`. This should make instance declarations less
-  verbose. #97
+  verbose. [#97](https://github.com/tweag/inline-java/pull/97)
 * It is now possible to `-XGeneralizedNewtypeDeriving` all 3 type
   classes (`Coercible`, `Reify`, `Reflect`) for the common use case of
-  newtype-wrapped JVM object references. #97
+  newtype-wrapped JVM object
+  references. [#97](https://github.com/tweag/inline-java/pull/97)
 * The `Reify`/`Reflect` instances for `()` is now mapped to
   a *serializable* small JVM object. This is a more useful instance
   for sparkle users.
