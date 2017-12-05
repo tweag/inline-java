@@ -29,7 +29,7 @@ library
     choice >=0.1,
     distributed-closure >=0.3,
     exceptions >=0.8,
-    jni >=0.4.0,
+    jni >=0.4.0 && jni <0.6,
     singletons >=2.0,
     text >=1.2,
     vector >=0.11
