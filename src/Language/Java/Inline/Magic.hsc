@@ -38,7 +38,7 @@ import Foreign.Storable
 import GHC.Stack (HasCallStack, withFrozenCallStack)
 import GHC.TypeLits (Nat, Symbol)
 import qualified Language.Haskell.TH.Syntax as TH
-import Language.Java (Coercible, Ty, JType)
+import Language.Java (Coercible, Ty)
 
 #include "bctable.h"
 
@@ -97,7 +97,7 @@ qqMarker
      (line :: Nat)       -- line number of the quasiquotation
      args_tuple          -- uncoerced argument types
      b.                  -- uncoerced result type
-     (CoercibleRels args_tuple args_tys, CoercibleRel b tyres, HasCallStack)
+     (tyres ~ Ty b, Coercibles args_tuple args_tys, Coercible b, HasCallStack)
   => Proxy input
   -> Proxy mname
   -> Proxy antiqs
@@ -111,9 +111,6 @@ qqMarker _ _ _ _ _ = withFrozenCallStack $
       "Please pass -fplugin=Language.Java.Inline.Plugin"
       ++ " to ghc when building this module."
 
-class CoercibleRel a (ty :: JType) | a -> ty
-instance (ty ~ Ty a, Coercible a) => CoercibleRel a ty
-
-class CoercibleRels xs (tys :: k) | xs -> tys
-instance CoercibleRels () ()
-instance (CoercibleRel x ty, CoercibleRels xs tys) => CoercibleRels (x, xs) '(ty, tys)
+class Coercibles xs (tys :: k) | xs -> tys
+instance Coercibles () ()
+instance (ty ~ Ty x, Coercible x, Coercibles xs tys) => Coercibles (x, xs) '(ty, tys)

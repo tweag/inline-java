@@ -356,14 +356,14 @@ collectQQMarkers qqMarkerName p0 = do
 
     expMarkers :: CoreExpr -> QQJavaM CoreExpr
     expMarkers (App (App (App (App (App (App (App (App (App (App (App (App (App
-                 (App (App (App (App (App (App (Var fid) _)
+                 (App (App (App (App (App (App (App (Var fid) _)
                  (Type (parseArgTys -> Just tyargs)))
                  (Type tyres))
                  (Type (LitTy (StrTyLit fs_input))))
                  (Type (LitTy (StrTyLit fs_mname))))
                  (Type (LitTy (StrTyLit fs_antiqs))))
                  (Type (LitTy (NumTyLit lineNumber))))
-                 _) _) _) _) _) _) _) _) _) _) _)
+                 _) _) _) _) _) _) _) _) _) _) _) _)
                  e
                )
         | qqMarkerName == idName fid = do
