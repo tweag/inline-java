@@ -148,9 +148,9 @@ buildJava guts qqOccs jimports = do
                     ]
           | JavaImport jimp n <- jimports
           ]
+    p_fam_env <- getPackageFamInstEnv
+    let fam_envs = (p_fam_env, mg_fam_inst_env guts)
     methods <- forM qqOccs $ \QQOcc {..} -> do
-      p_fam_env <- getPackageFamInstEnv
-      let fam_envs = (p_fam_env, mg_fam_inst_env guts)
       let (_, normty) = normaliseType fam_envs Nominal (expandTypeSynonyms qqOccResTy)
       jTypeNames <- findJTypeNames
       resty <- case toJavaType jTypeNames normty of
