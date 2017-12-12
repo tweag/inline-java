@@ -1,28 +1,35 @@
 version: 2
 jobs:
   build:
-    working_directory: ~/inline-java
     docker:
-    - image: tweag/inline-java
+      - image: nixos/nix
+    working_directory: ~/inline-java
     steps:
-    - checkout
-    - run:
-        name: compute checksum
-        command: |
-          find . -path ./.git -prune -o -name "*.cabal" -print0 | sort -z | xargs -0 -n1 sha1sum > checksum.txt
-          sha1sum stack.yaml >> checksum.txt
-    - restore_cache:
-        key: inline-java-stack-dependencies-{{ checksum "checksum.txt" }}
-    - run:
-        name: build dependencies
-        command: stack --no-terminal build --only-dependencies --prefetch --test --bench
-    - save_cache:
-        key: inline-java-stack-dependencies-{{ checksum "checksum.txt" }}
-        paths:
-        - ~/.stack
-    - run:
-        name: build project
-        command: stack --no-terminal build --pedantic --test --bench --no-run-tests --no-run-benchmarks
-    - run:
-        name: test
-        command: stack --no-terminal test
+      - checkout
+      - run:
+          name: Install Stack
+          command: |
+            apk update --no-progress && apk --no-progress add ca-certificates bash
+            nix-env -f nixpkgs.nix -iA stack
+      - run:
+          name: Compute cache key
+          command: |
+            find . -name "*.cabal" -o -name "stack.yaml" -type f | sort | xargs cat > /tmp/stack-deps
+      - restore_cache:
+          keys:
+            - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+            - inline-java-stack-dependencies-{{ arch }}-
+      - run:
+          name: Build dependencies
+          command: |
+            stack --no-terminal --nix build --only-snapshot --prefetch --test --bench
+      - save_cache:
+          key: inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+          paths:
+            - ~/.stack
+      - run:
+          name: Build project
+          command: stack --nix --no-terminal build --pedantic --test --bench --no-run-tests --no-run-benchmarks
+      - run:
+          name: Test
+          command: stack --nix --no-terminal test
