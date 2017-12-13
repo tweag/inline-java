@@ -1,6 +1,6 @@
 require-stack-version: ">= 1.2"
 
-resolver: lts-9.0
+resolver: lts-9.18
 
 packages:
 - .
