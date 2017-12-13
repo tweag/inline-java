@@ -1,6 +1,6 @@
 require-stack-version: ">= 1.2"
 
-resolver: nightly-2017-12-01
+resolver: lts-9.0
 
 packages:
 - .
@@ -8,10 +8,6 @@ packages:
 - jvm
 - jvm-streaming
 - examples/classpath
-
-extra-deps:
-- mmorph-1.0.9
-- streaming-0.1.4.5
 
 nix:
   shell-file: shell.nix
