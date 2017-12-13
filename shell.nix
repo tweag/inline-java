@@ -1,4 +1,6 @@
-{ pkgs ? import <nixpkgs> {}, ghc ? pkgs.haskell.compiler.ghc821 }:
+{ pkgs ?  import ./nixpkgs.nix {}
+, ghc ? pkgs.haskell.compiler.ghc822
+}:
 
 with pkgs;
 
@@ -19,6 +21,7 @@ haskell.lib.buildStackProject ({
   name = "inline-java";
   buildInputs = [ git openjdk gradle ];
   ghc = ghc;
+  # XXX Workaround https://ghc.haskell.org/trac/ghc/ticket/11042.
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   LANG = "en_US.utf8";
 } // libHack)
