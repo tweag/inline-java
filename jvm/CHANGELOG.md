@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+### Added
+
+* `Reify`/`Reflect` instances for `Vector/IOVector Double`.
+
 ### Changed
 
 * The `Coercible` type class now also takes a single parameter, like
