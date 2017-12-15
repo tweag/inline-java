@@ -704,13 +704,22 @@ withStatic [d|
   instance Reflect (IOVector Int32) where
     reflect = reflectMVector (newIntArray) (setIntArrayRegion)
 
-  instance Interpretation (Vector Int32) where
-    type Interp (Vector Int32) = 'Array ('Prim "int")
+  instance Interpretation (IOVector Double) where
+    type Interp (IOVector Double) = 'Array ('Prim "double")
 
-  instance Reify (Vector Int32) where
+  instance Reify (IOVector Double) where
+    reify = reifyMVector (getDoubleArrayElements) (releaseDoubleArrayElements)
+
+  instance Reflect (IOVector Double) where
+    reflect = reflectMVector (newDoubleArray) (setDoubleArrayRegion)
+
+  instance Interpretation (IOVector a) => Interpretation (Vector a) where
+    type Interp (Vector a) = Interp (IOVector a)
+
+  instance (Storable a, Reify (IOVector a)) => Reify (Vector a) where
     reify = Vector.freeze <=< reify
 
-  instance Reflect (Vector Int32) where
+  instance (Storable a, Reflect (IOVector a)) => Reflect (Vector a) where
     reflect = reflect <=< Vector.thaw
 #endif
   instance Interpretation a => Interpretation [a] where
