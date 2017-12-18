@@ -59,14 +59,14 @@ benchCalls =
         , bench "local frame / 1 reference" $ nfIO $ do
             pushLocalFrame 30
             _ <- newLocalRef klass
-            popLocalFrame jnull
+            _ <- popLocalFrame jnull
             return ()
         , bench "delete 1 local ref" $ nfIO $
             newLocalRef klass >>= deleteLocalRef
         , bench "local frame / 30 references" $ nfIO $ do
             pushLocalFrame 30
             replicateM_ 30 $ newLocalRef klass
-            popLocalFrame jnull
+            _ <- popLocalFrame jnull
             return ()
         , bench "delete 30 local refs" $ nfIO $
             replicateM_ 30 $ newLocalRef klass >>= deleteLocalRef
