@@ -8,6 +8,7 @@ module Main where
 
 import Control.DeepSeq (NFData(..))
 import Criterion.Main as Criterion
+import Control.Monad (replicateM_)
 import Data.Int
 import Data.Singletons (SomeSing(..))
 import qualified Foreign.Concurrent as Concurrent
@@ -55,6 +56,20 @@ benchCalls =
         , bench "jni static method call: unboxed single arg / unboxed return" $ nfIO $ jniAbs klass method 1
         , bench "method call: no args / unboxed return" $ nfIO $ intValue 1
         , bench "method call: boxed single arg / unboxed return" $ nfIO $ compareTo 1 1
+        , bench "local frame / 1 reference" $ nfIO $ do
+            pushLocalFrame 30
+            _ <- newLocalRef klass
+            popLocalFrame jnull
+            return ()
+        , bench "delete 1 local ref" $ nfIO $
+            newLocalRef klass >>= deleteLocalRef
+        , bench "local frame / 30 references" $ nfIO $ do
+            pushLocalFrame 30
+            replicateM_ 30 $ newLocalRef klass
+            popLocalFrame jnull
+            return ()
+        , bench "delete 30 local refs" $ nfIO $
+            replicateM_ 30 $ newLocalRef klass >>= deleteLocalRef
         ]
       , bgroup "Haskell calls"
         [ bench "incr haskell" $ nfIO $ incrHaskell 1
