@@ -469,7 +469,8 @@ class (SingI (Interp a), IsReferenceType (Interp a)) => Interpretation (a :: k) 
 -- say, unmarshall a Java object to a Haskell value. Unlike coercing, in general
 -- reifying induces allocations and copies.
 class Interpretation a => Reify a where
-  -- | Precondition: The input reference is valid only until reify returns.
+  -- | Invariant: the argument and the result are distinct. That is, the result
+  -- and the argument share no direct JVM object references.
   reify :: J (Interp a) -> IO a
 
   default reify :: (Coercible a, Interp a ~ Ty a) => J (Interp a) -> IO a
@@ -479,8 +480,8 @@ class Interpretation a => Reify a where
 -- say, marshall a Haskell value to a Java object. Unlike coercing, in general
 -- reflection induces allocations and copies.
 class Interpretation a => Reflect a where
-  -- | Postcondition: The input value remains valid if the output reference is
-  -- deleted.
+  -- | Invariant: the argument and the result are distinct. That is, the result
+  -- and the argument share no direct JVM object references.
   reflect :: a -> IO (J (Interp a))
 
   default reflect :: (Coercible a, Interp a ~ Ty a) => a -> IO (J (Interp a))
