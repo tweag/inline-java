@@ -22,6 +22,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * The `Reify`/`Reflect` instances for `()` is now mapped to
   a *serializable* small JVM object. This is a more useful instance
   for sparkle users.
+* `Reify`/`Reflect` were given additional pre and post conditions.
+  The lifetimes of the marshaled values are disentangled now, which
+  fixes memory errors in the instances of `[J ty]`.
+  [#102](https://github.com/tweag/inline-java/pull/102)
 
 ## [0.3.0] - 2017-08-31
 
