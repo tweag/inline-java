@@ -469,19 +469,23 @@ class (SingI (Interp a), IsReferenceType (Interp a)) => Interpretation (a :: k) 
 -- say, unmarshall a Java object to a Haskell value. Unlike coercing, in general
 -- reifying induces allocations and copies.
 class Interpretation a => Reify a where
+  -- | Invariant: The result and the argument share no direct JVM object
+  -- references.
   reify :: J (Interp a) -> IO a
 
   default reify :: (Coercible a, Interp a ~ Ty a) => J (Interp a) -> IO a
-  reify x = return (unsafeUncoerce (JObject x))
+  reify x = unsafeUncoerce . JObject <$> (newLocalRef x :: IO (J (Ty a)))
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
 -- say, marshall a Haskell value to a Java object. Unlike coercing, in general
 -- reflection induces allocations and copies.
 class Interpretation a => Reflect a where
+  -- | Invariant: The result and the argument share no direct JVM object
+  -- references.
   reflect :: a -> IO (J (Interp a))
 
   default reflect :: (Coercible a, Interp a ~ Ty a) => a -> IO (J (Interp a))
-  reflect x = return (jobject x)
+  reflect x = newLocalRef (jobject x)
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 reifyMVector
