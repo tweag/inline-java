@@ -28,7 +28,6 @@ import Foreign.JNI.Types (JType(..))
 import GhcPlugins
 import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH
-import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Magic
 #if MIN_VERSION_ghc(8, 2, 1)
 import NameCache (nsNames)
@@ -92,11 +91,41 @@ plugin = defaultPlugin
     -- #include "bctable.h" wouldn't work when ghc is used from the
     -- command line without saying -package inline-java.
     bctable_header :: String
-    bctable_header = $(do
-        let f = "cbits/bctable.h"
-        TH.addDependentFile f
-        TH.lift =<< TH.runIO (readFile f)
-      )
+    bctable_header = unlines
+      [ "#include <stdlib.h>"
+      , ""
+      , "/** List of JVM class bytecode definitions. The content corresponds to"
+      , " * that of a .class file. */"
+      , "struct inline_java_dot_class {"
+      , "  char *name;"
+      , "  size_t bytecode_sz;"
+      , "  unsigned char *bytecode;"
+      , "};"
+      , ""
+      , ""
+      , "/** A set of .class files contents. */"
+      , "struct inline_java_pack {"
+      , "  struct inline_java_pack *next;"
+      , "  struct inline_java_dot_class *classes;"
+      , "  size_t size;"
+      , "};"
+      , ""
+      , "/** Smart constructor for class file packs. */"
+      , "struct inline_java_pack *inline_java_new_pack("
+      , "  struct inline_java_pack *next,"
+      , "  struct inline_java_dot_class classes[],"
+      , "  size_t size);"
+      , ""
+      , "/** Global list of class files."
+      , " *"
+      , " * All modules insert the bytecode of the classes they need when they"
+      , " * are loaded."
+      , " *"
+      , " * inline-java reads this table to load the classes in loadJavaWrappers."
+      , " */"
+      , "extern struct inline_java_pack *inline_java_bctable;"
+      ]
+
     -- Dumps the java code to stderr or a file, depending on the set flags.
     maybeDumpJava :: [CommandLineOption] -> Builder -> CoreM Builder
     maybeDumpJava args b
