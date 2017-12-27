@@ -69,6 +69,7 @@ module Language.Java
   , pop
   , popWithObject
   , popWithValue
+  , withLocalRef
   -- * Coercions
   , CoercionFailure(..)
   , Coercible(..)
@@ -85,7 +86,7 @@ module Language.Java
 import Control.Distributed.Closure.TH
 import Control.Exception (Exception, throw, finally)
 import Control.Monad
-import Control.Monad.Catch (MonadCatch, onException)
+import Control.Monad.Catch (MonadCatch, MonadMask, bracket, onException)
 import Control.Monad.IO.Class
 import Data.Char (chr, ord)
 import qualified Data.Choice as Choice
@@ -156,6 +157,12 @@ popWithObject x = return (PopObject x)
 -- created in the popped frame. In that case use 'popWithObject' instead.
 popWithValue :: Monad m => a -> m (Pop a)
 popWithValue x = return (PopValue x)
+
+-- | Create a local ref and delete it when the given action completes.
+withLocalRef
+  :: (MonadMask m, MonadIO m, Coerce.Coercible o (J ty))
+  => m o -> (o -> m a) -> m a
+withLocalRef m = bracket m (liftIO . deleteLocalRef)
 
 -- Note [Class lookup memoization]
 --
