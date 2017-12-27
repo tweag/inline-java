@@ -31,6 +31,7 @@ gradleHooks :: UserHooks -> UserHooks
 gradleHooks hooks = hooks
     { preBuild = setGradleClasspath <> preBuild hooks
     , buildHook = gradleBuild <> buildHook hooks
+    , preHaddock = setGradleClasspath <> preHaddock hooks
     }
 
 gradleBuildFile :: FilePath
@@ -59,7 +60,7 @@ getGradleClasspath parentBuildfile = do
 
 -- | Set the @CLASSPATH@ from a Gradle build configuration. Does not override
 -- the @CLASSPATH@ if one exists.
-setGradleClasspath :: Args -> BuildFlags -> IO HookedBuildInfo
+setGradleClasspath :: Args -> b -> IO HookedBuildInfo
 setGradleClasspath _ _ = do
     here <- getCurrentDirectory
     origclasspath <- lookupEnv "CLASSPATH"
