@@ -10,7 +10,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 
+## [0.7.2] - 2017-12-27
+
+### Changed
+
 * CLASSPATH is now set in Cabal hooks before running haddock.
+
+## [0.7.1] - 2017-12-05
+
+### Added
+
+* A hello-java example project.
+* Upper bounds to `jni` and `jvm`.
+
+### Changed
+
+* Normalize type families before inspecting the return type of
+  quasiquotations.
 
 ## [0.7.0] - 2017-08-31
 
