@@ -737,9 +737,9 @@ deleteGlobalRefNonFinalized (coerce -> upcast -> obj) = do
 
 -- NB: Cannot add a finalizer to local references because it may
 -- run in a thread where the reference is not valid.
-newLocalRef :: Coercible o (J ty) => o -> IO (J ty)
+newLocalRef :: Coercible o (J ty) => o -> IO o
 newLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
-    unsafeCast <$> (objectFromPtr =<<)
+    coerce <$> (objectFromPtr =<<)
     [CU.exp| jobject {
       (*$(JNIEnv *env))->NewLocalRef($(JNIEnv *env),
                                      $fptr-ptr:(jobject obj)) } |]
