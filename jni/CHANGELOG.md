@@ -6,10 +6,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [0.5.1] - 2017-12-27
 
-### Added
-
-* `withLocalRef`: a helper to delete local references.
-
 ### Changed
 
 * The type of `newLocalRef` to follow `newGlobalRef`. Both return
