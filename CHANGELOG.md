@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 
+* CLASSPATH is now set in Cabal hooks before running haddock.
 
 ## [0.7.0] - 2017-08-31
 
