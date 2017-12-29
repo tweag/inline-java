@@ -16,7 +16,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -ddump-ds #-}
 
 module Language.Java.Inline.Magic
   ( DotClass(..)
