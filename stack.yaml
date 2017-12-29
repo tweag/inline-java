@@ -1,6 +1,6 @@
-require-stack-version: ">= 1.2"
+require-stack-version: ">= 1.6"
 
-resolver: lts-9.18
+resolver: lts-10.1
 
 packages:
 - .
