@@ -353,7 +353,7 @@ attachCurrentThreadAsDaemon :: IO ()
 attachCurrentThreadAsDaemon = do
     throwIfNotOK_
       [CU.exp| jint {
-        (*$(JavaVM* jvm))->AttachCurrentThreadAsDaemon($(JavaVM* jvm), &jniEnv, NULL)
+        (*$(JavaVM* jvm))->AttachCurrentThreadAsDaemon($(JavaVM* jvm), (void**)&jniEnv, NULL)
       } |]
 
 detachCurrentThread :: IO ()
