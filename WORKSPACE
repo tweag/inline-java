@@ -1,20 +1,15 @@
 workspace(name = "io_tweag_inline_java")
 
 http_archive(
-    name = "io_tweag_rules_haskell",
-    strip_prefix = "rules_haskell-a1f5b6a21e6cc568ef476b8c63f4c1c60ffc5a03",
-    urls = ["https://github.com/tweag/rules_haskell/archive/a1f5b6a21e6cc568ef476b8c63f4c1c60ffc5a03.tar.gz"]
-)
-
-local_repository(
   name = "io_tweag_rules_haskell",
-  path = "/home/shana/programming/rules_haskell",
+  strip_prefix = "rules_haskell-8120ec9c600bc70a1268c05892f2f267248eb560",
+  urls = ["https://github.com/tweag/rules_haskell/archive/8120ec9c600bc70a1268c05892f2f267248eb560.tar.gz"]
 )
 
 http_archive(
-    name = "io_tweag_rules_nixpkgs",
-    strip_prefix = "rules_nixpkgs-53700e429928530f1566cfff3ec00283a123f17f",
-    urls = ["https://github.com/tweag/rules_nixpkgs/archive/53700e429928530f1566cfff3ec00283a123f17f.tar.gz"],
+  name = "io_tweag_rules_nixpkgs",
+  strip_prefix = "rules_nixpkgs-53700e429928530f1566cfff3ec00283a123f17f",
+  urls = ["https://github.com/tweag/rules_nixpkgs/archive/53700e429928530f1566cfff3ec00283a123f17f.tar.gz"],
 )
 
 # Required due to rules_haskell use of skylib.
