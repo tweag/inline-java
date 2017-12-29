@@ -26,6 +26,7 @@ load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
 
 nixpkgs_git_repository(
   name = "nixpkgs",
+  # Keep consistent with ./nixpkgs.nix.
   revision = "4026ea9c8afd09b60896b861a04cc5748fdcdfb4",
 )
 
