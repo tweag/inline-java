@@ -29,52 +29,31 @@ nixpkgs_git_repository(
   revision = "4026ea9c8afd09b60896b861a04cc5748fdcdfb4",
 )
 
-jni_prebuilt = [
+prebuilt_packages = [
+  "Cabal",
   "base",
   "bytestring",
   "choice",
+  "constraints",
   "containers",
-  "constraints",
   "deepseq",
-  "inline-c",
-  "singletons"
-]
-
-jvm_prebuilt = [
-  "base",
-  "bytestring",
-  "constraints",
-  "choice",
+  "directory",
   "distributed-closure",
   "exceptions",
-  "singletons",
-  "text",
-  "vector",
-]
-
-inline_java_prebuilt = [
-  "base",
-  "bytestring",
-  "Cabal",
-  "directory",
-  "filepath",
   "filemanip",
+  "filepath",
   "ghc",
+  "hspec",
+  "inline-c",
   "language-java",
   "mtl",
   "process",
-  "text",
-  "template-haskell",
-  "temporary",
-  "hspec",
-]
-
-jvm_streaming_prebuilt = [
-  "base",
-  "distributed-closure",
   "singletons",
   "streaming",
-  "hspec",
+  "template-haskell",
+  "temporary",
+  "text",
+  "vector",
 ]
 
 nixpkgs_package(
@@ -89,9 +68,7 @@ in pkgs.buildEnv {{
     openjdk
   ];
 }}
-""".format(
-    " ".join(depset(jni_prebuilt + jvm_prebuilt + inline_java_prebuilt + jvm_streaming_prebuilt).to_list())
-))
+""".format(" ".join(prebuilt_packages)))
 
 nixpkgs_package(
   name = "openjdk",
