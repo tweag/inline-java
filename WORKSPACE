@@ -1,4 +1,4 @@
-workspace(name = "inline_java")
+workspace(name = "io_tweag_inline_java")
 
 http_archive(
     name = "io_tweag_rules_haskell",
