@@ -15,8 +15,6 @@ haskell_library(
   name = "jni",
   src_strip_prefix = "src",
   srcs = glob(['src/**/*.hs', 'src/**/*.hsc']),
-  c_sources = glob(['src/**/*.c']),
-  c_options = ["-std=c11"],
   deps = [
     ":openjdk"
   ],
