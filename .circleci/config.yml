@@ -14,7 +14,7 @@ jobs:
       - run:
           name: Compute cache key
           command: |
-            find . -name "*.cabal" -o -name "stack.yaml" -type f | sort | xargs cat > /tmp/stack-deps
+              (echo shell.nix; echo nixpkgs.nix; find . -name "*.cabal" -o -name "stack.yaml" -type f) | sort | xargs cat > /tmp/stack-deps
       - restore_cache:
           keys:
             - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
