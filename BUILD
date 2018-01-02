@@ -7,6 +7,12 @@ load(
   "haskell_toolchain",
 )
 
+cc_library(
+  name = "bctable",
+  srcs = ["cbits/bctable.c"],
+  hdrs = ["cbits/bctable.h"],
+)
+
 haskell_toolchain(
   name = "inline-java-toolchain",
   version = "8.2.2",
@@ -19,12 +25,9 @@ haskell_library(
   srcs = glob(['src/**/*.hs', 'src/**/*.hsc']),
   deps = [
     "//jni",
-    "//jvm"
+    "//jvm",
+    ":bctable",
   ],
-  external_deps = [
-    "cbits/bctable.h"
-  ],
-  c_sources = ["cbits/bctable.c"],
   prebuilt_dependencies = [
     "base",
     "bytestring",

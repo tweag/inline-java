@@ -2,8 +2,8 @@ workspace(name = "io_tweag_inline_java")
 
 http_archive(
   name = "io_tweag_rules_haskell",
-  strip_prefix = "rules_haskell-8120ec9c600bc70a1268c05892f2f267248eb560",
-  urls = ["https://github.com/tweag/rules_haskell/archive/8120ec9c600bc70a1268c05892f2f267248eb560.tar.gz"]
+  strip_prefix = "rules_haskell-64f0ea2ec2e82fa2affcc270d9bd13d637cf684e",
+  urls = ["https://github.com/tweag/rules_haskell/archive/64f0ea2ec2e82fa2affcc270d9bd13d637cf684e.tar.gz"]
 )
 
 http_archive(
