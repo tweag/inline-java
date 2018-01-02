@@ -36,7 +36,7 @@ import NameCache (nsNames)
 import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
-import System.FilePath ((</>), (<.>))
+import System.FilePath ((</>), (<.>), takeDirectory)
 import System.IO (withFile, IOMode(WriteMode), hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (callProcess)
@@ -93,7 +93,9 @@ plugin = defaultPlugin
     -- command line without saying -package inline-java.
     bctable_header :: String
     bctable_header = $(do
-        let f = "cbits/bctable.h"
+        loc <- TH.location
+        let root = iterate takeDirectory (TH.loc_filename loc) !! 5
+            f = root </> "cbits/bctable.h"
         TH.addDependentFile f
         TH.lift =<< TH.runIO (readFile f)
       )
