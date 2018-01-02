@@ -33,6 +33,7 @@ import Language.Java.Inline.Magic
 #if MIN_VERSION_ghc(8, 2, 1)
 import NameCache (nsNames)
 #endif
+import qualified NeatInterpolation (text)
 import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
@@ -92,11 +93,10 @@ plugin = defaultPlugin
     -- #include "bctable.h" wouldn't work when ghc is used from the
     -- command line without saying -package inline-java.
     bctable_header :: String
-    bctable_header = $(do
-        let f = "cbits/bctable.h"
-        TH.addDependentFile f
-        TH.lift =<< TH.runIO (readFile f)
-      )
+    bctable_header = Text.unpack [NeatInterpolation.text|
+#include "bctable.h"
+      |]
+
     -- Dumps the java code to stderr or a file, depending on the set flags.
     maybeDumpJava :: [CommandLineOption] -> Builder -> CoreM Builder
     maybeDumpJava args b
