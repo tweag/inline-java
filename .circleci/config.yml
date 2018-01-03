@@ -18,7 +18,6 @@ jobs:
       - restore_cache:
           keys:
             - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
-            - inline-java-stack-dependencies-{{ arch }}-
       - run:
           name: Build dependencies
           command: |
