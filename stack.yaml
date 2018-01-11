@@ -6,6 +6,7 @@ packages:
 - .
 - jni
 - jvm
+- jvm-batching
 - jvm-streaming
 - examples/classpath
 

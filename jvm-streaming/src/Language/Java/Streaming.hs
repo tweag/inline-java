@@ -148,10 +148,10 @@ withStatic [d|
       it <- JNI.newGlobalRef itLocal
       return $ Streaming.untilRight $ do
         call it "hasNext" [] >>= \case
-          False -> return (Right ())
+          False -> JNI.deleteGlobalRef it >> return (Right ())
           True -> do
-            obj <- call it "next" []
-            Left <$> reify (unsafeCast (obj :: JObject))
+            obj <- [java| $it.next() |]
+            Left <$> reify (unsafeCast (obj :: JObject) :: J (Interp a))
 
   instance Reflect a => Reflect (Stream (Of a) IO ()) where
     reflect x = newIterator x

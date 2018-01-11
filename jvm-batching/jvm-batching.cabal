@@ -1,0 +1,82 @@
+name:                jvm-batching
+version:             0.1
+synopsis:            Provides batched marshalling of values between Java and Haskell.
+description:         Please see README.md.
+homepage:            http://github.com/tweag/inline-java/tree/master/jvm-batching#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Tweag I/O
+maintainer:          m@tweag.io
+copyright:           2017 LeapYear Technologies
+category:            FFI, JVM, Java
+build-type:          Custom
+cabal-version:       >=1.10
+extra-source-files:
+  src/main/java/io/tweag/jvm/batching/Tuple2.java
+  src/main/java/io/tweag/jvm/batching/Batcher.java
+  src/main/java/io/tweag/jvm/batching/Batchers.java
+  src/main/java/io/tweag/jvm/batching/BatchReader.java
+  src/main/java/io/tweag/jvm/batching/BatchReaders.java
+  README.md
+  build.gradle
+
+source-repository head
+  type: git
+  location: https://github.com/tweag/inline-java
+  subdir: jvm-streaming
+
+custom-setup
+  setup-depends:
+    base,
+    Cabal >= 1.24,
+    inline-java >= 0.6.3
+
+library
+  hs-source-dirs: src
+  default-language: Haskell2010
+  exposed-modules:
+    Language.Java.Batching
+  build-depends:
+    base >= 4.7 && < 5,
+    bytestring,
+    distributed-closure >= 0.3,
+    jni >= 0.4.0 && <0.6,
+    jvm >= 0.4.0 && <0.5,
+    inline-java >= 0.7 && <0.8,
+    singletons >= 2.2,
+    text,
+    vector
+
+test-suite spec
+  type:
+    exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: Main.hs
+  other-modules:
+    Language.Java.BatchingSpec
+    Spec
+  build-depends:
+    base,
+    bytestring,
+    hspec,
+    inline-java,
+    jvm,
+    jvm-batching,
+    text,
+    vector
+  default-language: Haskell2010
+
+benchmark micro-benchmarks
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: benchmarks
+  build-depends:
+    base >=4.8 && <5,
+    criterion,
+    deepseq,
+    jvm,
+    jvm-batching,
+    split,
+    vector
+  default-language: Haskell2010
+  ghc-options: -threaded

@@ -134,8 +134,8 @@ data JType
   | Void                                       -- ^ Void special type
 
 -- | The class of Java types that are "unboxed".
-class IsPrimitiveType (ty :: JType)
-instance IsPrimitiveType ('Prim sym)
+class SingI ty => IsPrimitiveType (ty :: JType)
+instance KnownSymbol sym => IsPrimitiveType ('Prim sym)
 
 class IsReferenceType (ty :: JType)
 instance IsReferenceType ('Class sym)
