@@ -12,6 +12,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -22,9 +23,12 @@
 module Language.Java.Streaming () where
 
 import Control.Distributed.Closure.TH
+import Control.Monad.IO.Class (liftIO)
 import qualified Data.Coerce as Coerce
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
+import Data.Proxy
+import qualified Data.Vector as V
 import Data.Singletons (SomeSing(..))
 import Foreign.Ptr (FunPtr, Ptr, freeHaskellFunPtr, intPtrToPtr, ptrToIntPtr)
 import Foreign.ForeignPtr.Unsafe (unsafeForeignPtrToPtr)
@@ -39,10 +43,13 @@ import GHC.Stable
   , newStablePtr
   )
 import Language.Java
+import Language.Java.Batching
 import Language.Java.Inline
-import Streaming (Stream, Of)
+import Streaming (Bifunctor(first), Stream, Of)
+import qualified Streaming as Streaming
 import qualified Streaming.Prelude as Streaming
 
+imports "io.tweag.jvm.batching.*"
 imports "java.util.Iterator"
 
 type JNIFun a = JNIEnv -> Ptr JObject -> IO a
@@ -67,10 +74,10 @@ freeIterator _ _ ptr = do
     freeHaskellFunPtr nextPtr
     freeStablePtr sptr
 
+-- | Reflects a stream with no batching.
 newIterator
-  :: forall a. Reflect a
-  => Stream (Of a) IO ()
-  -> IO (J ('Iface "java.util.Iterator"))
+  :: forall ty. Stream (Of (J ty)) IO ()
+  -> IO (J ('Iface "java.util.Iterator" <> '[ty]))
 newIterator stream0 = mdo
     ref <- newIORef stream0
     nextPtr <- wrapObjectFun $ \_ jthis ->
@@ -113,7 +120,7 @@ newIterator stream0 = mdo
     klass <- JNI.getObjectClass iterator >>= JNI.newGlobalRef
     fieldEndId <- JNI.getFieldID klass "end"
                     (JNI.signature (sing :: Sing ('Prim "boolean")))
-    let popStream :: Ptr JObject -> IO (J (Interp a))
+    let popStream :: Ptr JObject -> IO (J ty)
         popStream ptrThis = do
           stream <- readIORef ref
           Streaming.uncons stream >>= \case
@@ -125,7 +132,7 @@ newIterator stream0 = mdo
               return jnull
             Just (x, stream') -> do
               writeIORef ref stream'
-              reflect x
+              return x
     JNI.registerNatives klass
       [ JNI.JNINativeMethod
           "hsNext"
@@ -138,23 +145,118 @@ newIterator stream0 = mdo
       ]
     -- Call next once to initialize the iterator.
     () <- [java| { $iterator.next(); } |]
-    return iterator
+    return $ generic iterator
+
+-- | Reifies streams.
+reifyStreamWithBatching
+  :: forall a. ReifyBatcher a
+  => J ('Iface "java.util.Iterator" <> '[Interp a])
+  -> IO (Stream (Of a) IO ())
+reifyStreamWithBatching jiterator0 = do
+    let jiterator1 = unsafeUngeneric jiterator0
+    jbatcher <- unsafeUngeneric <$> newReifyBatcher (Proxy :: Proxy a)
+    jiterator <- [java| new Iterator() {
+        private final int batchSize = 1024;
+        private final Iterator it = $jiterator1;
+        private final Batcher batcher = $jbatcher;
+        public int count = 0;
+
+        @Override
+        public boolean hasNext() { return it.hasNext(); }
+
+        @Override
+        public Object next() {
+          int i = 0;
+          batcher.start(batchSize);
+          while (it.hasNext() && i < batchSize) {
+            batcher.set(i, it.next());
+            i++;
+          }
+          count = i;
+          return batcher.getBatch();
+        }
+
+        @Override
+        public void remove() {
+          throw new UnsupportedOperationException();
+        }
+      } |]
+      >>= JNI.newGlobalRef
+      :: IO (J ('Iface "java.util.Iterator"))
+    cls <- JNI.getObjectClass jiterator >>= JNI.newGlobalRef
+    fieldId <- JNI.getFieldID cls "count"
+                 (JNI.signature (sing :: Sing ('Prim "int")))
+
+    let go :: Int        -- next element to return from the batch
+           -> V.Vector a -- current batch of elements
+           -> Stream (Of a) IO ()
+        go i v =
+          if V.length v == i then do
+            hasNext <- liftIO [java| $jiterator.hasNext() |]
+            if hasNext then do
+              v' <- liftIO $
+                [java| $jiterator.next() |] `withLocalRef` \jbatch ->
+                  JNI.getIntField jiterator fieldId
+                  >>= reifyBatch (unsafeCast (jbatch :: JObject) :: J (Batch a))
+              go 0 v'
+            else
+              liftIO $ do
+                JNI.deleteGlobalRef jiterator
+                JNI.deleteGlobalRef cls
+          else do
+            Streaming.yield $ v V.! i
+            go (i + 1) v
+
+    return $ go 0 V.empty
+
+-- | Reflects streams.
+reflectStreamWithBatching
+  :: forall a. ReflectBatchReader a
+  => Stream (Of a) IO ()
+  -> IO (J ('Iface "java.util.Iterator" <> '[Interp a]))
+reflectStreamWithBatching s0 = do
+    jiterator <- unsafeUngeneric <$>
+      (reflectStream $ Streaming.mapsM
+                        (\s -> first V.fromList <$> Streaming.toList s)
+                     $ Streaming.chunksOf 1024 s0
+      )
+    jbatchReader <- unsafeUngeneric <$> newReflectBatchReader (Proxy :: Proxy a)
+    generic <$> [java| new Iterator() {
+        private final Iterator it = $jiterator;
+        private final BatchReader batchReader = $jbatchReader;
+        private int count = 0;
+
+        @Override
+        public boolean hasNext() {
+          return count < batchReader.getSize() || it.hasNext();
+        }
+        @Override
+        public Object next() {
+          if (count == batchReader.getSize()) {
+            batchReader.setBatch(it.next());
+            count = 0;
+          }
+          Object o = batchReader.get(count);
+          count++;
+          return o;
+        }
+        @Override
+        public void remove() {
+          throw new UnsupportedOperationException();
+        }
+      } |]
+  where
+    reflectStream :: Stream (Of (V.Vector a)) IO ()
+                  -> IO (J ('Iface "java.util.Iterator" <> '[Batch a]))
+    reflectStream = newIterator . Streaming.mapM reflectBatch
 
 withStatic [d|
   instance Interpretation (Stream (Of a) m r) where
     type Interp (Stream (Of a) m r) = 'Iface "java.util.Iterator"
 
-  instance Reify a => Reify (Stream (Of a) IO ()) where
-    reify itLocal = do
-      -- We make sure the iterator remains valid while we reference it.
-      it <- JNI.newGlobalRef itLocal
-      return $ Streaming.untilRight $ do
-        call it "hasNext" [] >>= \case
-          False -> JNI.deleteGlobalRef it >> return (Right ())
-          True -> do
-            obj <- [java| $it.next() |]
-            Left <$> reify (unsafeCast (obj :: JObject) :: J (Interp a))
+  instance ReifyBatcher a => Reify (Stream (Of a) IO ()) where
+    reify = reifyStreamWithBatching . generic
 
-  instance Reflect a => Reflect (Stream (Of a) IO ()) where
-    reflect x = newIterator x
+  instance ReflectBatchReader a => Reflect (Stream (Of a) IO ()) where
+    reflect = fmap unsafeUngeneric . reflectStreamWithBatching
   |]
