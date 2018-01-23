@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+### Changed
+
+* Store lookahead element in the Java side when reflecting streams.
+
 ## [0.2.1] - 2017-08-31
 
 ### Changed

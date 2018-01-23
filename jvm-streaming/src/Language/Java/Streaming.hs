@@ -8,6 +8,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -22,13 +23,13 @@ module Language.Java.Streaming () where
 
 import Control.Distributed.Closure.TH
 import qualified Data.Coerce as Coerce
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
 import Data.Singletons (SomeSing(..))
-import Data.Word (Word8)
 import Foreign.Ptr (FunPtr, Ptr, freeHaskellFunPtr, intPtrToPtr, ptrToIntPtr)
 import Foreign.ForeignPtr.Unsafe (unsafeForeignPtrToPtr)
 import qualified Foreign.JNI as JNI
+import qualified Foreign.JNI.Types as JNI
 import Foreign.JNI.Types (jnull)
 import GHC.Stable
   ( castPtrToStablePtr
@@ -42,32 +43,12 @@ import Language.Java.Inline
 import Streaming (Stream, Of)
 import qualified Streaming.Prelude as Streaming
 
-isPoppableStream :: IORef (Stream (Of a) IO ()) -> IO Word8
-isPoppableStream ref = do
-    readIORef ref >>= Streaming.uncons >>= \case
-      Nothing -> return $ fromIntegral $ fromEnum False
-      Just (x, stream) -> do
-        writeIORef ref (Streaming.cons x stream)
-        return $ fromIntegral $ fromEnum True
-
-popStream :: Reflect a => IORef (Stream (Of a) IO ()) -> IO (J (Interp a))
-popStream ref = do
-    stream <- readIORef ref
-    Streaming.uncons stream >>= \case
-      Nothing -> do
-        exc :: J ('Class "java.util.NoSuchElementException") <- new []
-        JNI.throw exc
-        return jnull
-      Just (x, stream') -> do
-        writeIORef ref stream'
-        reflect x
+imports "java.util.Iterator"
 
 type JNIFun a = JNIEnv -> Ptr JObject -> IO a
 
 foreign import ccall "wrapper" wrapObjectFun
   :: JNIFun (Ptr (J ty)) -> IO (FunPtr (JNIFun (Ptr (J ty))))
-foreign import ccall "wrapper" wrapBooleanFun
-  :: JNIFun Word8 -> IO (FunPtr (JNIFun Word8))
 
 -- Export only to get a FunPtr.
 foreign export ccall "jvm_streaming_freeIterator" freeIterator
@@ -76,59 +57,78 @@ foreign import ccall "&jvm_streaming_freeIterator" freeIteratorPtr
   :: FunPtr (JNIEnv -> Ptr JObject -> Int64 -> IO ())
 
 data FunPtrTable = forall ty. FunPtrTable
-  { hasNextPtr :: FunPtr (JNIFun Word8)
-  , nextPtr :: FunPtr (JNIFun (Ptr (J ty)))
+  { nextPtr :: FunPtr (JNIFun (Ptr (J ty)))
   }
 
 freeIterator :: JNIEnv -> Ptr JObject -> Int64 -> IO ()
 freeIterator _ _ ptr = do
     let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
     FunPtrTable{..} <- deRefStablePtr sptr
-    freeHaskellFunPtr hasNextPtr
     freeHaskellFunPtr nextPtr
     freeStablePtr sptr
 
 newIterator
-  :: Reflect a
+  :: forall a. Reflect a
   => Stream (Of a) IO ()
   -> IO (J ('Iface "java.util.Iterator"))
-newIterator stream = do
-    ref <- newIORef stream
-    hasNextPtr <- wrapBooleanFun $ \_ _ -> isPoppableStream ref
-    nextPtr <- wrapObjectFun $ \_ _ ->
+newIterator stream0 = mdo
+    ref <- newIORef stream0
+    nextPtr <- wrapObjectFun $ \_ jthis ->
       -- Conversion is safe, because result is always a reflected object.
-      unsafeForeignPtrToPtr <$> Coerce.coerce <$> popStream ref
+      unsafeForeignPtrToPtr <$> Coerce.coerce <$> popStream jthis
     -- Keep FunPtr's in a table that can be referenced from the Java side, so
     -- that they can be freed.
     tblPtr :: Int64 <- fromIntegral . ptrToIntPtr . castStablePtrToPtr <$> newStablePtr FunPtrTable{..}
     iterator <-
-      [java| new java.util.Iterator() {
-                @Override
-                public native boolean hasNext();
+      [java| new Iterator() {
+          /// A field that the Haskell side sets to true when it reaches the end.
+          private boolean end = false;
+          /// Lookahead element - it always points to a valid element unless
+          /// end is true. There is no constructor, so in order to initialize
+          // it, next() must be invoked once.
+          private Object lookahead;
+          @Override
+          public boolean hasNext() { return !end; }
 
-                @Override
-                public native Object next();
+          @Override
+          public Object next() {
+            if (hasNext()) {
+              final Object temp = lookahead;
+              lookahead = hsNext();
+              return temp;
+            } else
+              throw new java.util.NoSuchElementException();
+          }
 
-                @Override
-                public void remove() {
-                    throw new UnsupportedOperationException();
-                }
+          @Override
+          public void remove() { throw new UnsupportedOperationException(); }
 
-                private native void hsFinalize(long tblPtr);
+          private native void hsFinalize(long tblPtr);
 
-                @Override
-                public void finalize() {
-                    hsFinalize($tblPtr);
-                }
-             } |]
-    klass <- JNI.getObjectClass iterator
+          private native Object hsNext();
+
+          @Override
+          public void finalize() { hsFinalize($tblPtr); }
+        } |]
+    klass <- JNI.getObjectClass iterator >>= JNI.newGlobalRef
+    fieldEndId <- JNI.getFieldID klass "end"
+                    (JNI.signature (sing :: Sing ('Prim "boolean")))
+    let popStream :: Ptr JObject -> IO (J (Interp a))
+        popStream ptrThis = do
+          stream <- readIORef ref
+          Streaming.uncons stream >>= \case
+            Nothing -> do
+              jthis <- JNI.objectFromPtr ptrThis
+              -- When the stream ends, set the end field to True
+              -- so the Iterator knows not to call hsNext again.
+              JNI.setBooleanField jthis fieldEndId 1
+              return jnull
+            Just (x, stream') -> do
+              writeIORef ref stream'
+              reflect x
     JNI.registerNatives klass
       [ JNI.JNINativeMethod
-          "hasNext"
-          (methodSignature [] (sing :: Sing ('Prim "boolean")))
-          hasNextPtr
-      , JNI.JNINativeMethod
-          "next"
+          "hsNext"
           (methodSignature [] (sing :: Sing ('Class "java.lang.Object")))
           nextPtr
       , JNI.JNINativeMethod
@@ -136,6 +136,8 @@ newIterator stream = do
           (methodSignature [SomeSing (sing :: Sing ('Prim "long"))] (sing :: Sing 'Void))
           freeIteratorPtr
       ]
+    -- Call next once to initialize the iterator.
+    () <- [java| { $iterator.next(); } |]
     return iterator
 
 withStatic [d|
