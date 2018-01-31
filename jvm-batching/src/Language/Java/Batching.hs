@@ -111,7 +111,7 @@
 -- vector in the resulting array. See 'ArrayBatch'.
 --
 module Language.Java.Batching
-  ( Batch
+  ( Batchable(..)
   , BatchReify(..)
   , BatchReflect(..)
     -- * Array batching
@@ -141,8 +141,10 @@ import Language.Java.Inline
 
 imports "io.tweag.jvm.batching.*"
 
--- | The type of java batches for reifying and reflecting values of type @a@.
-type family Batch (a :: k) :: JType
+-- | A class of types whose values can be marshaled in batches.
+class (Interpretation a, SingI (Batch a)) => Batchable (a :: k) where
+  -- | The type of java batches for reifying and reflecting values of type @a@.
+  type family Batch a :: JType
 
 -- | A class for batching reification of values.
 --
@@ -152,7 +154,7 @@ type family Batch (a :: k) :: JType
 -- The type of the batch used to appear as a class parameter but we run into
 -- https://ghc.haskell.org/trac/ghc/ticket/13582
 --
-class (SingI (Interp a), SingI (Batch a)) => BatchReify a where
+class Batchable a => BatchReify a where
   -- | Produces a batcher that aggregates elements of type @ty@ (such as @int@)
   -- and produces collections of type @Batch a@ (such as @int[]@).
   newBatchWriter
@@ -249,7 +251,7 @@ reifyArrayBatch reifyB slice batch0 batchSize = do
 -- We considered having the type of the batch appear as a class parameter but
 -- we run into https://ghc.haskell.org/trac/ghc/ticket/13582
 --
-class (SingI (Interp a), SingI (Batch a)) => BatchReflect a where
+class Batchable a => BatchReflect a where
   -- | Produces a batch reader that receives collections of type @ty1@
   -- (such as @int[]@) and produces values of type @ty2@ (such as @int@).
   newBatchReader
@@ -326,7 +328,9 @@ reflectArrayBatch reflectB getLength concatenate vecs = do
                                   ]
 
 withStatic [d|
-  type instance Batch Bool = 'Array ('Prim "boolean")
+  instance Batchable Bool where
+    type Batch Bool = 'Array ('Prim "boolean")
+
   instance BatchReify Bool where
     newBatchWriter _ = [java| new BatchWriters.BooleanBatchWriter() |]
     reifyBatch jxs size = do
@@ -336,43 +340,57 @@ withStatic [d|
           \arr -> V.generateM (fromIntegral size)
                               ((toBool <$>) . peekElemOff arr)
 
-  type instance Batch CChar = 'Array ('Prim "byte")
+  instance Batchable CChar where
+    type Batch CChar = 'Array ('Prim "byte")
+
   instance BatchReify CChar where
     newBatchWriter _ = [java| new BatchWriters.ByteBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getByteArrayElements releaseByteArrayElements
 
-  type instance Batch Word16 = 'Array ('Prim "char")
+  instance Batchable Word16 where
+    type Batch Word16 = 'Array ('Prim "char")
+
   instance BatchReify Word16 where
     newBatchWriter _ = [java| new BatchWriters.CharacterBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getCharArrayElements releaseCharArrayElements
 
-  type instance Batch Int16 = 'Array ('Prim "short")
+  instance Batchable Int16 where
+    type Batch Int16 = 'Array ('Prim "short")
+
   instance BatchReify Int16 where
     newBatchWriter _ = [java| new BatchWriters.ShortBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getShortArrayElements releaseShortArrayElements
 
-  type instance Batch Int32 = 'Array ('Prim "int")
+  instance Batchable Int32 where
+    type Batch Int32 = 'Array ('Prim "int")
+
   instance BatchReify Int32 where
     newBatchWriter _ = [java| new BatchWriters.IntegerBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getIntArrayElements releaseIntArrayElements
 
-  type instance Batch Int64 = 'Array ('Prim "long")
+  instance Batchable Int64 where
+    type Batch Int64 = 'Array ('Prim "long")
+
   instance BatchReify Int64 where
     newBatchWriter _ = [java| new BatchWriters.LongBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getLongArrayElements releaseLongArrayElements
 
-  type instance Batch Float = 'Array ('Prim "float")
+  instance Batchable Float where
+    type Batch Float = 'Array ('Prim "float")
+
   instance BatchReify Float where
     newBatchWriter _ = [java| new BatchWriters.FloatBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getFloatArrayElements releaseFloatArrayElements
 
-  type instance Batch Double = 'Array ('Prim "double")
+  instance Batchable Double where
+    type Batch Double = 'Array ('Prim "double")
+
   instance BatchReify Double where
     newBatchWriter _ = [java| new BatchWriters.DoubleBatchWriter() |]
     reifyBatch =
@@ -412,56 +430,58 @@ withStatic [d|
     reflectBatch = reflectPrimitiveBatch setDoubleArrayRegion
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
-  type instance Batch BS.ByteString
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
+  instance Batchable BS.ByteString where
+    type Batch BS.ByteString
+      = 'Class "io.tweag.jvm.batching.Tuple2" <>
          '[ 'Array ('Prim "byte")
           , 'Array ('Prim "int")
           ]
 
-  type instance Batch (VS.Vector Bool)
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
-         '[ 'Array ('Prim "boolean")
-          , 'Array ('Prim "int")
-          ]
-
-  type instance Batch (VS.Vector Word16)
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
+  instance Batchable (VS.Vector Word16) where
+    type Batch (VS.Vector Word16)
+      = 'Class "io.tweag.jvm.batching.Tuple2" <>
          '[ 'Array ('Prim "char")
           , 'Array ('Prim "int")
           ]
 
-  type instance Batch (VS.Vector Int16)
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
+  instance Batchable (VS.Vector Int16) where
+    type Batch (VS.Vector Int16)
+      = 'Class "io.tweag.jvm.batching.Tuple2" <>
          '[ 'Array ('Prim "short")
           , 'Array ('Prim "int")
           ]
 
-  type instance Batch (VS.Vector Int32)
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
+  instance Batchable (VS.Vector Int32) where
+    type Batch (VS.Vector Int32)
+      = 'Class "io.tweag.jvm.batching.Tuple2" <>
          '[ 'Array ('Prim "int")
           , 'Array ('Prim "int")
           ]
 
-  type instance Batch (VS.Vector Int64)
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
+  instance Batchable (VS.Vector Int64) where
+    type Batch (VS.Vector Int64)
+      = 'Class "io.tweag.jvm.batching.Tuple2" <>
          '[ 'Array ('Prim "long")
           , 'Array ('Prim "int")
           ]
 
-  type instance Batch (VS.Vector Float)
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
+  instance Batchable (VS.Vector Float) where
+    type Batch (VS.Vector Float)
+      = 'Class "io.tweag.jvm.batching.Tuple2" <>
          '[ 'Array ('Prim "float")
           , 'Array ('Prim "int")
           ]
 
-  type instance Batch (VS.Vector Double)
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
+  instance Batchable (VS.Vector Double) where
+    type Batch (VS.Vector Double)
+      = 'Class "io.tweag.jvm.batching.Tuple2" <>
          '[ 'Array ('Prim "double")
           , 'Array ('Prim "int")
           ]
 
-  type instance Batch Text.Text
-    = 'Class "io.tweag.jvm.batching.Tuple2" <>
+  instance Batchable Text.Text where
+    type Batch Text.Text
+      = 'Class "io.tweag.jvm.batching.Tuple2" <>
          '[ 'Array ('Prim "char")
           , 'Array ('Prim "int")
           ]
@@ -591,7 +611,8 @@ withStatic [d|
 -- TODO: Fix distributed-closure so these instances can be put in a
 -- 'withStatic' block.
 
-type instance Batch (V.Vector a) = ArrayBatch (Batch a)
+instance Batchable a => Batchable (V.Vector a) where
+  type Batch (V.Vector a) = ArrayBatch (Batch a)
 
 instance (SingI (Interp a), SingI (Batch a), BatchReify a)
          => BatchReify (V.Vector a) where
