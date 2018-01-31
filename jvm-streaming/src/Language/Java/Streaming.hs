@@ -20,13 +20,16 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 
-module Language.Java.Streaming () where
+module Language.Java.Streaming
+  ( reifyStreamWithBatching
+  , reflectStreamWithBatching
+  ) where
 
 import Control.Distributed.Closure.TH
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Coerce as Coerce
 import Data.IORef (newIORef, readIORef, writeIORef)
-import Data.Int (Int64)
+import Data.Int (Int32, Int64)
 import Data.Proxy
 import qualified Data.Vector as V
 import Data.Singletons (SomeSing(..))
@@ -147,16 +150,17 @@ newIterator stream0 = mdo
     () <- [java| { $iterator.next(); } |]
     return $ generic iterator
 
--- | Reifies streams.
+-- | Reifies streams from iterators in batches of the given size.
 reifyStreamWithBatching
   :: forall a. BatchReify a
-  => J ('Iface "java.util.Iterator" <> '[Interp a])
+  => Int32  -- ^ The batch size
+  -> J ('Iface "java.util.Iterator" <> '[Interp a])
   -> IO (Stream (Of a) IO ())
-reifyStreamWithBatching jiterator0 = do
+reifyStreamWithBatching batchSize jiterator0 = do
     let jiterator1 = unsafeUngeneric jiterator0
     jbatcher <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
     jiterator <- [java| new Iterator() {
-        private final int batchSize = 1024;
+        private final int batchSize = $batchSize;
         private final Iterator it = $jiterator1;
         private final BatchWriter batcher = $jbatcher;
         public int count = 0;
@@ -209,16 +213,17 @@ reifyStreamWithBatching jiterator0 = do
 
     return $ go 0 V.empty
 
--- | Reflects streams.
+-- | Reflects streams to iterators in batches of the given size.
 reflectStreamWithBatching
   :: forall a. BatchReflect a
-  => Stream (Of a) IO ()
+  => Int  -- ^ The batch size
+  -> Stream (Of a) IO ()
   -> IO (J ('Iface "java.util.Iterator" <> '[Interp a]))
-reflectStreamWithBatching s0 = do
+reflectStreamWithBatching batchSize s0 = do
     jiterator <- unsafeUngeneric <$>
       (reflectStream $ Streaming.mapsM
                         (\s -> first V.fromList <$> Streaming.toList s)
-                     $ Streaming.chunksOf 1024 s0
+                     $ Streaming.chunksOf batchSize s0
       )
     jbatchReader <- unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
     generic <$> [java| new Iterator() {
@@ -255,8 +260,8 @@ withStatic [d|
     type Interp (Stream (Of a) m r) = 'Iface "java.util.Iterator"
 
   instance BatchReify a => Reify (Stream (Of a) IO ()) where
-    reify = reifyStreamWithBatching . generic
+    reify = reifyStreamWithBatching 1024 . generic
 
   instance BatchReflect a => Reflect (Stream (Of a) IO ()) where
-    reflect = fmap unsafeUngeneric . reflectStreamWithBatching
+    reflect = fmap unsafeUngeneric . reflectStreamWithBatching 1024
   |]
