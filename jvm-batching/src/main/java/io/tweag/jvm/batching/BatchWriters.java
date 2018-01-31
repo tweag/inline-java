@@ -4,73 +4,73 @@ package io.tweag.jvm.batching;
  *  Various batchers
  *
  * */
-public final class Batchers {
+public final class BatchWriters {
 
-    public static final class BooleanBatcher implements Batcher<Boolean, boolean[]> {
+    public static final class BooleanBatchWriter implements BatchWriter<Boolean, boolean[]> {
         private boolean[] arr;
         public void start(int batchSize) { arr = new boolean[batchSize]; };
         public void set(int i, Boolean o) { arr[i] = o; };
         public boolean[] getBatch() { return arr; };
     }
 
-    public static final class CharacterBatcher implements Batcher<Character, char[]> {
+    public static final class CharacterBatchWriter implements BatchWriter<Character, char[]> {
         private char[] arr;
         public void start(int batchSize) { arr = new char[batchSize]; };
         public void set(int i, Character o) { arr[i] = o; };
         public char[] getBatch() { return arr; };
     }
 
-    public static final class ByteBatcher implements Batcher<Byte, byte[]> {
+    public static final class ByteBatchWriter implements BatchWriter<Byte, byte[]> {
         private byte[] arr;
         public void start(int batchSize) { arr = new byte[batchSize]; };
         public void set(int i, Byte o) { arr[i] = o; };
         public byte[] getBatch() { return arr; };
     }
 
-    public static final class ShortBatcher implements Batcher<Short, short[]> {
+    public static final class ShortBatchWriter implements BatchWriter<Short, short[]> {
         private short[] arr;
         public void start(int batchSize) { arr = new short[batchSize]; };
         public void set(int i, Short o) { arr[i] = o; };
         public short[] getBatch() { return arr; };
     }
 
-    public static final class IntegerBatcher implements Batcher<Integer, int[]> {
+    public static final class IntegerBatchWriter implements BatchWriter<Integer, int[]> {
         private int[] arr;
         public void start(int batchSize) { arr = new int[batchSize]; };
         public void set(int i, Integer o) { arr[i] = o; };
         public int[] getBatch() { return arr; };
     }
 
-    public static final class LongBatcher implements Batcher<Long, long[]> {
+    public static final class LongBatchWriter implements BatchWriter<Long, long[]> {
         private long[] arr;
         public void start(int batchSize) { arr = new long[batchSize]; };
         public void set(int i, Long o) { arr[i] = o; };
         public long[] getBatch() { return arr; };
     }
 
-    public static final class FloatBatcher implements Batcher<Float, float[]> {
+    public static final class FloatBatchWriter implements BatchWriter<Float, float[]> {
         private float[] arr;
         public void start(int batchSize) { arr = new float[batchSize]; };
         public void set(int i, Float o) { arr[i] = o; };
         public float[] getBatch() { return arr; };
     }
 
-    public static final class DoubleBatcher implements Batcher<Double, double[]> {
+    public static final class DoubleBatchWriter implements BatchWriter<Double, double[]> {
         private double[] arr;
         public void start(int batchSize) { arr = new double[batchSize]; };
         public void set(int i, Double o) { arr[i] = o; };
         public double[] getBatch() { return arr; };
     }
 
-    public static final class ObjectBatcher implements Batcher<Object, Object[]> {
+    public static final class ObjectBatchWriter implements BatchWriter<Object, Object[]> {
         private Object[] arr;
         public void start(int batchSize) { arr = new Object[batchSize]; };
         public void set(int i, Object o) { arr[i] = o; };
         public Object[] getBatch() { return arr; };
     }
 
-    public static final class ByteArrayBatcher
-            implements Batcher<byte[], Tuple2<byte[], int[]> > {
+    public static final class ByteArrayBatchWriter
+            implements BatchWriter<byte[], Tuple2<byte[], int[]> > {
         private byte[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
@@ -102,8 +102,8 @@ public final class Batchers {
         }
     }
 
-    public static final class BooleanArrayBatcher
-            implements Batcher<boolean[], Tuple2<boolean[], int[]> > {
+    public static final class BooleanArrayBatchWriter
+            implements BatchWriter<boolean[], Tuple2<boolean[], int[]> > {
         private boolean[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
@@ -135,8 +135,8 @@ public final class Batchers {
         }
     }
 
-    public static final class CharArrayBatcher
-            implements Batcher<char[], Tuple2<char[], int[]> > {
+    public static final class CharArrayBatchWriter
+            implements BatchWriter<char[], Tuple2<char[], int[]> > {
         private char[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
@@ -168,8 +168,8 @@ public final class Batchers {
         }
     }
 
-    public static final class ShortArrayBatcher
-            implements Batcher<short[], Tuple2<short[], int[]> > {
+    public static final class ShortArrayBatchWriter
+            implements BatchWriter<short[], Tuple2<short[], int[]> > {
         private short[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
@@ -201,8 +201,8 @@ public final class Batchers {
         }
     }
 
-    public static final class IntArrayBatcher
-            implements Batcher<int[], Tuple2<int[], int[]> > {
+    public static final class IntArrayBatchWriter
+            implements BatchWriter<int[], Tuple2<int[], int[]> > {
         private int[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
@@ -234,8 +234,8 @@ public final class Batchers {
         }
     }
 
-    public static final class LongArrayBatcher
-            implements Batcher<long[], Tuple2<long[], int[]> > {
+    public static final class LongArrayBatchWriter
+            implements BatchWriter<long[], Tuple2<long[], int[]> > {
         private long[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
@@ -267,8 +267,8 @@ public final class Batchers {
         }
     }
 
-    public static final class FloatArrayBatcher
-            implements Batcher<float[], Tuple2<float[], int[]> > {
+    public static final class FloatArrayBatchWriter
+            implements BatchWriter<float[], Tuple2<float[], int[]> > {
         private float[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
@@ -300,8 +300,8 @@ public final class Batchers {
         }
     }
 
-    public static final class DoubleArrayBatcher
-            implements Batcher<double[], Tuple2<double[], int[]> > {
+    public static final class DoubleArrayBatchWriter
+            implements BatchWriter<double[], Tuple2<double[], int[]> > {
         private double[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
@@ -333,16 +333,16 @@ public final class Batchers {
         }
     }
 
-    public static final class ObjectArrayBatcher<T, B>
-            implements Batcher<T[], Tuple2<B, int[]> > {
-        private final Batcher<T, B> ob;
+    public static final class ObjectArrayBatchWriter<T, B>
+            implements BatchWriter<T[], Tuple2<B, int[]> > {
+        private final BatchWriter<T, B> ob;
         private T[][] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;
         // top tells the first position not occupied by arrays in the batch.
         private int top;
 
-        public ObjectArrayBatcher(Batcher<T, B> ob) {
+        public ObjectArrayBatchWriter(BatchWriter<T, B> ob) {
             this.ob = ob;
         }
 
@@ -374,8 +374,8 @@ public final class Batchers {
         }
     }
 
-    public static final class StringArrayBatcher
-            implements Batcher<String, Tuple2<char[], int[]> > {
+    public static final class StringArrayBatchWriter
+            implements BatchWriter<String, Tuple2<char[], int[]> > {
         private String[] arrays;
         // end[i] tells the first position after the i-th array.
         private int[] end;

@@ -13,8 +13,8 @@ build-type:          Custom
 cabal-version:       >=1.10
 extra-source-files:
   src/main/java/io/tweag/jvm/batching/Tuple2.java
-  src/main/java/io/tweag/jvm/batching/Batcher.java
-  src/main/java/io/tweag/jvm/batching/Batchers.java
+  src/main/java/io/tweag/jvm/batching/BatchWriter.java
+  src/main/java/io/tweag/jvm/batching/BatchWriters.java
   src/main/java/io/tweag/jvm/batching/BatchReader.java
   src/main/java/io/tweag/jvm/batching/BatchReaders.java
   README.md

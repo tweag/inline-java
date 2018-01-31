@@ -149,16 +149,16 @@ newIterator stream0 = mdo
 
 -- | Reifies streams.
 reifyStreamWithBatching
-  :: forall a. ReifyBatcher a
+  :: forall a. BatchReify a
   => J ('Iface "java.util.Iterator" <> '[Interp a])
   -> IO (Stream (Of a) IO ())
 reifyStreamWithBatching jiterator0 = do
     let jiterator1 = unsafeUngeneric jiterator0
-    jbatcher <- unsafeUngeneric <$> newReifyBatcher (Proxy :: Proxy a)
+    jbatcher <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
     jiterator <- [java| new Iterator() {
         private final int batchSize = 1024;
         private final Iterator it = $jiterator1;
-        private final Batcher batcher = $jbatcher;
+        private final BatchWriter batcher = $jbatcher;
         public int count = 0;
 
         @Override
@@ -211,7 +211,7 @@ reifyStreamWithBatching jiterator0 = do
 
 -- | Reflects streams.
 reflectStreamWithBatching
-  :: forall a. ReflectBatchReader a
+  :: forall a. BatchReflect a
   => Stream (Of a) IO ()
   -> IO (J ('Iface "java.util.Iterator" <> '[Interp a]))
 reflectStreamWithBatching s0 = do
@@ -220,7 +220,7 @@ reflectStreamWithBatching s0 = do
                         (\s -> first V.fromList <$> Streaming.toList s)
                      $ Streaming.chunksOf 1024 s0
       )
-    jbatchReader <- unsafeUngeneric <$> newReflectBatchReader (Proxy :: Proxy a)
+    jbatchReader <- unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
     generic <$> [java| new Iterator() {
         private final Iterator it = $jiterator;
         private final BatchReader batchReader = $jbatchReader;
@@ -254,9 +254,9 @@ withStatic [d|
   instance Interpretation (Stream (Of a) m r) where
     type Interp (Stream (Of a) m r) = 'Iface "java.util.Iterator"
 
-  instance ReifyBatcher a => Reify (Stream (Of a) IO ()) where
+  instance BatchReify a => Reify (Stream (Of a) IO ()) where
     reify = reifyStreamWithBatching . generic
 
-  instance ReflectBatchReader a => Reflect (Stream (Of a) IO ()) where
+  instance BatchReflect a => Reflect (Stream (Of a) IO ()) where
     reflect = fmap unsafeUngeneric . reflectStreamWithBatching
   |]

@@ -59,27 +59,27 @@
 -- need to be specified on both the Haskell and the Java side.
 --
 -- On the Java side, batches are built using the interface
--- @io.tweag.jvm.batching.Batcher@. On the Haskell side, these
+-- @io.tweag.jvm.batching.BatchWriter@. On the Haskell side, these
 -- batches are read using @reifyBatch@.
 --
--- > class ( ... ) => ReifyBatcher a where
--- >   newReifyBatcher
+-- > class ( ... ) => BatchReify a where
+-- >   newBatchWriter
 -- >     :: proxy a
--- >     -> IO (J ('Iface "io.tweag.jvm.batching.Batcher"
+-- >     -> IO (J ('Iface "io.tweag.jvm.batching.BatchWriter"
 -- >                  <> [Interp a, Batch a]
 -- >              )
 -- >           )
 -- >   reifyBatch :: J (Batch a) -> Int32 -> IO (V.Vector a)
 --
--- @newReifyBatched@ produces a java object implementing the @Batcher@
+-- @newReifyBatched@ produces a java object implementing the @BatchWriter@
 -- interface, and @reifyBatch@ allows to read a batch created in this fashion.
 --
 -- Conversely, batches can be read on the Java side using the interface
 -- @io.tweag.jvm.batching.BatchReader@. And on the Haskell side, these
 -- batches can be created with @reflectBatch@.
 --
--- > class ( ... ) => ReflectBatchReader a where
--- >  newReflectBatchReader
+-- > class ( ... ) => BatchReflect a where
+-- >  newBatchReader
 -- >    :: proxy a
 -- >    -> IO (J ('Iface "io.tweag.jvm.batching.BatchReader"
 -- >                 <> [Batch a, Interp a]
@@ -87,11 +87,11 @@
 -- >          )
 -- >  reflectBatch :: V.Vector a -> IO (J (Batch a))
 --
--- @newReflectBatchReader@ produces a java object implementing the @BatchReader@
+-- @newBatchReader@ produces a java object implementing the @BatchReader@
 -- interface, and @reflectBatch@ allows to create these batches from vectors of
 -- Haskell values.
 --
--- The methods of @ReifyBatcher@ and @ReflectBatchReader@ offer default
+-- The methods of @BatchReify@ and @BatchReflect@ offer default
 -- implementations which marshal elements in the batch one at a time. Taking
 -- advantage of batching requires defining the methods explicitly. The default
 -- implementations are useful for cases where speed is not important, for
@@ -112,8 +112,8 @@
 --
 module Language.Java.Batching
   ( Batch
-  , ReifyBatcher(..)
-  , ReflectBatchReader(..)
+  , BatchReify(..)
+  , BatchReflect(..)
     -- * Array batching
   , ArrayBatch
   ) where
@@ -152,26 +152,26 @@ type family Batch (a :: k) :: JType
 -- The type of the batch used to appear as a class parameter but we run into
 -- https://ghc.haskell.org/trac/ghc/ticket/13582
 --
-class (SingI (Interp a), SingI (Batch a)) => ReifyBatcher a where
+class (SingI (Interp a), SingI (Batch a)) => BatchReify a where
   -- | Produces a batcher that aggregates elements of type @ty@ (such as @int@)
   -- and produces collections of type @Batch a@ (such as @int[]@).
-  newReifyBatcher
+  newBatchWriter
     :: proxy a
-    -> IO (J ('Iface "io.tweag.jvm.batching.Batcher"
+    -> IO (J ('Iface "io.tweag.jvm.batching.BatchWriter"
                  <> [Interp a, Batch a]
              )
           )
 
   -- The default implementation makes calls to the JVM for each element in the
   -- batch.
-  default newReifyBatcher
+  default newBatchWriter
     :: (Batch a ~ 'Array (Interp a))
     => proxy a
-    -> IO (J ('Iface "io.tweag.jvm.batching.Batcher"
+    -> IO (J ('Iface "io.tweag.jvm.batching.BatchWriter"
                  <> [Interp a, Batch a]
              )
           )
-  newReifyBatcher _ = generic <$> [java| new Batchers.ObjectBatcher() |]
+  newBatchWriter _ = generic <$> [java| new BatchWriters.ObjectBatchWriter() |]
 
   -- | Reifies the values in a batch of type @Batch a@.
   -- Gets the batch and the amount of elements it contains.
@@ -249,10 +249,10 @@ reifyArrayBatch reifyB slice batch0 batchSize = do
 -- We considered having the type of the batch appear as a class parameter but
 -- we run into https://ghc.haskell.org/trac/ghc/ticket/13582
 --
-class (SingI (Interp a), SingI (Batch a)) => ReflectBatchReader a where
+class (SingI (Interp a), SingI (Batch a)) => BatchReflect a where
   -- | Produces a batch reader that receives collections of type @ty1@
   -- (such as @int[]@) and produces values of type @ty2@ (such as @int@).
-  newReflectBatchReader
+  newBatchReader
     :: proxy a
     -> IO (J ('Iface "io.tweag.jvm.batching.BatchReader"
                  <> [Batch a, Interp a]
@@ -261,14 +261,14 @@ class (SingI (Interp a), SingI (Batch a)) => ReflectBatchReader a where
 
   -- The default implementation makes calls to the JVM for each element in the
   -- batch.
-  default newReflectBatchReader
+  default newBatchReader
     :: (Batch a ~ 'Array (Interp a))
     => proxy a
     -> IO (J ('Iface "io.tweag.jvm.batching.BatchReader"
                        <> [Batch a, Interp a]
              )
           )
-  newReflectBatchReader _ =
+  newBatchReader _ =
       generic <$> [java| new BatchReaders.ObjectBatchReader() |]
 
   -- | Reflects the values in a vector to a batch of type @ty@.
@@ -327,8 +327,8 @@ reflectArrayBatch reflectB getLength concatenate vecs = do
 
 withStatic [d|
   type instance Batch Bool = 'Array ('Prim "boolean")
-  instance ReifyBatcher Bool where
-    newReifyBatcher _ = [java| new Batchers.BooleanBatcher() |]
+  instance BatchReify Bool where
+    newBatchWriter _ = [java| new BatchWriters.BooleanBatchWriter() |]
     reifyBatch jxs size = do
         let toBool w = if w == 0 then False else True
         bracket (getBooleanArrayElements jxs)
@@ -337,78 +337,78 @@ withStatic [d|
                               ((toBool <$>) . peekElemOff arr)
 
   type instance Batch CChar = 'Array ('Prim "byte")
-  instance ReifyBatcher CChar where
-    newReifyBatcher _ = [java| new Batchers.ByteBatcher() |]
+  instance BatchReify CChar where
+    newBatchWriter _ = [java| new BatchWriters.ByteBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getByteArrayElements releaseByteArrayElements
 
   type instance Batch Word16 = 'Array ('Prim "char")
-  instance ReifyBatcher Word16 where
-    newReifyBatcher _ = [java| new Batchers.CharacterBatcher() |]
+  instance BatchReify Word16 where
+    newBatchWriter _ = [java| new BatchWriters.CharacterBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getCharArrayElements releaseCharArrayElements
 
   type instance Batch Int16 = 'Array ('Prim "short")
-  instance ReifyBatcher Int16 where
-    newReifyBatcher _ = [java| new Batchers.ShortBatcher() |]
+  instance BatchReify Int16 where
+    newBatchWriter _ = [java| new BatchWriters.ShortBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getShortArrayElements releaseShortArrayElements
 
   type instance Batch Int32 = 'Array ('Prim "int")
-  instance ReifyBatcher Int32 where
-    newReifyBatcher _ = [java| new Batchers.IntegerBatcher() |]
+  instance BatchReify Int32 where
+    newBatchWriter _ = [java| new BatchWriters.IntegerBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getIntArrayElements releaseIntArrayElements
 
   type instance Batch Int64 = 'Array ('Prim "long")
-  instance ReifyBatcher Int64 where
-    newReifyBatcher _ = [java| new Batchers.LongBatcher() |]
+  instance BatchReify Int64 where
+    newBatchWriter _ = [java| new BatchWriters.LongBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getLongArrayElements releaseLongArrayElements
 
   type instance Batch Float = 'Array ('Prim "float")
-  instance ReifyBatcher Float where
-    newReifyBatcher _ = [java| new Batchers.FloatBatcher() |]
+  instance BatchReify Float where
+    newBatchWriter _ = [java| new BatchWriters.FloatBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getFloatArrayElements releaseFloatArrayElements
 
   type instance Batch Double = 'Array ('Prim "double")
-  instance ReifyBatcher Double where
-    newReifyBatcher _ = [java| new Batchers.DoubleBatcher() |]
+  instance BatchReify Double where
+    newBatchWriter _ = [java| new BatchWriters.DoubleBatchWriter() |]
     reifyBatch =
       reifyPrimitiveBatch getDoubleArrayElements releaseDoubleArrayElements
 
-  instance ReflectBatchReader Bool where
-    newReflectBatchReader _ = [java| new BatchReaders.BooleanBatchReader() |]
+  instance BatchReflect Bool where
+    newBatchReader _ = [java| new BatchReaders.BooleanBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setBooleanArrayRegion
                  . V.map (\w -> if w then 1 else 0)
 
-  instance ReflectBatchReader CChar where
-    newReflectBatchReader _ = [java| new BatchReaders.ByteBatchReader() |]
+  instance BatchReflect CChar where
+    newBatchReader _ = [java| new BatchReaders.ByteBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setByteArrayRegion
 
-  instance ReflectBatchReader Word16 where
-    newReflectBatchReader _ = [java| new BatchReaders.CharacterBatchReader() |]
+  instance BatchReflect Word16 where
+    newBatchReader _ = [java| new BatchReaders.CharacterBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setCharArrayRegion
 
-  instance ReflectBatchReader Int16 where
-    newReflectBatchReader _ = [java| new BatchReaders.ShortBatchReader() |]
+  instance BatchReflect Int16 where
+    newBatchReader _ = [java| new BatchReaders.ShortBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setShortArrayRegion
 
-  instance ReflectBatchReader Int32 where
-    newReflectBatchReader _ = [java| new BatchReaders.IntegerBatchReader() |]
+  instance BatchReflect Int32 where
+    newBatchReader _ = [java| new BatchReaders.IntegerBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setIntArrayRegion
 
-  instance ReflectBatchReader Int64 where
-    newReflectBatchReader _ = [java| new BatchReaders.LongBatchReader() |]
+  instance BatchReflect Int64 where
+    newBatchReader _ = [java| new BatchReaders.LongBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setLongArrayRegion
 
-  instance ReflectBatchReader Float where
-    newReflectBatchReader _ = [java| new BatchReaders.FloatBatchReader() |]
+  instance BatchReflect Float where
+    newBatchReader _ = [java| new BatchReaders.FloatBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setFloatArrayRegion
 
-  instance ReflectBatchReader Double where
-    newReflectBatchReader _ = [java| new BatchReaders.DoubleBatchReader() |]
+  instance BatchReflect Double where
+    newBatchReader _ = [java| new BatchReaders.DoubleBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setDoubleArrayRegion
 
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
@@ -466,80 +466,80 @@ withStatic [d|
           , 'Array ('Prim "int")
           ]
 
-  instance ReifyBatcher BS.ByteString where
-    newReifyBatcher _ = [java| new Batchers.ByteArrayBatcher() |]
+  instance BatchReify BS.ByteString where
+    newBatchWriter _ = [java| new BatchWriters.ByteArrayBatchWriter() |]
     reifyBatch = reifyArrayBatch (const reify) bsUnsafeSlice
       where
         bsUnsafeSlice :: Int -> Int -> BS.ByteString -> IO BS.ByteString
         bsUnsafeSlice offset sz = return . BS.unsafeTake sz . BS.unsafeDrop offset
 
-  instance ReifyBatcher (VS.Vector Word16) where
-    newReifyBatcher _ = [java| new Batchers.CharArrayBatcher() |]
+  instance BatchReify (VS.Vector Word16) where
+    newBatchWriter _ = [java| new BatchWriters.CharArrayBatchWriter() |]
     reifyBatch =
         reifyArrayBatch (const reify) (fmap (fmap return) . VS.unsafeSlice)
 
-  instance ReifyBatcher (VS.Vector Int16) where
-    newReifyBatcher _ = [java| new Batchers.ShortArrayBatcher() |]
+  instance BatchReify (VS.Vector Int16) where
+    newBatchWriter _ = [java| new BatchWriters.ShortArrayBatchWriter() |]
     reifyBatch =
         reifyArrayBatch (const reify) (fmap (fmap return) . VS.unsafeSlice)
 
-  instance ReifyBatcher (VS.Vector Int32) where
-    newReifyBatcher _ = [java| new Batchers.IntArrayBatcher() |]
+  instance BatchReify (VS.Vector Int32) where
+    newBatchWriter _ = [java| new BatchWriters.IntArrayBatchWriter() |]
     reifyBatch =
         reifyArrayBatch (const reify) (fmap (fmap return) . VS.unsafeSlice)
 
-  instance ReifyBatcher (VS.Vector Int64) where
-    newReifyBatcher _ = [java| new Batchers.LongArrayBatcher() |]
+  instance BatchReify (VS.Vector Int64) where
+    newBatchWriter _ = [java| new BatchWriters.LongArrayBatchWriter() |]
     reifyBatch =
         reifyArrayBatch (const reify) (fmap (fmap return) . VS.unsafeSlice)
 
-  instance ReifyBatcher (VS.Vector Float) where
-    newReifyBatcher _ = [java| new Batchers.FloatArrayBatcher() |]
+  instance BatchReify (VS.Vector Float) where
+    newBatchWriter _ = [java| new BatchWriters.FloatArrayBatchWriter() |]
     reifyBatch =
         reifyArrayBatch (const reify) (fmap (fmap return) . VS.unsafeSlice)
 
-  instance ReifyBatcher (VS.Vector Double) where
-    newReifyBatcher _ = [java| new Batchers.DoubleArrayBatcher() |]
+  instance BatchReify (VS.Vector Double) where
+    newBatchWriter _ = [java| new BatchWriters.DoubleArrayBatchWriter() |]
     reifyBatch =
         reifyArrayBatch (const reify) (fmap (fmap return) . VS.unsafeSlice)
 
-  instance ReifyBatcher Text.Text where
-    newReifyBatcher _ = [java| new Batchers.StringArrayBatcher() |]
+  instance BatchReify Text.Text where
+    newBatchWriter _ = [java| new BatchWriters.StringArrayBatchWriter() |]
     reifyBatch = reifyArrayBatch (const reify) $ \o n vs ->
                   (VS.unsafeWith (VS.unsafeSlice o n vs) $ \ptr ->
                       Text.fromPtr ptr (fromIntegral n)
                   )
 
-  instance ReflectBatchReader BS.ByteString where
-    newReflectBatchReader _ = [java| new BatchReaders.ByteArrayBatchReader() |]
+  instance BatchReflect BS.ByteString where
+    newBatchReader _ = [java| new BatchReaders.ByteArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect BS.length (return . BS.concat)
 
-  instance ReflectBatchReader (VS.Vector Word16) where
-    newReflectBatchReader _ = [java| new BatchReaders.CharArrayBatchReader() |]
+  instance BatchReflect (VS.Vector Word16) where
+    newBatchReader _ = [java| new BatchReaders.CharArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect VS.length (return . VS.concat)
 
-  instance ReflectBatchReader (VS.Vector Int16) where
-    newReflectBatchReader _ = [java| new BatchReaders.ShortArrayBatchReader() |]
+  instance BatchReflect (VS.Vector Int16) where
+    newBatchReader _ = [java| new BatchReaders.ShortArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect VS.length (return . VS.concat)
 
-  instance ReflectBatchReader (VS.Vector Int32) where
-    newReflectBatchReader _ = [java| new BatchReaders.IntArrayBatchReader() |]
+  instance BatchReflect (VS.Vector Int32) where
+    newBatchReader _ = [java| new BatchReaders.IntArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect VS.length (return . VS.concat)
 
-  instance ReflectBatchReader (VS.Vector Int64) where
-    newReflectBatchReader _ = [java| new BatchReaders.LongArrayBatchReader() |]
+  instance BatchReflect (VS.Vector Int64) where
+    newBatchReader _ = [java| new BatchReaders.LongArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect VS.length (return . VS.concat)
 
-  instance ReflectBatchReader (VS.Vector Float) where
-    newReflectBatchReader _ = [java| new BatchReaders.FloatArrayBatchReader() |]
+  instance BatchReflect (VS.Vector Float) where
+    newBatchReader _ = [java| new BatchReaders.FloatArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect VS.length (return . VS.concat)
 
-  instance ReflectBatchReader (VS.Vector Double) where
-    newReflectBatchReader _ = [java| new BatchReaders.DoubleArrayBatchReader() |]
+  instance BatchReflect (VS.Vector Double) where
+    newBatchReader _ = [java| new BatchReaders.DoubleArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect VS.length (return . VS.concat)
 
-  instance ReflectBatchReader Text.Text where
-    newReflectBatchReader _ = [java| new BatchReaders.StringArrayBatchReader() |]
+  instance BatchReflect Text.Text where
+    newBatchReader _ = [java| new BatchReaders.StringArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect Text.length $ \ts ->
                      Text.useAsPtr (Text.concat ts) $ \ptr len ->
                        (`VS.unsafeFromForeignPtr0` fromIntegral len)
@@ -553,10 +553,10 @@ withStatic [d|
   -- quasiquotes are unused. Thus we can stop prepending variable names with
   -- '_'.
 
-  instance (Interpretation a, ReifyBatcher a)
+  instance (Interpretation a, BatchReify a)
            => Reify (V.Vector a) where
     reify jv = do
-        _batcher <- unsafeUngeneric <$> newReifyBatcher (Proxy :: Proxy a)
+        _batcher <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
         n <- getArrayLength jv
         let _jvo = arrayUpcast jv
         batch <- [java| {
@@ -570,12 +570,12 @@ withStatic [d|
         fromObject :: JObject -> J x
         fromObject = unsafeCast
 
-  instance (Interpretation a, ReflectBatchReader a)
+  instance (Interpretation a, BatchReflect a)
            => Reflect (V.Vector a) where
     reflect v = do
         _batch <- upcast <$> reflectBatch v
         _batchReader <-
-          unsafeUngeneric <$> newReflectBatchReader (Proxy :: Proxy a)
+          unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
         jv <- [java| {
           $_batchReader.setBatch($_batch);
           return $_batchReader.getSize();
@@ -593,18 +593,18 @@ withStatic [d|
 
 type instance Batch (V.Vector a) = ArrayBatch (Batch a)
 
-instance (SingI (Interp a), SingI (Batch a), ReifyBatcher a)
-         => ReifyBatcher (V.Vector a) where
-  newReifyBatcher _ = do
-      b <- unsafeUngeneric <$> newReifyBatcher (Proxy :: Proxy a)
-      generic <$> [java| new Batchers.ObjectArrayBatcher($b) |]
+instance (SingI (Interp a), SingI (Batch a), BatchReify a)
+         => BatchReify (V.Vector a) where
+  newBatchWriter _ = do
+      b <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
+      generic <$> [java| new BatchWriters.ObjectArrayBatchWriter($b) |]
   reifyBatch =
     reifyArrayBatch (flip reifyBatch) (fmap (fmap return) . V.unsafeSlice)
 
-instance (SingI (Interp a), SingI (Batch a), ReflectBatchReader a)
-         => ReflectBatchReader (V.Vector a) where
-  newReflectBatchReader _ = do
-      b <- unsafeUngeneric <$> newReflectBatchReader (Proxy :: Proxy a)
+instance (SingI (Interp a), SingI (Batch a), BatchReflect a)
+         => BatchReflect (V.Vector a) where
+  newBatchReader _ = do
+      b <- unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
       generic <$> [java| new BatchReaders.ObjectArrayBatchReader($b) |]
   reflectBatch =
       reflectArrayBatch reflectBatch V.length (return . V.concat)
