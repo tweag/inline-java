@@ -261,12 +261,6 @@ class (SingI (Interp a), SingI (Batch a)) => ReflectBatchReader a where
 
   -- The default implementation makes calls to the JVM for each element in the
   -- batch.
-  --
-  -- NOTE: The default implementation has a @Reflect a ty@ superclass constraint
-  -- only because the 'withStatic' machinery cannot deal with type equality
-  -- constraints; really we just need @Interp a ~ ty@ here; for cases
-  -- where this is an issue, class instances can override
-  -- `newReflectBatchReader` manually but still use `newReflectObjectBatcher`.
   default newReflectBatchReader
     :: (Batch a ~ 'Array (Interp a))
     => proxy a
@@ -292,9 +286,6 @@ class (SingI (Interp a), SingI (Batch a)) => ReflectBatchReader a where
       return jxs
 
 -- | Helper for reflecting batches of primitive types
---
--- We don't insist on a link between @a@ and @a'@ to allow for the discrepancy
--- between Bool and Word8.
 reflectPrimitiveBatch
   :: forall a ty. (Storable a, IsPrimitiveType ty)
   => (J ('Array ty) -> Int32 -> Int32 -> Ptr a -> IO ())
@@ -309,7 +300,10 @@ reflectPrimitiveBatch setArrayRegion v = do
 
 -- | Helper for reflecting batches of vectors
 --
--- Arrays are batched with two arrays. One of the arrays contains the result
+-- The vector type is a, and vectors are manipulated exclusively with the
+-- polymorphic functions given as arguments.
+--
+-- Vectors are batched with two arrays. One of the arrays contains the result
 -- of appending all of the vectors in the batch. The other array contains the
 -- offset of each vector in the resulting array.
 --
@@ -594,7 +588,7 @@ withStatic [d|
         return jv
  |]
 
--- TODO: Fix distributed-closure so this instances can be put in a
+-- TODO: Fix distributed-closure so these instances can be put in a
 -- 'withStatic' block.
 
 type instance Batch (V.Vector a) = ArrayBatch (Batch a)
