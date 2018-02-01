@@ -10,6 +10,9 @@ packages:
 - jvm-streaming
 - examples/classpath
 
+extra-deps:
+- distributed-closure-0.3.5
+
 nix:
   shell-file: shell.nix
   path: ["nixpkgs=./nixpkgs.nix"]

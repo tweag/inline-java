@@ -606,26 +606,23 @@ withStatic [d|
             $_jvo[i] = $_batchReader.get(i);
           } |]
         return jv
+
+  instance Batchable a => Batchable (V.Vector a) where
+    type Batch (V.Vector a) = ArrayBatch (Batch a)
+
+  instance (SingI (Interp a), SingI (Batch a), BatchReify a)
+           => BatchReify (V.Vector a) where
+    newBatchWriter _ = do
+        _b <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
+        generic <$> [java| new BatchWriters.ObjectArrayBatchWriter($_b) |]
+    reifyBatch =
+        reifyArrayBatch (flip reifyBatch) (fmap (fmap return) . V.unsafeSlice)
+
+  instance (SingI (Interp a), SingI (Batch a), BatchReflect a)
+           => BatchReflect (V.Vector a) where
+    newBatchReader _ = do
+        _b <- unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
+        generic <$> [java| new BatchReaders.ObjectArrayBatchReader($_b) |]
+    reflectBatch =
+        reflectArrayBatch reflectBatch V.length (return . V.concat)
  |]
-
--- TODO: Fix distributed-closure so these instances can be put in a
--- 'withStatic' block.
-
-instance Batchable a => Batchable (V.Vector a) where
-  type Batch (V.Vector a) = ArrayBatch (Batch a)
-
-instance (SingI (Interp a), SingI (Batch a), BatchReify a)
-         => BatchReify (V.Vector a) where
-  newBatchWriter _ = do
-      b <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
-      generic <$> [java| new BatchWriters.ObjectArrayBatchWriter($b) |]
-  reifyBatch =
-    reifyArrayBatch (flip reifyBatch) (fmap (fmap return) . V.unsafeSlice)
-
-instance (SingI (Interp a), SingI (Batch a), BatchReflect a)
-         => BatchReflect (V.Vector a) where
-  newBatchReader _ = do
-      b <- unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
-      generic <$> [java| new BatchReaders.ObjectArrayBatchReader($b) |]
-  reflectBatch =
-      reflectArrayBatch reflectBatch V.length (return . V.concat)

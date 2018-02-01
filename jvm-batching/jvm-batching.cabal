@@ -39,7 +39,7 @@ library
   build-depends:
     base >= 4.7 && < 5,
     bytestring,
-    distributed-closure >= 0.3,
+    distributed-closure >= 0.3.5,
     jni >= 0.4.0 && <0.6,
     jvm >= 0.4.0 && <0.5,
     inline-java >= 0.7 && <0.8,
