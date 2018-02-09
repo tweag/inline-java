@@ -36,6 +36,9 @@ library
   default-language: Haskell2010
   exposed-modules:
     Language.Java.Batching
+    Language.Java.Batching.Jars
+  other-modules:
+    Paths_jvm_batching
   build-depends:
     base >= 4.7 && < 5,
     bytestring,

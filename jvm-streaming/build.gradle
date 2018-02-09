@@ -1,5 +1,0 @@
-apply plugin: 'java'
-
-dependencies {
-    compile files(buildscript.sourceFile.getParent() + "/../jvm-batching/build/libs/jvm-batching.jar")
-}

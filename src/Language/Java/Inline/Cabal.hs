@@ -12,26 +12,42 @@ module Language.Java.Inline.Cabal
   ( gradleHooks
   , setGradleClasspath
   , gradleBuild
+  , addJarsToClasspath
   ) where
 
+import Control.Exception (evaluate)
+import Control.Monad (when)
 import Data.Monoid
+import Data.List (intersperse, isPrefixOf)
 import Distribution.Simple
 import Distribution.Simple.Setup (BuildFlags)
 import Distribution.Simple.LocalBuildInfo (LocalBuildInfo)
-import Distribution.PackageDescription (HookedBuildInfo, PackageDescription)
+import Distribution.PackageDescription
 import System.Directory (doesFileExist, getCurrentDirectory)
 import System.Environment (lookupEnv, setEnv)
 import System.FilePath
-import System.IO (hClose)
+import System.IO
 import System.IO.Temp (withSystemTempFile)
 import System.Process (callProcess, readProcess)
 
 -- | Adds the 'setGradleClasspath' and 'gradleBuild' hooks.
+--
+-- Also adds the jar produced by gradle to the data-files.
 gradleHooks :: UserHooks -> UserHooks
 gradleHooks hooks = hooks
     { preBuild = setGradleClasspath <> preBuild hooks
     , buildHook = gradleBuild <> buildHook hooks
     , preHaddock = setGradleClasspath <> preHaddock hooks
+    , instHook = instHook simpleUserHooks . addJarToDataFiles
+    , copyHook = copyHook simpleUserHooks . addJarToDataFiles
+    , regHook = regHook simpleUserHooks . addJarToDataFiles
+    }
+
+-- | Prepends the given jar paths to the CLASSPATH.
+addJarsToClasspath :: [FilePath] -> UserHooks -> UserHooks
+addJarsToClasspath extraJars hooks = hooks
+    { preBuild = setClasspath extraJars <> preBuild hooks
+    , preHaddock = setClasspath extraJars <> preHaddock hooks
     }
 
 gradleBuildFile :: FilePath
@@ -75,8 +91,53 @@ setGradleClasspath _ _ = do
       Just _ -> return ()
     return (Nothing, [])
 
+setClasspath :: [FilePath] -> a -> b -> IO HookedBuildInfo
+setClasspath extraJars _ _ = do
+    mclasspath <- lookupEnv "CLASSPATH"
+    setEnv "CLASSPATH" $
+      concat $ intersperse ":" $
+        maybe extraJars (\c -> extraJars ++ [c]) mclasspath
+    return (Nothing, [])
+
 -- | Call @gradle build@ as part of the Cabal build. Useful to e.g. build
 -- auxiliary Java source code and to create packages.
 gradleBuild :: PackageDescription -> LocalBuildInfo -> UserHooks -> BuildFlags -> IO ()
-gradleBuild _ _ _ _ = do
+gradleBuild pd _ _ _ = do
+    setProjectName
     callProcess "gradle" ["build"]
+  where
+    settingsFile = "settings.gradle"
+
+    setProjectName :: IO ()
+    setProjectName = do
+      missingProjectName <- isProjectNameSet
+      when missingProjectName $
+          appendFile "settings.gradle" $
+            "\nrootProject.name = '" ++
+            unPackageName (pkgName (package pd)) ++ "'\n"
+
+    isProjectNameSet :: IO Bool
+    isProjectNameSet = do
+      exists <- doesFileExist settingsFile
+      if not exists
+      then return True
+      else withFile settingsFile ReadMode $ \h -> do
+             b <- any ("rootProject.name =" `isPrefixOf`) . lines
+               <$> hGetContents h
+             -- If we don't evaluate the boolean before returning, the
+             -- file handle will be closed when we try to read the file.
+             evaluate b
+
+-- "<pkgname>.jar" is a file build by gradle during building. This file needs
+-- to be installed together with the library, otherwise it wouldn't be available
+-- to build other code depending on it. Therefore, we add the jar to the field
+-- dataFiles in the hooks instHook, copyHook and regHook. This way the jar is
+-- installed, but cabal does not account it when deciding if the package needs
+-- to be rebuilt.
+
+addJarToDataFiles :: PackageDescription -> PackageDescription
+addJarToDataFiles pd = pd
+    { dataFiles =
+        ("build/libs" </> unPackageName (pkgName (package pd)) <.> "jar")
+        : dataFiles pd
+    }
