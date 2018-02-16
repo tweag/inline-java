@@ -706,6 +706,24 @@ withStatic [d|
 -- Instances can't be compiled on GHC 8.0.1 due to
 -- https://ghc.haskell.org/trac/ghc/ticket/12082.
 #if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
+  instance Interpretation (IOVector Word16) where
+    type Interp (IOVector Word16) = 'Array ('Prim "char")
+
+  instance Reify (IOVector Word16) where
+    reify = reifyMVector getCharArrayElements releaseCharArrayElements
+
+  instance Reflect (IOVector Word16) where
+    reflect = reflectMVector newCharArray setCharArrayRegion
+
+  instance Interpretation (IOVector Int16) where
+    type Interp (IOVector Int16) = 'Array ('Prim "short")
+
+  instance Reify (IOVector Int16) where
+    reify = reifyMVector getShortArrayElements releaseShortArrayElements
+
+  instance Reflect (IOVector Int16) where
+    reflect = reflectMVector newShortArray setShortArrayRegion
+
   instance Interpretation (IOVector Int32) where
     type Interp (IOVector Int32) = 'Array ('Prim "int")
 
@@ -714,6 +732,24 @@ withStatic [d|
 
   instance Reflect (IOVector Int32) where
     reflect = reflectMVector (newIntArray) (setIntArrayRegion)
+
+  instance Interpretation (IOVector Int64) where
+    type Interp (IOVector Int64) = 'Array ('Prim "long")
+
+  instance Reify (IOVector Int64) where
+    reify = reifyMVector getLongArrayElements releaseLongArrayElements
+
+  instance Reflect (IOVector Int64) where
+    reflect = reflectMVector newLongArray setLongArrayRegion
+
+  instance Interpretation (IOVector Float) where
+    type Interp (IOVector Float) = 'Array ('Prim "float")
+
+  instance Reify (IOVector Float) where
+    reify = reifyMVector getFloatArrayElements releaseFloatArrayElements
+
+  instance Reflect (IOVector Float) where
+    reflect = reflectMVector newFloatArray setFloatArrayRegion
 
   instance Interpretation (IOVector Double) where
     type Interp (IOVector Double) = 'Array ('Prim "double")
