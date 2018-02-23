@@ -10,7 +10,7 @@
 
 module Language.Java.Inline.Cabal
   ( gradleHooks
-  , setGradleClasspath
+  , prependClasspathWithGradle
   , gradleBuild
   , addJarsToClasspath
   ) where
@@ -30,14 +30,14 @@ import System.IO
 import System.IO.Temp (withSystemTempFile)
 import System.Process (callProcess, readProcess)
 
--- | Adds the 'setGradleClasspath' and 'gradleBuild' hooks.
+-- | Adds the 'prependClasspathWithGradle' and 'gradleBuild' hooks.
 --
 -- Also adds the jar produced by gradle to the data-files.
 gradleHooks :: UserHooks -> UserHooks
 gradleHooks hooks = hooks
-    { preBuild = setGradleClasspath <> preBuild hooks
+    { preBuild = prependClasspathWithGradle <> preBuild hooks
     , buildHook = gradleBuild <> buildHook hooks
-    , preHaddock = setGradleClasspath <> preHaddock hooks
+    , preHaddock = prependClasspathWithGradle <> preHaddock hooks
     , instHook = instHook simpleUserHooks . addJarToDataFiles
     , copyHook = copyHook simpleUserHooks . addJarToDataFiles
     , regHook = regHook simpleUserHooks . addJarToDataFiles
@@ -74,21 +74,18 @@ getGradleClasspath parentBuildfile = do
         -- trim trailing newlines
         >>= return . concat . lines
 
--- | Set the @CLASSPATH@ from a Gradle build configuration. Does not override
--- the @CLASSPATH@ if one exists.
-setGradleClasspath :: Args -> b -> IO HookedBuildInfo
-setGradleClasspath _ _ = do
+-- | Prepends the @CLASSPATH@ with the classpath from a Gradle build
+-- configuration.
+prependClasspathWithGradle :: Args -> b -> IO HookedBuildInfo
+prependClasspathWithGradle _ _ = do
     here <- getCurrentDirectory
     origclasspath <- lookupEnv "CLASSPATH"
-    case origclasspath of
-      Nothing -> do
-        mbbuildfile <- findGradleBuild here
-        case mbbuildfile of
-          Nothing -> fail $ unwords [gradleBuildFile, "file not found in", here]
-          Just buildfile -> do
-            classpath <- getGradleClasspath buildfile
-            setEnv "CLASSPATH" classpath
-      Just _ -> return ()
+    mbbuildfile <- findGradleBuild here
+    case mbbuildfile of
+      Nothing -> fail $ unwords [gradleBuildFile, "file not found in", here]
+      Just buildfile -> do
+        classpath <- getGradleClasspath buildfile
+        setEnv "CLASSPATH" $ classpath ++ maybe "" (':':) origclasspath
     return (Nothing, [])
 
 setClasspath :: [FilePath] -> a -> b -> IO HookedBuildInfo

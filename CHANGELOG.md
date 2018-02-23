@@ -8,7 +8,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
+* `addJarsToClasspath`: a function to add a list of jar paths to
+  the CLASSPATH in cabal hooks.
+
 ### Changed
+
+* `gradleHooks` now extends the CLASSPATH is now set in Cabal hooks
+   before running haddock.
+* Renamed `setGradleClasspath` to `prependClasspathWithGradle`.
 
 ## [0.7.2] - 2017-12-27
 
