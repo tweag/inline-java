@@ -2,21 +2,17 @@ workspace(name = "io_tweag_inline_java")
 
 http_archive(
   name = "io_tweag_rules_haskell",
-  strip_prefix = "rules_haskell-64f0ea2ec2e82fa2affcc270d9bd13d637cf684e",
-  urls = ["https://github.com/tweag/rules_haskell/archive/64f0ea2ec2e82fa2affcc270d9bd13d637cf684e.tar.gz"]
+  strip_prefix = "rules_haskell-23d8b0f3604373d75c7b989273b3901091e63ae8",
+  urls = ["https://github.com/tweag/rules_haskell/archive/23d8b0f3604373d75c7b989273b3901091e63ae8.tar.gz"]
 )
+
+load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
+haskell_repositories()
 
 http_archive(
   name = "io_tweag_rules_nixpkgs",
-  strip_prefix = "rules_nixpkgs-53700e429928530f1566cfff3ec00283a123f17f",
-  urls = ["https://github.com/tweag/rules_nixpkgs/archive/53700e429928530f1566cfff3ec00283a123f17f.tar.gz"],
-)
-
-# Required due to rules_haskell use of skylib.
-http_archive(
-  name = "bazel_skylib",
-  strip_prefix = "bazel-skylib-0.2.0",
-  urls = ["https://github.com/bazelbuild/bazel-skylib/archive/0.2.0.tar.gz"]
+  strip_prefix = "rules_nixpkgs-0.1.1",
+  urls = ["https://github.com/tweag/rules_nixpkgs/archive/v0.1.1.tar.gz"],
 )
 
 load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
