@@ -23,7 +23,7 @@ load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
 nixpkgs_git_repository(
   name = "nixpkgs",
   # Keep consistent with ./nixpkgs.nix.
-  revision = "4026ea9c8afd09b60896b861a04cc5748fdcdfb4",
+  revision = "1c3b6d509d06af14b1858ffa2d27f3c902f549bd",
 )
 
 prebuilt_packages = [
