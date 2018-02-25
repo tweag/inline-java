@@ -1,0 +1,44 @@
+package(default_visibility = ["//visibility:public"])
+
+load(
+  "@io_tweag_rules_haskell//haskell:haskell.bzl",
+  "haskell_library",
+  "haskell_test",
+)
+
+haskell_library(
+  name = "jvm-streaming",
+  src_strip_prefix = "src/main/haskell",
+  srcs = glob(['src/main/haskell/**/*.hs']),
+  deps = [
+    "//jvm-batching:jar",
+    "//jni",
+    "//jvm",
+    "//jvm-batching",
+    "//:inline-java",
+  ],
+  prebuilt_dependencies = [
+    "base",
+    "distributed-closure",
+    "singletons",
+    "streaming",
+    "vector",
+  ],
+)
+
+haskell_test(
+  name = "spec",
+  src_strip_prefix = "src/test/haskell",
+  srcs = glob(["src/test/haskell/**/*.hs"]),
+  deps = [
+    "//:inline-java",
+    "//jvm",
+    "//jvm-streaming",
+  ],
+  prebuilt_dependencies = [
+    "base",
+    "hspec",
+    "streaming",
+  ],
+  size = "small",
+)
