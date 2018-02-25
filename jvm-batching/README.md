@@ -2,7 +2,7 @@
 
 Provides batched marshalling of values between Java and Haskell.
 
-# Using it as a dependency
+## Using it as a dependency
 
 Add `jvm-batching` to the list of dependencies in your .cabal file.
 Then edit the `Setup.hs` file to add the `jvm-batching.jar` to the

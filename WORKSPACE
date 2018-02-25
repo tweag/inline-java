@@ -26,6 +26,7 @@ nixpkgs_git_repository(
   revision = "4026ea9c8afd09b60896b861a04cc5748fdcdfb4",
 )
 
+# These dependencies are built by Nix.
 prebuilt_packages = [
   "Cabal",
   "base",
@@ -65,7 +66,8 @@ in pkgs.buildEnv {{
     openjdk
   ];
 }}
-""".format(" ".join(prebuilt_packages)))
+""".format(" ".join(prebuilt_packages))
+)
 
 nixpkgs_package(
   name = "openjdk",
