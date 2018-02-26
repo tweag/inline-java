@@ -28,3 +28,11 @@ custom-setup
     inline-java,
     jvm-streaming
 ```
+
+## Layout of source directories
+
+This is a multi-language package. We use
+Maven's [standard directory layout][maven-sdl] to organize source code
+in multiple languages side-by-side.
+
+[maven-sdl]: https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html
