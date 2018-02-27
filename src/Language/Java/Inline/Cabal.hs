@@ -107,19 +107,19 @@ gradleBuild pd _ _ _ = do
 
     setProjectName :: IO ()
     setProjectName = do
-      missingProjectName <- isProjectNameSet
+      missingProjectName <- isProjectNameMissing
       when missingProjectName $
           appendFile "settings.gradle" $
             "\nrootProject.name = '" ++
             unPackageName (pkgName (package pd)) ++ "'\n"
 
-    isProjectNameSet :: IO Bool
-    isProjectNameSet = do
+    isProjectNameMissing :: IO Bool
+    isProjectNameMissing = do
       exists <- doesFileExist settingsFile
       if not exists
       then return True
       else withFile settingsFile ReadMode $ \h -> do
-             b <- any ("rootProject.name =" `isPrefixOf`) . lines
+             b <- all (not . ("rootProject.name =" `isPrefixOf`)) . lines
                <$> hGetContents h
              -- If we don't evaluate the boolean before returning, the
              -- file handle will be closed when we try to read the file.
