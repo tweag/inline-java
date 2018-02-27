@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 
+## [0.4.2] - 2018-02-27
+
+### Added
+
+* Bazel build files.
+* `Reflect/Reify` instances for `IOVector (Word16|Int16|Int64|Float)`.
+
 ## [0.4.1] - 2017-12-27
 
 ### Added
