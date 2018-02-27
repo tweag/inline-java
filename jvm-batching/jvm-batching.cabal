@@ -29,7 +29,7 @@ custom-setup
   setup-depends:
     base,
     Cabal >= 1.24,
-    inline-java >= 0.7
+    inline-java >= 0.8
 
 library
   hs-source-dirs: src/main/haskell src/cabal/haskell
