@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
-## Added
+### Added
 
-* benchmarks for batched marshalling of streams.
+### Changed
+
+## [0.3] - 2018-02-27
+
+### Added
+
+* Benchmarks for batched marshalling of streams.
 
 ### Changed
 
