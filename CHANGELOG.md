@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
+## [0.8.2] - 2018-02-27
+
+### Changed
+
+* Fix check for settings.gradle file in cabal hooks. Prevents the file
+  from growing a few bytes each time a project using gradle hooks is
+  rebuilt.
+
 ## [0.8.1] - 2018-02-27
 
 ### Changed
