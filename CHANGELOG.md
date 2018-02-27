@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
+## [0.8.1] - 2018-02-27
+
+### Changed
+
+* Relaxed upper bound of jni to admit jni-0.6.0.
+
 ## [0.8.0] - 2018-02-27
 
 ### Added
