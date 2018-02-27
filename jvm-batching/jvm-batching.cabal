@@ -43,7 +43,7 @@ library
     base >= 4.7 && < 5,
     bytestring,
     distributed-closure >= 0.3.5,
-    jni >= 0.4.0 && <0.6,
+    jni >= 0.6.0 && <0.7,
     jvm >= 0.4.0 && <0.5,
     inline-java >= 0.7 && <0.9,
     singletons >= 2.2,
