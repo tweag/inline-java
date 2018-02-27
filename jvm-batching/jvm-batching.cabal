@@ -1,5 +1,5 @@
 name:                jvm-batching
-version:             0.1
+version:             0.1.1
 synopsis:            Provides batched marshalling of values between Java and Haskell.
 description:         Please see README.md.
 homepage:            http://github.com/tweag/inline-java/tree/master/jvm-batching#readme

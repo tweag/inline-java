@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 
+## [0.1.1] - 2018-02-27
+
+### Changed
+
+* Constrained the lower bound of inline-java to ask for 0.8 as a minimum.
+
 ## [0.1] - 2018-02-27
 
 ### Added
