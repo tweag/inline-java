@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.6.0] - 2018-02-27
+
+### Changed
+
+* Added `SingI` as superclass constraint of `IsPrimitiveType`.
+* Added Bazel build files for jni.
+
 ## [0.5.1] - 2017-12-27
 
 ### Changed
