@@ -10,6 +10,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StaticPointers #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
