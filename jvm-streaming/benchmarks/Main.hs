@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
@@ -6,9 +5,13 @@ module Main where
 import Criterion.Main as Criterion
 import Control.DeepSeq
 import Data.Int
+import Data.List (intersperse)
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
 import qualified Data.Vector.Storable as VS
 import Language.Java
 import Language.Java.Streaming ()
+import Language.Java.Streaming.Jars (getJars)
 import Streaming (Of, Stream)
 import qualified Streaming.Prelude as Streaming
 
@@ -45,6 +48,8 @@ benchBatching = deepseq intValues $
     ]
 
 main :: IO ()
-main =
-    withJVM ["-Djava.class.path=../jvm-batching/build/libs/jvm-batching.jar"] $
+main = do
+    jars <- getJars
+    let classpath = concat $ intersperse ":" jars
+    withJVM [Text.encodeUtf8 $ Text.pack $ "-Djava.class.path=" ++ classpath] $
       Criterion.defaultMain [benchBatching]

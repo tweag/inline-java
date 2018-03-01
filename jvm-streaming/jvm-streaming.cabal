@@ -56,7 +56,8 @@ test-suite spec
     inline-java,
     jvm,
     jvm-streaming,
-    streaming
+    streaming,
+    text
   default-language: Haskell2010
 
 benchmark micro-benchmarks
@@ -70,6 +71,7 @@ benchmark micro-benchmarks
     jvm,
     jvm-streaming,
     streaming,
+    text,
     vector
   default-language: Haskell2010
   ghc-options: -threaded

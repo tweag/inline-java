@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Changed
 
 * Enabled StaticPointers extension to produce Static instances.
+* Fixed tests so they succeed when the build tree of jvm-batching is
+  not available.
 
 ## [0.3] - 2018-02-27
 
