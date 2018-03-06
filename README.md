@@ -98,11 +98,11 @@ specified in the [LICENSE](LICENSE) file.
 ## Sponsors
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-[![Tweag I/O](http://i.imgur.com/0HK8X4y.png)](http://tweag.io)
+[![Tweag I/O](https://www.tweag.io/img/tweag-small.png)](https://www.tweag.io)
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 [![LeapYear](http://i.imgur.com/t9VxRHn.png)](http://leapyear.io)
 
-inline-java is maintained by [Tweag I/O](http://tweag.io/).
+inline-java is maintained by [Tweag I/O](https://www.tweag.io/).
 
 Have questions? Need help? Tweet at
 [@tweagio](http://twitter.com/tweagio).
