@@ -98,7 +98,7 @@ specified in the [LICENSE](LICENSE) file.
 ## Sponsors
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-[![Tweag I/O](https://www.tweag.io/img/tweag-small.png)](https://www.tweag.io)
+[<img src="https://www.tweag.io/img/tweag-med.png" height="65">](http://tweag.io)
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 [![LeapYear](http://i.imgur.com/t9VxRHn.png)](http://leapyear.io)
 
