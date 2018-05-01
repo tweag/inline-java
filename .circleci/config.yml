@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  build:
+  build-linux-nix:
     docker:
       - image: nixos/nix
     working_directory: ~/inline-java
@@ -32,3 +32,49 @@ jobs:
       - run:
           name: Test
           command: stack --nix --no-terminal test
+  build-darwin-brew:
+    macos:
+      xcode: "9.0"
+    steps:
+      - checkout
+      - run:
+          name: Prepare system
+          command: |
+            mkdir -p ~/.local/bin
+            curl -Lk https://www.stackage.org/stack/osx-x86_64 | tar xz --strip-components=1 -C ~/.local/bin
+      - run:
+          name: Install software
+          command: |
+            brew update
+            brew tap AdoptOpenJDK/openjdk
+            brew install adoptopenjdk-openjdk8 gradle
+      - run:
+          name: Compute cache key
+          command: |
+            find . -name "*.cabal" -o -name "stack.yaml" -type f | sort | xargs cat > /tmp/stack-deps
+      - restore_cache:
+          keys:
+            - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+      - run:
+          name: Build dependencies
+          command: |
+            ~/.local/bin/stack --no-terminal build --only-snapshot --prefetch --test --bench
+      - save_cache:
+          key: inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+          paths:
+            - ~/.stack
+      - run:
+          name: Build and test
+          command: |
+            ~/.local/bin/stack --no-terminal build \
+                --test \
+                --extra-lib-dirs=/usr/local/Cellar/adoptopenjdk-openjdk8/jdk8u144-b01/jre/lib/server/ \
+                --extra-include-dirs=/usr/local/Cellar/adoptopenjdk-openjdk8/jdk8u144-b01/include/ \
+                --extra-include-dirs=/usr/local/Cellar/adoptopenjdk-openjdk8/jdk8u144-b01/include/darwin/
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build-linux-nix
+      - build-darwin-brew
