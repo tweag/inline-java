@@ -71,8 +71,9 @@ getGradleClasspath parentBuildfile = do
           , "task classpath { doLast { println sourceSets.main.compileClasspath.getAsPath() } }"
           ]
       readProcess "gradle" ["-q", "-b", buildfile, "classpath"] ""
-        -- trim trailing newlines
-        >>= return . concat . lines
+        -- Get the last line of output. Sometimes Gradle prepends garbage to the
+        -- output despite the -q flag.
+        >>= return . last . lines
 
 -- | Prepends the @CLASSPATH@ with the classpath from a Gradle build
 -- configuration.
