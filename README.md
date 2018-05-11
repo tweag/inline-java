@@ -11,10 +11,12 @@ directly, from Haskell, without the need to write your own foreign
 import declarations using the FFI. In the style of `inline-c` for
 C and `inline-r` for calling R, `inline-java` lets you name any
 function to call inline in your code. It is implemented on top of the
-[jni][jni] and [jvm][jvm] packages.
+[jni][jni] and [jvm][jvm] packages using a [GHC Core plugin][ghc-plugins]
+to orchestrate compilation and loading of the inlined Java snippets.
 
 [jni]: jni/
 [jvm]: jvm/
+[ghc-plugins]: https://downloads.haskell.org/~ghc/8.0.2/docs/html/users_guide/extending_ghc.html#core-plugins-in-more-detail
 
 ## Example
 
@@ -44,7 +46,7 @@ main = withJVM [] $ do
 **Requirements:**
 * the [Stack][stack] build tool (version 1.2 or above);
 * either, the [Nix][nix] package manager,
-* or, OpenJDK, Gradle and Spark (version 1.6) installed from your distro.
+* or, OpenJDK and Gradle installed from your distro.
 
 On OS X, you'll need to install the [Legacy Java SE 6][osx-java-se]
 runtime when prompted, even when using Nix.
