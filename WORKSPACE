@@ -2,8 +2,8 @@ workspace(name = "io_tweag_inline_java")
 
 http_archive(
   name = "io_tweag_rules_haskell",
-  strip_prefix = "rules_haskell-23d8b0f3604373d75c7b989273b3901091e63ae8",
-  urls = ["https://github.com/tweag/rules_haskell/archive/23d8b0f3604373d75c7b989273b3901091e63ae8.tar.gz"]
+  strip_prefix = "rules_haskell-730d42c225f008a13e48bf5e9c13010174324b8c",
+  urls = ["https://github.com/tweag/rules_haskell/archive/730d42c225f008a13e48bf5e9c13010174324b8c.tar.gz"]
 )
 
 load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
@@ -76,6 +76,11 @@ nixpkgs_package(
 filegroup (
   name = "lib",
   srcs = ["nix/lib/openjdk/jre/lib/amd64/server/libjvm.so"],
+  visibility = ["//visibility:public"],
+)
+filegroup (
+  name = "bin",
+  srcs = ["nix/bin/javac"],
   visibility = ["//visibility:public"],
 )
 filegroup (

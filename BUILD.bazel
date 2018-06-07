@@ -11,18 +11,22 @@ cc_library(
   name = "bctable",
   srcs = ["cbits/bctable.c"],
   hdrs = ["cbits/bctable.h"],
+  strip_include_prefix = "cbits",
 )
 
 haskell_toolchain(
   name = "inline-java-toolchain",
   version = "8.2.2",
   tools = "@inline-java-toolchain//:bin",
+  extra_binaries = ["@openjdk//:bin"],
 )
 
 haskell_library(
   name = "inline-java",
   src_strip_prefix = "src",
-  srcs = glob(['src/**/*.hs', 'src/**/*.hsc']),
+  # cbits/bctable.h is included here so it can be found by Plugin.hs
+  # at the same location when building with bazel as with stack.
+  srcs = glob(['src/**/*.hs', 'src/**/*.hsc', 'cbits/bctable.h']),
   deps = [
     "//jni",
     "//jvm",

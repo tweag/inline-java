@@ -28,9 +28,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+#ifdef VERSION_base
 -- XXX pgmP directive should be redundant. But necessary to workaround
 -- https://github.com/haskell/cabal/issues/4278.
-{-# OPTIONS_GHC -fno-warn-name-shadowing -pgmPcpphs -optP--cpp #-}
+{-# OPTIONS_GHC -pgmPcpphs -optP--cpp #-}
+#endif
 
 -- XXX This file uses cpphs for preprocessing instead of the system's native
 -- CPP, because the OS X has subtly different whitespace behaviour in the
