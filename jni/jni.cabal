@@ -23,6 +23,10 @@ library
   if impl(ghc < 8.2.1)
     c-sources: src/Foreign/JNI.c
   cc-options: -std=c11
+  -- XXX pgmP directive should be redundant. But necessary to workaround
+  -- https://github.com/haskell/cabal/issues/4278.
+  -- Needed for Foreign.JNI.
+  ghc-options: -pgmPcpphs -optP--cpp
   extra-libraries: jvm
   exposed-modules:
     Foreign.JNI
