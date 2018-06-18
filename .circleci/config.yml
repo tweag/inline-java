@@ -66,11 +66,12 @@ jobs:
       - run:
           name: Build and test
           command: |
+            export JAVA_HOME=/usr/local/opt/adoptopenjdk-openjdk8
             ~/.local/bin/stack --no-terminal build \
                 --test \
-                --extra-lib-dirs=/usr/local/Cellar/adoptopenjdk-openjdk8/jdk8u144-b01/jre/lib/server/ \
-                --extra-include-dirs=/usr/local/Cellar/adoptopenjdk-openjdk8/jdk8u144-b01/include/ \
-                --extra-include-dirs=/usr/local/Cellar/adoptopenjdk-openjdk8/jdk8u144-b01/include/darwin/
+                --extra-lib-dirs=$JAVA_HOME/jre/lib/server/ \
+                --extra-include-dirs=$JAVA_HOME/include/ \
+                --extra-include-dirs=$JAVA_HOME/include/darwin/
 
 workflows:
   version: 2
