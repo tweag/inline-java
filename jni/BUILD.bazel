@@ -10,7 +10,7 @@ haskell_cc_import(
   name = "openjdk",
   shared_library = "@openjdk//:lib",
   hdrs = ["@openjdk//:jni_header", "@openjdk//:jni_md_header"],
-  strip_include_prefix = "/external/openjdk/nix/include",
+  strip_include_prefix = "/external/openjdk/include",
 )
 
 haskell_library(

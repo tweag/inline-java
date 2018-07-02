@@ -11,8 +11,8 @@ haskell_repositories()
 
 http_archive(
   name = "io_tweag_rules_nixpkgs",
-  strip_prefix = "rules_nixpkgs-0.1.1",
-  urls = ["https://github.com/tweag/rules_nixpkgs/archive/v0.1.1.tar.gz"],
+  strip_prefix = "rules_nixpkgs-d9df5c834f07c72be1b9e320eb742796557612f8",
+  urls = ["https://github.com/tweag/rules_nixpkgs/archive/d9df5c834f07c72be1b9e320eb742796557612f8.tar.gz"]
 )
 
 load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
@@ -75,22 +75,22 @@ nixpkgs_package(
   build_file_content = """
 filegroup (
   name = "lib",
-  srcs = ["nix/lib/openjdk/jre/lib/amd64/server/libjvm.so"],
+  srcs = ["lib/openjdk/jre/lib/amd64/server/libjvm.so"],
   visibility = ["//visibility:public"],
 )
 filegroup (
   name = "bin",
-  srcs = ["nix/bin/javac"],
+  srcs = ["bin/javac"],
   visibility = ["//visibility:public"],
 )
 filegroup (
   name = "jni_header",
-  srcs = ["nix/include/jni.h"],
+  srcs = ["include/jni.h"],
   visibility = ["//visibility:public"],
 )
 filegroup (
   name = "jni_md_header",
-  srcs = ["nix/include/jni_md.h"],
+  srcs = ["include/jni_md.h"],
   visibility = ["//visibility:public"],
 )"""
 )
