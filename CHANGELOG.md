@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
+## [0.8.3] - 2018-07-04
+
+### Changed
+
+* Workaround Gradle sometimes trashing output in recent versions.
+
 ## [0.8.2] - 2018-02-27
 
 ### Changed
