@@ -23,7 +23,7 @@ load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
 nixpkgs_git_repository(
   name = "nixpkgs",
   # Keep consistent with ./nixpkgs.nix.
-  revision = "1c3b6d509d06af14b1858ffa2d27f3c902f549bd",
+  revision = "1fa2503f9dba814eb23726a25642d2180ce791c3"
 )
 
 # These dependencies are built by Nix.

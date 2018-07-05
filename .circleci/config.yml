@@ -32,6 +32,24 @@ jobs:
       - run:
           name: Test
           command: stack --nix --no-terminal test
+
+  build-bazel:
+    docker:
+      - image: nixos/nix
+    working_directory: ~/sparkle
+    environment:
+      - NIXRUN: nix-shell -I nixpkgs=./nixpkgs.nix -p gcc bazel --run
+    steps:
+      - checkout
+      - run:
+          name: Install system dependencies
+          command: |
+            apk update --no-progress && apk --no-progress add ca-certificates bash binutils zip
+            $NIXRUN "echo nix dependencies installed"
+      - run:
+          name: Build project
+          command: $NIXRUN "bazel build //..."
+
   build-darwin-brew:
     macos:
       xcode: "9.0"
@@ -78,4 +96,5 @@ workflows:
   build:
     jobs:
       - build-linux-nix
+      - build-bazel
       - build-darwin-brew
