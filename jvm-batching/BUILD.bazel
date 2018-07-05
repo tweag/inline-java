@@ -32,22 +32,23 @@ haskell_library(
   ],
 )
 
-haskell_test(
-  name = "spec",
-  src_strip_prefix = "src/test/haskell",
-  srcs = glob(["src/test/haskell/**/*.hs"]),
-  deps = [
-    "//:inline-java",
-    "//jvm",
-    "//jvm-batching",
-  ],
-  prebuilt_dependencies = [
-    "base",
-    "bytestring",
-    "hspec",
-    "streaming",
-    "text",
-    "vector",
-  ],
-  size = "small",
-)
+# Can't find hspec-discover
+#haskell_test(
+#  name = "spec",
+#  src_strip_prefix = "src/test/haskell",
+#  srcs = glob(["src/test/haskell/**/*.hs"]),
+#  deps = [
+#    "//:inline-java",
+#    "//jvm",
+#    "//jvm-batching",
+#  ],
+#  prebuilt_dependencies = [
+#    "base",
+#    "bytestring",
+#    "hspec",
+#    "streaming",
+#    "text",
+#    "vector",
+#  ],
+#  size = "small",
+#)
