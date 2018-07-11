@@ -86,6 +86,9 @@ import Data.Singletons
 #endif
   )
 import Data.Singletons.Prelude (Sing(..))
+#if MIN_VERSION_singletons(2,4,0)
+import Data.Singletons.ShowSing (ShowSing(..))
+#endif
 import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
 import Data.Word
 import Foreign.C (CChar)
@@ -166,23 +169,41 @@ data instance Sing (a :: JType) where
   SGeneric :: Sing ty -> Sing tys -> Sing ('Generic ty tys)
   SVoid :: Sing 'Void
 
+realShowsPrec :: Show a => Int -> a -> ShowS
+realShowsPrec = showsPrec
+
+#if MIN_VERSION_singletons(2,4,0)
+
 instance Show (Sing (a :: JType)) where
+  showsPrec = showsSingPrec
+
+-- The instance of Show and ShowSing for JType singletons
+-- is reused by adjusting the method name with a macro
+-- definition.
+#define showsPrec showsSingPrec
+instance ShowSing JType where
+#else
+
+instance Show (Sing (a :: [JType])) where
+  showsPrec _ SNil = showString "SNil"
+  showsPrec d (SCons ty tys) = showParen (d > 10) $
+      showString "SCons " . showsPrec 11 ty . showChar ' ' . showsPrec 11 tys
+
+instance Show (Sing (a :: JType)) where
+#endif
   showsPrec d (SClass s) = showParen (d > 10) $
-      showString "SClass " . showsPrec 11 s
+      showString "SClass " . realShowsPrec 11 s
   showsPrec d (SIface s) = showParen (d > 10) $
-      showString "SIface " . showsPrec 11 s
+      showString "SIface " . realShowsPrec 11 s
   showsPrec d (SPrim s) = showParen (d > 10) $
-      showString "SPrim " . showsPrec 11 s
+      showString "SPrim " . realShowsPrec 11 s
   showsPrec d (SArray s) = showParen (d > 10) $
       showString "SArray " . showsPrec 11 s
   showsPrec d (SGeneric s sargs) = showParen (d > 10) $
       showString "SGeneric " . showsPrec 11 s . showsPrec 11 sargs
   showsPrec _ SVoid = showString "SVoid"
 
-instance Show (Sing (a :: [JType])) where
-  showsPrec _ SNil = showString "SNil"
-  showsPrec d (SCons ty tys) = showParen (d > 10) $
-      showString "SCons " . showsPrec 11 ty . showChar ' ' . showsPrec 11 tys
+#undef showsPrec
 
 -- XXX SingI constraint temporary hack because GHC 7.10 has trouble inferring
 -- this constraint in 'signature'.

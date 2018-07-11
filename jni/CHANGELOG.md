@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Next
+
+### Added
+
+ShowSing JType instance to build with singletons-2.4.
+
 ## [0.6.0] - 2018-02-27
 
 ### Changed
