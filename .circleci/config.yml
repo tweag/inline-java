@@ -21,14 +21,14 @@ jobs:
       - run:
           name: Build dependencies
           command: |
-            stack --no-terminal --nix build --only-snapshot --prefetch --test --bench
+            stack --no-terminal --nix build --only-snapshot --prefetch --test --bench -j2
       - save_cache:
           key: inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
           paths:
             - ~/.stack
       - run:
           name: Build project
-          command: stack --nix --no-terminal build --pedantic --test --bench --no-run-tests --no-run-benchmarks
+          command: stack --nix --no-terminal build -j2 --pedantic --test --bench --no-run-tests --no-run-benchmarks
       - run:
           name: Test
           command: stack --nix --no-terminal test
@@ -48,7 +48,7 @@ jobs:
             $NIXRUN "echo nix dependencies installed"
       - run:
           name: Build project
-          command: $NIXRUN "bazel build //..."
+          command: $NIXRUN "bazel build --jobs 2 //..."
 
   build-darwin-brew:
     macos:
@@ -76,7 +76,7 @@ jobs:
       - run:
           name: Build dependencies
           command: |
-            ~/.local/bin/stack --no-terminal build --only-snapshot --prefetch --test --bench
+            ~/.local/bin/stack --no-terminal build -j2 --only-snapshot --prefetch --test --bench
       - save_cache:
           key: inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
           paths:
@@ -85,7 +85,7 @@ jobs:
           name: Build and test
           command: |
             export JAVA_HOME=/usr/local/opt/adoptopenjdk-openjdk8
-            ~/.local/bin/stack --no-terminal build \
+            ~/.local/bin/stack --no-terminal build -j2 \
                 --test \
                 --extra-lib-dirs=$JAVA_HOME/jre/lib/server/ \
                 --extra-include-dirs=$JAVA_HOME/include/ \
