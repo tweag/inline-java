@@ -1,5 +1,5 @@
 name:                jni
-version:             0.6.0
+version:             0.6.1
 synopsis:            Complete JNI raw bindings.
 description:         Please see README.md.
 homepage:            https://github.com/tweag/inline-java/tree/master/jni#readme

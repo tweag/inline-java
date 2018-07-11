@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next
 
-### Added
+## [0.6.1] - 2018-07-11
 
 ShowSing JType instance to build with singletons-2.4.
 
