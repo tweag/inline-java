@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Next release
+## [0.8.4] - 2018-07-11
 
 ### Changed
 
