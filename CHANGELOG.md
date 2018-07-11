@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
-### Added
+### Changed
+
+* Dependency bounds and import declarations to build with ghc 8.4.1.
 
 ## [0.8.3] - 2018-07-04
 

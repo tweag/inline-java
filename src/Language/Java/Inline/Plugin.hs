@@ -33,6 +33,9 @@ import Language.Java.Inline.Magic
 #if MIN_VERSION_ghc(8, 2, 1)
 import NameCache (nsNames)
 #endif
+#if MIN_VERSION_ghc(8, 4, 0)
+import Prelude hiding ((<>))
+#endif
 import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
