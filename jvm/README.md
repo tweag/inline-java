@@ -16,15 +16,15 @@ Graphical Hello World using Java Swing:
 
 ```Haskell
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 import Data.Text (Text)
 import Language.Java
 
 newtype JOptionPane = JOptionPane (J ('Class "javax.swing.JOptionPane"))
-instance Coercible JOptionPane ('Class "javax.swing.JOptionPane")
+  deriving Coercible
 
 main :: IO ()
 main = withJVM [] $ do
