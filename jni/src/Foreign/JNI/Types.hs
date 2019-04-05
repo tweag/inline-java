@@ -172,7 +172,10 @@ data instance Sing (a :: JType) where
 realShowsPrec :: Show a => Int -> a -> ShowS
 realShowsPrec = showsPrec
 
-#if MIN_VERSION_singletons(2,4,0)
+#if MIN_VERSION_singletons(2,5,0)
+
+instance Show (Sing (a :: JType)) where
+#elif MIN_VERSION_singletons(2,4,0)
 
 instance Show (Sing (a :: JType)) where
   showsPrec = showsSingPrec
