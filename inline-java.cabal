@@ -41,7 +41,7 @@ library
     Cabal >=1.24.2,
     directory >=1.2,
     filepath >=1,
-    ghc >=8.0.2 && <8.5,
+    ghc >=8.4 && <8.5,
     jni >=0.4 && <0.7,
     jvm >=0.4 && <0.5,
     language-java >=0.2,

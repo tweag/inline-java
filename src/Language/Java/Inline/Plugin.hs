@@ -30,12 +30,7 @@ import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Magic
-#if MIN_VERSION_ghc(8, 2, 1)
 import NameCache (nsNames)
-#endif
-#if MIN_VERSION_ghc(8, 4, 0)
-import Prelude hiding ((<>))
-#endif
 import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
@@ -43,6 +38,7 @@ import System.FilePath ((</>), (<.>), takeDirectory)
 import System.IO (withFile, IOMode(WriteMode), hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (callProcess)
+import Prelude hiding ((<>))
 
 -- The 'java' quasiquoter produces annotations of type 'JavaImport', and it also
 -- inserts calls in the code to the function 'qqMarker'.
@@ -65,9 +61,6 @@ plugin = defaultPlugin
   where
     install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
     install args todo = do
-#if !MIN_VERSION_ghc(8,2,1)
-      reinitializeGlobals
-#endif
       return (CoreDoPluginPass "inline-java" (qqPass args) : todo)
 
     qqPass :: [CommandLineOption] -> ModGuts -> CoreM ModGuts

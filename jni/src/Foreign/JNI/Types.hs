@@ -13,9 +13,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 
-#if __GLASGOW_HASKELL__ >= 800
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
-#endif
 
 module Foreign.JNI.Types
   ( JType(..)
@@ -81,14 +79,9 @@ import Data.Singletons
   ( Sing
   , SingI(..)
   , SomeSing(..)
-#if !MIN_VERSION_singletons(2,2,0)
-  , KProxy(..)
-#endif
   )
 import Data.Singletons.Prelude (Sing(..))
-#if MIN_VERSION_singletons(2,4,0)
 import Data.Singletons.ShowSing (ShowSing(..))
-#endif
 import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
 import Data.Word
 import Foreign.C (CChar)
@@ -172,28 +165,7 @@ data instance Sing (a :: JType) where
 realShowsPrec :: Show a => Int -> a -> ShowS
 realShowsPrec = showsPrec
 
-#if MIN_VERSION_singletons(2,5,0)
-
 instance Show (Sing (a :: JType)) where
-#elif MIN_VERSION_singletons(2,4,0)
-
-instance Show (Sing (a :: JType)) where
-  showsPrec = showsSingPrec
-
--- The instance of Show and ShowSing for JType singletons
--- is reused by adjusting the method name with a macro
--- definition.
-#define showsPrec showsSingPrec
-instance ShowSing JType where
-#else
-
-instance Show (Sing (a :: [JType])) where
-  showsPrec _ SNil = showString "SNil"
-  showsPrec d (SCons ty tys) = showParen (d > 10) $
-      showString "SCons " . showsPrec 11 ty . showChar ' ' . showsPrec 11 tys
-
-instance Show (Sing (a :: JType)) where
-#endif
   showsPrec d (SClass s) = showParen (d > 10) $
       showString "SClass " . realShowsPrec 11 s
   showsPrec d (SIface s) = showParen (d > 10) $
@@ -205,8 +177,6 @@ instance Show (Sing (a :: JType)) where
   showsPrec d (SGeneric s sargs) = showParen (d > 10) $
       showString "SGeneric " . showsPrec 11 s . showsPrec 11 sargs
   showsPrec _ SVoid = showString "SVoid"
-
-#undef showsPrec
 
 -- XXX SingI constraint temporary hack because GHC 7.10 has trouble inferring
 -- this constraint in 'signature'.
@@ -325,11 +295,7 @@ withJValueOff p n jvalue io = case jvalue of
     offset = n * sizeOfJValue
 
 -- | Get the Java type of a value.
-#if MIN_VERSION_singletons(2,2,0)
 jtypeOf :: JValue -> SomeSing JType
-#else
-jtypeOf :: JValue -> SomeSing ('KProxy :: KProxy JType)
-#endif
 jtypeOf (JBoolean _) = SomeSing (sing :: Sing ('Prim "boolean"))
 jtypeOf (JByte _) = SomeSing (sing :: Sing ('Prim "byte"))
 jtypeOf (JChar _) = SomeSing (sing :: Sing ('Prim "char"))
@@ -388,11 +354,7 @@ signature = Signature . build . signatureBuilder
 -- | Construct a method's JNI type signature, given the type of the arguments
 -- and the return type.
 methodSignature
-#if MIN_VERSION_singletons(2,2,0)
   :: [SomeSing JType]
-#else
-  :: [SomeSing ('KProxy :: KProxy JType)]
-#endif
   -> Sing (ty :: JType)
   -> MethodSignature
 methodSignature args ret =

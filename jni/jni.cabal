@@ -42,7 +42,7 @@ library
     containers >=0.5,
     constraints >=0.8,
     deepseq >=1.4.2,
-    singletons >=2.0
+    singletons >=2.5
   if impl(ghc < 8.2.1)
     build-depends:
       inline-c >=0.5.6.1 && <0.6
