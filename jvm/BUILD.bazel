@@ -1,26 +1,22 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
   "@io_tweag_rules_haskell//haskell:haskell.bzl",
   "haskell_library",
 )
 
 haskell_library(
-  name = "jvm",
-  src_strip_prefix = "src",
-  srcs = glob(['src/**/*.hs']),
-  deps = [
-    "//jni",
-  ],
-  prebuilt_dependencies = [
-    "base",
-    "bytestring",
-    "constraints",
-    "choice",
-    "distributed-closure",
-    "exceptions",
-    "singletons",
-    "text",
-    "vector",
-  ],
+    name = "jvm",
+    srcs = glob(['src/**/*.hs']),
+    deps = [
+        "//jni",
+        "@stackage//:base",
+        "@stackage//:bytestring",
+        "@stackage//:constraints",
+        "@stackage//:choice",
+        "@stackage//:distributed-closure",
+        "@stackage//:exceptions",
+        "@stackage//:singletons",
+        "@stackage//:text",
+        "@stackage//:vector",
+    ],
+    visibility = ["//visibility:public"],
 )

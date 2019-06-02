@@ -18,7 +18,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 
 -- | This module provides composable batched marshalling.
 --
