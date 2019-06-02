@@ -81,7 +81,6 @@ import Data.Singletons
   , SomeSing(..)
   )
 import Data.Singletons.Prelude (Sing(..))
-import Data.Singletons.ShowSing (ShowSing(..))
 import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
 import Data.Word
 import Foreign.C (CChar)
