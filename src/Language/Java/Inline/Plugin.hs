@@ -9,6 +9,7 @@
 {-# LANGUAGE ViewPatterns #-}
 module Language.Java.Inline.Plugin (plugin) where
 
+import Control.Applicative ((<|>))
 import Control.Monad.Writer hiding ((<>))
 import Convert (thRdrNameGuesses)
 import qualified Data.ByteString as BS
@@ -16,7 +17,7 @@ import Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as Builder
 import Data.Char (chr, ord)
 import Data.Data (Data)
-import Data.List (intersperse, isSuffixOf)
+import Data.List (find, intersperse, isSuffixOf)
 import Data.Maybe (mapMaybe)
 import Data.Monoid (Endo(..))
 import Data.IORef (readIORef)
@@ -30,12 +31,7 @@ import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Magic
-#if MIN_VERSION_ghc(8, 2, 1)
 import NameCache (nsNames)
-#endif
-#if MIN_VERSION_ghc(8, 4, 0)
-import Prelude hiding ((<>))
-#endif
 import TyCoRep
 import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
@@ -43,6 +39,7 @@ import System.FilePath ((</>), (<.>), takeDirectory)
 import System.IO (withFile, IOMode(WriteMode), hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (callProcess)
+import Prelude hiding ((<>))
 
 -- The 'java' quasiquoter produces annotations of type 'JavaImport', and it also
 -- inserts calls in the code to the function 'qqMarker'.
@@ -65,9 +62,6 @@ plugin = defaultPlugin
   where
     install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
     install args todo = do
-#if !MIN_VERSION_ghc(8,2,1)
-      reinitializeGlobals
-#endif
       return (CoreDoPluginPass "inline-java" (qqPass args) : todo)
 
     qqPass :: [CommandLineOption] -> ModGuts -> CoreM ModGuts
@@ -81,7 +75,7 @@ plugin = defaultPlugin
           let jimports = getModuleAnnotations guts :: [JavaImport]
           dcs <- buildJava guts qqOccs jimports
                    >>= maybeDumpJava args
-                   >>= buildBytecode
+                   >>= buildBytecode args
           return guts
             { mg_binds = binds
             , mg_foreign = appendStubC (mg_foreign guts) $
@@ -223,13 +217,14 @@ mangle m = mangleClassName (unitIdString (moduleUnitId m))
                            (moduleNameString (moduleName m))
 
 -- Call the java compiler and feeds it the given Java code in Builder form.
-buildBytecode :: Builder -> CoreM [DotClass]
-buildBytecode unit = do
+buildBytecode :: [CommandLineOption] -> Builder -> CoreM [DotClass]
+buildBytecode args unit = do
+    let Just javac = find ("javac" `isSuffixOf`) args <|> return "javac"
     m <- getModule
     liftIO $ withSystemTempDirectory "inlinejava" $ \dir -> do
       let src = dir </> mangle m <.> "java"
       withFile src WriteMode $ \h -> Builder.hPutBuilder h unit
-      callProcess "javac" [src]
+      callProcess javac [src]
       -- A single compilation unit can produce multiple class files.
       classFiles <- filter (".class" `isSuffixOf`) <$> listDirectory dir
       forM classFiles $ \classFile -> do

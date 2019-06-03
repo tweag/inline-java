@@ -1,98 +1,138 @@
 workspace(name = "io_tweag_inline_java")
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 http_archive(
-  name = "io_tweag_rules_haskell",
-  strip_prefix = "rules_haskell-730d42c225f008a13e48bf5e9c13010174324b8c",
-  urls = ["https://github.com/tweag/rules_haskell/archive/730d42c225f008a13e48bf5e9c13010174324b8c.tar.gz"]
+    name = "io_tweag_rules_haskell",
+    sha256 = "9da2afb9f91ae876edb2614a8b177db492703bd31355ce2b86414828e4b32230",
+    strip_prefix = "rules_haskell-3564881798919455b27f970f76ae6fd91dfb4fa1",
+    urls = ["https://github.com/tweag/rules_haskell/archive/3564881798919455b27f970f76ae6fd91dfb4fa1.tar.gz"],
 )
 
 load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
 haskell_repositories()
 
 http_archive(
-  name = "io_tweag_rules_nixpkgs",
-  strip_prefix = "rules_nixpkgs-d9df5c834f07c72be1b9e320eb742796557612f8",
-  urls = ["https://github.com/tweag/rules_nixpkgs/archive/d9df5c834f07c72be1b9e320eb742796557612f8.tar.gz"]
+    name = "io_tweag_rules_nixpkgs",
+    strip_prefix = "rules_nixpkgs-0.5.1",
+    urls = ["https://github.com/tweag/rules_nixpkgs/archive/v0.5.1.tar.gz"]
 )
 
-load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
-  "nixpkgs_git_repository",
-  "nixpkgs_package",
+load(
+    "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
+    "nixpkgs_local_repository",
+    "nixpkgs_package",
 )
 
-nixpkgs_git_repository(
-  name = "nixpkgs",
-  # Keep consistent with ./nixpkgs.nix.
-  revision = "1fa2503f9dba814eb23726a25642d2180ce791c3"
-)
-
-# These dependencies are built by Nix.
-prebuilt_packages = [
-  "Cabal",
-  "base",
-  "bytestring",
-  "choice",
-  "constraints",
-  "containers",
-  "deepseq",
-  "directory",
-  "distributed-closure",
-  "exceptions",
-  "filemanip",
-  "filepath",
-  "ghc",
-  "hspec",
-  "inline-c",
-  "language-java",
-  "mtl",
-  "process",
-  "singletons",
-  "streaming",
-  "template-haskell",
-  "temporary",
-  "text",
-  "vector",
-]
-
-nixpkgs_package(
-  name = "inline-java-toolchain",
-  repository = "@nixpkgs",
-  nix_file_content = """
-let pkgs = import <nixpkgs> {{}};
-in pkgs.buildEnv {{
-  name = "inline-java-toolchain";
-  paths = with pkgs; [
-    (haskell.packages.ghc822.ghcWithPackages (p: with p; [{0}]))
-    openjdk
-  ];
-}}
-""".format(" ".join(prebuilt_packages))
+nixpkgs_local_repository(
+    name = "nixpkgs",
+    nix_file = "//:nixpkgs.nix",
 )
 
 nixpkgs_package(
-  name = "openjdk",
-  repository = "@nixpkgs",
-  build_file_content = """
-filegroup (
-  name = "lib",
-  srcs = ["lib/openjdk/jre/lib/amd64/server/libjvm.so"],
-  visibility = ["//visibility:public"],
-)
-filegroup (
-  name = "bin",
-  srcs = ["bin/javac"],
-  visibility = ["//visibility:public"],
-)
-filegroup (
-  name = "jni_header",
-  srcs = ["include/jni.h"],
-  visibility = ["//visibility:public"],
-)
-filegroup (
-  name = "jni_md_header",
-  srcs = ["include/jni_md.h"],
-  visibility = ["//visibility:public"],
-)"""
+    name = "alex",
+    attribute_path = "haskellPackages.alex",
+    repository = "@nixpkgs",
 )
 
-register_toolchains("//:inline-java-toolchain")
+load("@io_tweag_rules_haskell//haskell:cabal.bzl", "stack_snapshot")
+
+stack_snapshot(
+    name = "stackage",
+    packages = [
+        "Cabal",
+        "base",
+        "bytestring",
+        "choice",
+        "constraints",
+        "containers",
+        "deepseq",
+        "directory",
+        "distributed-closure",
+        "exceptions",
+        "filemanip",
+        "filepath",
+        "ghc",
+        "hspec",
+        "inline-c",
+        "language-java",
+        "mtl",
+        "process",
+        "singletons",
+        "streaming",
+        "template-haskell",
+        "temporary",
+        "text",
+        "vector",
+        "unix",
+    ],
+    snapshot = "lts-13.21",
+    tools = ["@alex//:bin/alex"],
+)
+
+load("@io_tweag_rules_haskell//haskell:nixpkgs.bzl", "haskell_register_ghc_nixpkgs")
+
+nixpkgs_package(
+    name = "glibc_locales",
+    attribute_path = "glibcLocales",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "locale-archive",
+    srcs = ["lib/locale/locale-archive"],
+)
+""",
+    repository = "@nixpkgs",
+)
+
+haskell_register_ghc_nixpkgs(
+    attribute_path = "ghc",
+    locale_archive = "@glibc_locales//:locale-archive",
+    repositories = {"nixpkgs": "@nixpkgs"},
+    version = "8.6.5",
+)
+
+nixpkgs_package(
+    name = "hspec-discover",
+    attribute_path = "haskellPackages.hspec-discover",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "openjdk",
+    attribute_path = "openjdk11",
+    repository = "@nixpkgs",
+    build_file_content = """
+filegroup(
+    name = "bin",
+    srcs = ["bin/javac"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "libjvm",
+    srcs = ["lib/openjdk/lib/server/libjvm.so"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "lib",
+    srcs = [":libjvm"],
+    hdrs = ["include/jni.h", "include/jni_md.h"],
+    strip_include_prefix = "include",
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+)
+
+# XXX Temporary workaround for
+# https://github.com/bazelbuild/bazel/issues/8180.
+genrule(
+    name = "rpath",
+    srcs = ["@openjdk//:libjvm"],
+    cmd = "libjvm=$(location :libjvm); echo -rpath $$(dirname $$(realpath $$libjvm)) > $@",
+    outs = ["openjdk_response_file"],
+    visibility = ["//visibility:public"],
+)
+""",
+)

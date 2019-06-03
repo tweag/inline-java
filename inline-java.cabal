@@ -41,7 +41,7 @@ library
     Cabal >=1.24.2,
     directory >=1.2,
     filepath >=1,
-    ghc >=8.0.2 && <8.5,
+    ghc >=8.4 && <8.7,
     jni >=0.4 && <0.7,
     jvm >=0.4 && <0.5,
     language-java >=0.2,
@@ -68,3 +68,4 @@ test-suite spec
     inline-java,
     text
   default-language: Haskell2010
+  ghc-options: -fplugin=Language.Java.Inline.Plugin -DHSPEC_DISCOVER=hspec-discover

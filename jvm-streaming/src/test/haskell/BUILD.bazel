@@ -1,0 +1,29 @@
+load(
+  "@io_tweag_rules_haskell//haskell:haskell.bzl",
+  "haskell_test",
+)
+
+haskell_test(
+    name = "spec",
+    srcs = glob(["**/*.hs"], exclude = ["Main.hs"]),
+    extra_srcs = ["@openjdk//:rpath"],
+    compiler_flags = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",
+        "-DHSPEC_DISCOVER=$(location @hspec-discover//:bin)",
+    ],
+    size = "small",
+    plugins = ["//:inline-java-plugin"],
+    tools = ["@hspec-discover//:bin"],
+    deps = [
+        "//:inline-java",
+        "//jvm",
+        "//jvm-batching:jar",
+        "//jvm-streaming",
+        "@stackage//:base",
+        "@stackage//:hspec",
+        "@stackage//:streaming",
+        "@stackage//:text",
+    ],
+    # Failing test. TODO Reenable.
+    tags = ["manual"],
+)

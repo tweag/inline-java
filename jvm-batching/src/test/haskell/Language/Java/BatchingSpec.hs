@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 
 module Language.Java.BatchingSpec where
 

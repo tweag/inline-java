@@ -1,68 +1,50 @@
-package(default_visibility = ["//visibility:public"])
+exports_files(["nixpkgs.nix"])
 
 load(
-  "@io_tweag_rules_haskell//haskell:haskell.bzl",
-  "haskell_test",
-  "haskell_library",
-  "haskell_toolchain",
+    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "ghc_plugin",
+    "haskell_library",
 )
 
 cc_library(
-  name = "bctable",
-  srcs = ["cbits/bctable.c"],
-  hdrs = ["cbits/bctable.h"],
-  strip_include_prefix = "cbits",
-)
-
-haskell_toolchain(
-  name = "inline-java-toolchain",
-  version = "8.2.2",
-  tools = "@inline-java-toolchain//:bin",
-  extra_binaries = ["@openjdk//:bin"],
+    name = "bctable",
+    hdrs = ["cbits/bctable.h"],
+    srcs = ["cbits/bctable.c"],
+    strip_include_prefix = "cbits",
 )
 
 haskell_library(
-  name = "inline-java",
-  src_strip_prefix = "src",
-  # cbits/bctable.h is included here so it can be found by Plugin.hs
-  # at the same location when building with bazel as with stack.
-  srcs = glob(['src/**/*.hs', 'src/**/*.hsc', 'cbits/bctable.h']),
-  deps = [
-    "//jni",
-    "//jvm",
-    ":bctable",
-  ],
-  prebuilt_dependencies = [
-    "base",
-    "bytestring",
-    "Cabal",
-    "directory",
-    "filepath",
-    "filemanip",
-    "ghc",
-    "language-java",
-    "mtl",
-    "process",
-    "text",
-    "template-haskell",
-    "temporary"
-  ],
+    name = "inline-java",
+    # cbits/bctable.h is included here so it can be found by Plugin.hs
+    # at the same location when building with bazel as with stack.
+    srcs = glob(['src/**/*.hs', 'src/**/*.hsc', 'cbits/bctable.h']),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//jni",
+        "//jvm",
+        ":bctable",
+        "@stackage//:Cabal",
+        "@stackage//:base",
+        "@stackage//:bytestring",
+        "@stackage//:directory",
+        "@stackage//:filemanip",
+        "@stackage//:filepath",
+        "@stackage//:ghc",
+        "@stackage//:language-java",
+        "@stackage//:mtl",
+        "@stackage//:process",
+        "@stackage//:template-haskell",
+        "@stackage//:temporary",
+        "@stackage//:text",
+    ],
 )
 
-# Can't find hspec-discover
-#haskell_test(
-#  name = "spec",
-#  src_strip_prefix = "tests",
-#  srcs = glob(["tests/**/*.hs"]),
-#  deps = [
-#    "//jni",
-#    "//jvm",
-#    ":inline-java"
-#  ],
-#  prebuilt_dependencies = [
-#    "base",
-#    "hspec",
-#    "text",
-#  ],
-#  size = "small",
-#)
+ghc_plugin(
+    name = "inline-java-plugin",
+    args = ["$(JAVABASE)/bin/javac"],
+    module = "Language.Java.Inline.Plugin",
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    tools = ["@bazel_tools//tools/jdk:javac"],
+    visibility = ["//visibility:public"],
+    deps = [":inline-java"],
+)

@@ -1,31 +1,21 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
-  "@io_tweag_rules_haskell//haskell:haskell.bzl",
-  "haskell_cc_import",
-  "haskell_library",
-)
-
-haskell_cc_import(
-  name = "openjdk",
-  shared_library = "@openjdk//:lib",
-  hdrs = ["@openjdk//:jni_header", "@openjdk//:jni_md_header"],
-  strip_include_prefix = "/external/openjdk/include",
+    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "haskell_library",
 )
 
 haskell_library(
-  name = "jni",
-  src_strip_prefix = "src",
-  srcs = glob(['src/**/*.hs', 'src/**/*.hsc']),
-  deps = [":openjdk"],
-  prebuilt_dependencies = [
-    "base",
-    "bytestring",
-    "choice",
-    "containers",
-    "constraints",
-    "deepseq",
-    "inline-c",
-    "singletons",
-  ],
+    name = "jni",
+    srcs = glob(['src/**/*.hs', 'src/**/*.hsc']),
+    deps = [
+        "@openjdk//:lib",
+        "@stackage//:base",
+        "@stackage//:bytestring",
+        "@stackage//:choice",
+        "@stackage//:containers",
+        "@stackage//:constraints",
+        "@stackage//:deepseq",
+        "@stackage//:inline-c",
+        "@stackage//:singletons",
+    ],
+    visibility = ["//visibility:public"],
 )

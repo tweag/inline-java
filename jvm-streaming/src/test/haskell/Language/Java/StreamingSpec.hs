@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Language.Java.StreamingSpec where
 
@@ -19,26 +19,26 @@ spec = do
       it "succeeds on empty lists" $ do
         vals <- reflect [1..0 :: Int32]
         iterator <- [java| java.util.Arrays.asList($vals).iterator() |]
-        stream <- reify iterator
+        stream :: Stream (Of Int32) IO () <- reify iterator
         Streaming.toList_ stream `shouldReturn` [1..0 :: Int32]
       it "succeeds on singleton lists" $ do
         vals <- reflect [1 :: Int32]
         iterator <- [java| java.util.Arrays.asList($vals).iterator() |]
-        stream <- reify iterator
+        stream :: Stream (Of Int32) IO () <- reify iterator
         Streaming.toList_ stream `shouldReturn` [1 :: Int32]
       it "succeeds on non-trivial lists" $ do
         vals <- reflect [1..10000 :: Int32]
         iterator <- [java| java.util.Arrays.asList($vals).iterator() |]
-        stream <- reify iterator
+        stream :: Stream (Of Int32) IO () <- reify iterator
         Streaming.toList_ stream `shouldReturn` [1..10000 :: Int32]
     describe "streams" $ do
       it "have the property that reify . reflect == id" $ do
         iterator <- reflect (Streaming.each [1..10000] :: Stream (Of Int32) IO ())
-        stream <- reify iterator
+        stream :: Stream (Of Int32) IO () <- reify iterator
         Streaming.toList_ stream `shouldReturn` [1..10000 :: Int32]
       it "don't redo effects" $ do
         ref <- newIORef (1 :: Int32)
         iterator <- reflect $
           Streaming.replicateM 10 $ atomicModifyIORef ref (\i -> (i + 1, i))
-        stream <- reify iterator
+        stream :: Stream (Of Int32) IO () <- reify iterator
         Streaming.toList_ stream `shouldReturn` [1..10 :: Int32]

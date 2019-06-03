@@ -1,6 +1,6 @@
 require-stack-version: ">= 1.6"
 
-resolver: lts-10.1
+resolver: lts-13.20
 
 packages:
 - .
@@ -9,9 +9,6 @@ packages:
 - jvm-batching
 - jvm-streaming
 - examples/classpath
-
-extra-deps:
-- distributed-closure-0.3.5
 
 nix:
   shell-file: shell.nix

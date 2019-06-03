@@ -1,0 +1,26 @@
+load(
+    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "haskell_test",
+)
+
+haskell_test(
+    name = "spec",
+    srcs = glob(["**/*.hs"]),
+    extra_srcs = ["@openjdk//:rpath"],
+    compiler_flags = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",
+        "-DHSPEC_DISCOVER=$(location @hspec-discover//:bin)",
+    ],
+    deps = [
+        "//jni",
+        "//jvm",
+        "//:inline-java",
+        "@stackage//:base",
+        "@stackage//:hspec",
+        "@stackage//:text",
+        "@stackage//:unix",
+    ],
+    size = "small",
+    plugins = ["//:inline-java-plugin"],
+    tools = ["@hspec-discover//:bin"],
+)

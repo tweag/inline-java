@@ -17,7 +17,6 @@ module Language.Java.Inline.Cabal
 
 import Control.Exception (evaluate)
 import Control.Monad (when)
-import Data.Monoid
 import Data.List (intersperse, isPrefixOf)
 import Distribution.Simple
 import Distribution.Simple.Setup (BuildFlags)

@@ -38,7 +38,7 @@ jobs:
       - image: nixos/nix
     working_directory: ~/sparkle
     environment:
-      - NIXRUN: nix-shell -I nixpkgs=./nixpkgs.nix -p gcc bazel --run
+      - NIXRUN: nix-shell -I nixpkgs=./nixpkgs.nix --pure -p gcc bazel stack nix openjdk11 ghc python3 --run
     steps:
       - checkout
       - run:
@@ -48,7 +48,9 @@ jobs:
             $NIXRUN "echo nix dependencies installed"
       - run:
           name: Build project
-          command: $NIXRUN "bazel build --jobs 2 //..."
+          command: |
+            echo "common --host_platform=@io_tweag_rules_haskell//haskell/platforms:linux_x86_64_nixpkgs" > .bazelrc.local
+            $NIXRUN "bazel build --jobs 2 //..."
 
   build-darwin-brew:
     macos:
