@@ -17,6 +17,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Language.Java.Inline.Magic
   ( DotClass(..)
   , JavaImport(..)

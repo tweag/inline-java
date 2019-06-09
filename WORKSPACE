@@ -91,6 +91,13 @@ haskell_register_ghc_nixpkgs(
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
     version = "8.6.5",
+    compiler_flags = [
+        "-Werror",
+        "-Wall",
+        "-Wcompat",
+        "-Wincomplete-record-updates",
+        "-Wredundant-constraints",
+    ],
 )
 
 nixpkgs_package(

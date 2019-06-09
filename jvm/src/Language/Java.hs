@@ -50,6 +50,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Language.Java
   ( module Foreign.JNI.Types
   -- * JVM instance management
