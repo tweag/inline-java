@@ -17,6 +17,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Language.Java.Inline.Magic
   ( DotClass(..)
   , JavaImport(..)
@@ -87,7 +89,7 @@ forEachDotClass f = peek bctable >>= go
 -- | A function to mark the occurrence of java quasiquotations
 qqMarker
   :: forall
-     -- k                -- the kind variable shows up in Core
+     k                   -- the kind variable shows up in Core
      (args_tys :: k)     -- JType's of arguments
      tyres               -- JType of result
      (input :: Symbol)   -- input string of the quasiquoter

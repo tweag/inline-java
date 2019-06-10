@@ -609,16 +609,14 @@ withStatic [d|
   instance Batchable a => Batchable (V.Vector a) where
     type Batch (V.Vector a) = ArrayBatch (Batch a)
 
-  instance (SingI (Interp a), SingI (Batch a), BatchReify a)
-           => BatchReify (V.Vector a) where
+  instance BatchReify a => BatchReify (V.Vector a) where
     newBatchWriter _ = do
         _b <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
         generic <$> [java| new BatchWriters.ObjectArrayBatchWriter($_b) |]
     reifyBatch =
         reifyArrayBatch (flip reifyBatch) (fmap (fmap return) . V.unsafeSlice)
 
-  instance (SingI (Interp a), SingI (Batch a), BatchReflect a)
-           => BatchReflect (V.Vector a) where
+  instance BatchReflect a => BatchReflect (V.Vector a) where
     newBatchReader _ = do
         _b <- unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
         generic <$> [java| new BatchReaders.ObjectArrayBatchReader($_b) |]
