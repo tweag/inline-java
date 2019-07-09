@@ -58,6 +58,7 @@ import Prelude hiding ((<>))
 plugin :: Plugin
 plugin = defaultPlugin
     { installCoreToDos = install
+    , pluginRecompile = flagRecompile
     }
   where
     install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
