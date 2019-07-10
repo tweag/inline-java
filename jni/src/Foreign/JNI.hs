@@ -8,8 +8,7 @@
 --
 -- All bindings in this module access the JNI via a thread-local variable of
 -- type @JNIEnv *@. If the current OS thread has not yet been "attached" to the
--- JVM, it is attached implicitly upon the first call to one of these bindings
--- in the current thread.
+-- JVM, it needs to be attached. See 'JNI.runInAttachedThread'.
 --
 -- The 'String' type in this module is the type of JNI strings. See
 -- "Foreign.JNI.String".
