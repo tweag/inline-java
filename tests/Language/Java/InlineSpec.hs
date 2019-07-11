@@ -11,7 +11,6 @@ module Language.Java.InlineSpec(spec) where
 
 import Data.Int
 import Foreign.JNI (JVMException)
-import Foreign.JNI.Types (JObject, type (<>))
 import Language.Java
 import Language.Java.Inline
 import Test.Hspec
