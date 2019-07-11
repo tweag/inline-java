@@ -66,8 +66,8 @@ jobs:
           name: Install software
           command: |
             brew update
-            brew tap AdoptOpenJDK/openjdk
-            brew install adoptopenjdk-openjdk8 gradle
+            brew cask install adoptopenjdk8
+            brew install gradle
       - run:
           name: Compute cache key
           command: |
@@ -86,7 +86,9 @@ jobs:
       - run:
           name: Build and test
           command: |
-            export JAVA_HOME=/usr/local/opt/adoptopenjdk-openjdk8
+            export JAVA_HOME=/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home
+            # Make libjvm.dylib visible to the runtime linker
+            ln -sf "$JAVA_HOME/jre/lib/server/libjvm.dylib" /usr/local/lib/libjvm.dylib
             ~/.local/bin/stack --no-terminal build -j2 \
                 --test \
                 --extra-lib-dirs=$JAVA_HOME/jre/lib/server/ \
