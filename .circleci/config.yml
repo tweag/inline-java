@@ -18,6 +18,7 @@ jobs:
       - restore_cache:
           keys:
             - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+            - inline-java-stack-dependencies-{{ arch }}-
       - run:
           name: Build dependencies
           command: |
@@ -75,6 +76,7 @@ jobs:
       - restore_cache:
           keys:
             - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+            - inline-java-stack-dependencies-{{ arch }}-
       - run:
           name: Build dependencies
           command: |
@@ -112,14 +114,15 @@ jobs:
               (find . -name "*.cabal" -o -name "stack-linear.yaml" -type f) | sort | xargs cat > /tmp/stack-deps
       - restore_cache:
           keys:
-            - inline-java-stack-deps-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+            - inline-java-stack-linear-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+            - inline-java-stack-linear-dependencies-{{ arch }}-
       - run:
           name: Build dependencies
           command: |
             . env-linear.sh
             stack --no-terminal build --only-dependencies --prefetch --test --bench -j4 inline-java
       - save_cache:
-          key: inline-java-stack-deps-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+          key: inline-java-stack-linear-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
           paths:
             - ~/.stack
             - .stack-work
