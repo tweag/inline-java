@@ -1,0 +1,48 @@
+require-stack-version: ">= 1.6"
+
+resolver: lts-13.22
+compiler: ghc-8.9
+skip-ghc-check: true
+system-ghc: true
+allow-newer: true
+
+packages:
+- .
+- jni
+- jvm
+- jvm-batching
+- jvm-streaming
+- examples/classpath
+
+flags:
+  jni:
+    ghc-head: true
+  jvm:
+    ghc-head: true
+
+extra-deps:
+- constraints-0.11
+- primitive-0.7.0.0
+- git: https://github.com/haskell/cabal
+  commit: 9c31d9c760468719c881d0f137c66e62b02a1164
+  subdirs:
+  - Cabal
+- git: https://github.com/facundominguez/malcolm-wallace-universe
+  commit: 2d02e4e2bcb5840152a1daa05a0ecfff089c6426
+  subdirs:
+  - polyparse-1.12
+- git: https://github.com/nick8325/quickcheck
+  commit: c963bec774dbb92e1a49b66e21365eae70989981
+- git: https://github.com/facundominguez/attoparsec
+  commit: d949a17b06b86f722d7d8fb98fcb8f0685c86350
+- git: https://github.com/facundominguez/inline-c.git
+  commit: 9b1c3a83e5e427d39c60dc847c4e4d660ae2e8cb
+  subdirs:
+  - inline-c
+- git: https://github.com/facundominguez/distributed-closure
+  commit: a1c6780d8729a3e1091e18eddf0cb6dc977e325e
+
+docker:
+  enable: false
+  image: tweag/linear-types:1.0.5
+  stack-exe: download

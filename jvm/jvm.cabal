@@ -18,6 +18,10 @@ source-repository head
   location: https://github.com/tweag/inline-java
   subdir: jvm
 
+flag ghc-head
+  description: Adjusts the configuration to build with ghc-head.
+  default: False
+
 library
   hs-source-dirs: src
   exposed-modules:
@@ -30,9 +34,11 @@ library
     distributed-closure >=0.3,
     exceptions >=0.8,
     jni >=0.4.0 && <0.7,
-    singletons >=2.0,
     text >=1.2,
     vector >=0.11
+  if !flag(ghc-head)
+    build-depends:
+      singletons >=2.5
   default-language: Haskell2010
 
 test-suite spec

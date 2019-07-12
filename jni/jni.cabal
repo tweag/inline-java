@@ -18,13 +18,20 @@ source-repository head
   location: https://github.com/tweag/inline-java
   subdir: jni
 
+flag ghc-head
+  description: Adjusts the configuration to build with ghc-head.
+  default: False
+
 library
-  hs-source-dirs: src
+  hs-source-dirs: src/common
+  if flag(ghc-head)
+    hs-source-dirs: src/head
   cc-options: -std=c11
-  -- XXX pgmP directive should be redundant. But necessary to workaround
-  -- https://github.com/haskell/cabal/issues/4278.
-  -- Needed for Foreign.JNI.
-  ghc-options: -pgmPcpphs -optP--cpp
+  if os(darwin)
+    -- XXX pgmP directive should be redundant. But necessary to workaround
+    -- https://github.com/haskell/cabal/issues/4278.
+    -- Needed for Foreign.JNI.
+    ghc-options: -pgmPcpphs -optP--cpp
   extra-libraries: jvm
   exposed-modules:
     Foreign.JNI
@@ -40,7 +47,12 @@ library
     containers >=0.5,
     constraints >=0.8,
     deepseq >=1.4.2,
-    inline-c >=0.6,
-    singletons >=2.5
+    inline-c >=0.6
+  if flag(ghc-head)
+    exposed-modules:
+      Data.Singletons
+  else
+    build-depends:
+      singletons >=2.5
   build-tools: cpphs
   default-language: Haskell2010

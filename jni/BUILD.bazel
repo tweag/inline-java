@@ -5,7 +5,7 @@ load(
 
 haskell_library(
     name = "jni",
-    srcs = glob(['src/**/*.hs', 'src/**/*.hsc']),
+    srcs = glob(['src/common/**/*.hs', 'src/common/**/*.hsc']),
     deps = [
         "@openjdk//:lib",
         "@stackage//:base",

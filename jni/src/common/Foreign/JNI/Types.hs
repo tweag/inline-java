@@ -74,14 +74,7 @@ import Data.Char (chr, ord)
 import Data.Constraint (Dict(..))
 import Data.Int
 import qualified Data.Map as Map
-import Data.Monoid ((<>))
 import Data.Singletons
-  ( Sing
-  , SingI(..)
-  , SomeSing(..)
-  )
-import Data.Singletons.Prelude (Sing(..))
-import Data.Singletons.TypeLits (KnownSymbol, symbolVal)
 import Data.Word
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
@@ -97,7 +90,7 @@ import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Alloc (allocaBytesAligned)
 import Foreign.Ptr
 import Foreign.Storable (Storable(..))
-import GHC.TypeLits (Symbol)
+import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Language.C.Types (TypeSpecifier(TypeName))
 import Language.C.Inline.Context (Context(..), fptrCtx)
 import System.IO.Unsafe (unsafePerformIO)
