@@ -3,3 +3,7 @@
 build/
 jni/src/Foreign/JNI.c
 bazel-*
+*.swp
+*.swo
+TAGS
+tags
