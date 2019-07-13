@@ -6,8 +6,8 @@ module Foreign.JNISpec where
 
 import Control.Concurrent (runInBoundThread)
 import Data.Singletons
-import Foreign.JNI
 import Foreign.JNI.Types
+import Foreign.JNI.Unsafe
 import Test.Hspec
 
 spec :: Spec

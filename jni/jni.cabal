@@ -18,14 +18,12 @@ source-repository head
   location: https://github.com/tweag/inline-java
   subdir: jni
 
-flag ghc-head
-  description: Adjusts the configuration to build with ghc-head.
+flag linear-types
+  description: Build the linear types interface.
   default: False
 
 library
   hs-source-dirs: src/common
-  if flag(ghc-head)
-    hs-source-dirs: src/head
   cc-options: -std=c11
   if os(darwin)
     -- XXX pgmP directive should be redundant. But necessary to workaround
@@ -38,6 +36,7 @@ library
     Foreign.JNI.Types
     Foreign.JNI.String
     Foreign.JNI.Internal
+    Foreign.JNI.Unsafe
   other-modules:
     Foreign.JNI.NativeMethod
   build-depends:
@@ -48,9 +47,14 @@ library
     constraints >=0.8,
     deepseq >=1.4.2,
     inline-c >=0.6
-  if flag(ghc-head)
+  if flag(linear-types)
+    hs-source-dirs: src/linear-types
+    build-depends:
+      linear-base ==0.1.0.0
     exposed-modules:
       Data.Singletons
+      Foreign.JNI.Safe
+      Foreign.JNI.Types.Safe
   else
     build-depends:
       singletons >=2.5
@@ -69,7 +73,7 @@ test-suite spec
     base,
     hspec,
     jni
-  if !flag(ghc-head)
+  if !flag(linear-types)
     build-depends:
       singletons
   default-language: Haskell2010

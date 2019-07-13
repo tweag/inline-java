@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 
 * Added support for ghc-8.9.
+* Added an interface based on linear types.
 
 ### Removed
 
