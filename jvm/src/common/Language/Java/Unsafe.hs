@@ -10,7 +10,7 @@
 -- {&#45;\# LANGUAGE DeriveAnyClass \#&#45;}
 -- module Object where
 --
--- import Language.Java as J
+-- import Language.Java.Unsafe as J
 --
 -- newtype Object = Object ('J' (''Class' "java.lang.Object"))
 --   deriving (J.Coercible, J.Interpretation, J.Reify, J.Reflect)
@@ -26,6 +26,10 @@
 --
 -- To call Java methods using quasiquoted Java syntax instead, see
 -- "Language.Java.Inline".
+--
+-- The functions in this module are considered unsafe in opposition
+-- to those in "Language.Java.Safe", which ensure that local references are not
+-- leaked.
 --
 -- __NOTE 1:__ To use any function in this module, you'll need an initialized
 -- JVM in the current process, using 'withJVM' or otherwise.
@@ -51,7 +55,7 @@
 
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module Language.Java
+module Language.Java.Unsafe
   ( module Foreign.JNI.Types
   -- * JVM instance management
   , withJVM
@@ -516,7 +520,7 @@ withStatic [d|
         callByteMethod jobj method []
 
   instance Reflect CChar where
-    reflect x = Language.Java.new [JByte x]
+    reflect x = Language.Java.Unsafe.new [JByte x]
 
   instance Interpretation Int16 where
     type Interp Int16 = 'Class "java.lang.Short"
