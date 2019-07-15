@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
-### Changed
+* Added support for ghc-8.9.
+
+### Removed
+
+* Removed support for ghc < 8.2.1
 
 ## [0.4.2] - 2018-02-27
 

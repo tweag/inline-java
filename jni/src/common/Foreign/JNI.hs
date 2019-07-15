@@ -191,7 +191,6 @@ import Data.IORef (IORef, newIORef, atomicModifyIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Monoid ((<>))
 import Data.Typeable (Typeable)
 import Foreign.C (CChar)
 import Foreign.ForeignPtr

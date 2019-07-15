@@ -19,12 +19,12 @@ import Data.Char (chr, ord)
 import Data.Data (Data)
 import Data.List (find, intersperse, isSuffixOf)
 import Data.Maybe (mapMaybe)
-import Data.Monoid (Endo(..))
 import Data.IORef (readIORef)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import ErrUtils (ghcExit)
 import FamInstEnv (normaliseType)
+import qualified FastString.Extras
 import Foreign.JNI.Types (JType(..))
 import GhcPlugins
 import IfaceEnv (lookupOrigNameCache)
@@ -33,7 +33,6 @@ import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Magic
 import NameCache (nsNames)
 import TyCoRep
-import TysWiredIn (nilDataConName, consDataConName)
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>), takeDirectory)
 import System.IO (withFile, IOMode(WriteMode), hPutStrLn, stderr)
@@ -92,7 +91,7 @@ plugin = defaultPlugin
     bctable_header :: String
     bctable_header = $(do
         loc <- TH.location
-        let root = iterate takeDirectory (TH.loc_filename loc) !! 5
+        let root = iterate takeDirectory (TH.loc_filename loc) !! 6
             f = root </> "cbits/bctable.h"
         TH.addDependentFile f
         TH.lift =<< TH.runIO (readFile f)
@@ -264,9 +263,9 @@ toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
     go :: Type -> Maybe [BS.ByteString]
     go (TyConApp c [LitTy (StrTyLit fs)])
       | Just n <- nameClass, tyConName c == n =
-        Just [substDollar $ fastStringToByteString fs]
+        Just [substDollar $ FastString.Extras.bytesFS fs]
       | Just n <- nameIface, tyConName c == n =
-        Just [substDollar $ fastStringToByteString fs]
+        Just [substDollar $ FastString.Extras.bytesFS fs]
     go (TyConApp c [t])
       | Just n <- nameArray, tyConName c == n =
         (++ ["[]"]) <$> go t
@@ -280,7 +279,7 @@ toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
         Just ["void"]
     go (TyConApp c [LitTy (StrTyLit fs)])
       | Just n <- namePrim, tyConName c == n =
-        Just [fastStringToByteString fs]
+        Just [FastString.Extras.bytesFS fs]
     go _ = Nothing
 
     listGo :: Type -> Maybe [[BS.ByteString]]
@@ -371,9 +370,9 @@ collectQQMarkers qqMarkerName p0 = do
       tell $ Endo $ (:) $ QQOcc
         { qqOccResTy = tyres
         , qqOccArgTys = tyargs
-        , qqOccInput = fastStringToByteString fs_input
-        , qqOccMName = fastStringToByteString fs_mname
-        , qqOccAntiQs = fastStringToByteString fs_antiqs
+        , qqOccInput = FastString.Extras.bytesFS fs_input
+        , qqOccMName = FastString.Extras.bytesFS fs_mname
+        , qqOccAntiQs = FastString.Extras.bytesFS fs_antiqs
         , qqOccLineNumber = lineNumber
         }
       return e

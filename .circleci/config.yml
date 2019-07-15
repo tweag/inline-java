@@ -18,6 +18,7 @@ jobs:
       - restore_cache:
           keys:
             - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+            - inline-java-stack-dependencies-{{ arch }}-
       - run:
           name: Build dependencies
           command: |
@@ -75,6 +76,7 @@ jobs:
       - restore_cache:
           keys:
             - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+            - inline-java-stack-dependencies-{{ arch }}-
       - run:
           name: Build dependencies
           command: |
@@ -86,7 +88,7 @@ jobs:
       - run:
           name: Build and test
           command: |
-            export JAVA_HOME=/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home
+            . set-java-home.sh
             # Make libjvm.dylib visible to the runtime linker
             ln -sf "$JAVA_HOME/jre/lib/server/libjvm.dylib" /usr/local/lib/libjvm.dylib
             ~/.local/bin/stack --no-terminal build -j2 \
@@ -95,10 +97,51 @@ jobs:
                 --extra-include-dirs=$JAVA_HOME/include/ \
                 --extra-include-dirs=$JAVA_HOME/include/darwin/
 
+  build-linux-linear:
+    resource_class: xlarge
+    docker:
+        - image: tweag/linear-types:1.0.5
+    working_directory: ~/inline-java
+    steps:
+      - checkout
+      - run:
+          name: Install system dependencies
+          command: |
+            apt-get update && apt-get install -y gradle openjdk-8-jdk
+      - run:
+          name: Compute cache key
+          command: |
+              (find . -name "*.cabal" -o -name "stack-linear.yaml" -type f) | sort | xargs cat > /tmp/stack-deps
+      - restore_cache:
+          keys:
+            - inline-java-stack-linear-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+            - inline-java-stack-linear-dependencies-{{ arch }}-
+      - run:
+          name: Build dependencies
+          command: |
+            . env-linear.sh
+            stack --no-terminal build --only-dependencies --prefetch --test --bench -j4 inline-java
+      - save_cache:
+          key: inline-java-stack-linear-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+          paths:
+            - ~/.stack
+            - .stack-work
+      - run:
+          name: Build project
+          command: |
+            . env-linear.sh
+            stack --no-terminal build -j4 --pedantic --test --bench --no-run-tests --no-run-benchmarks inline-java
+      - run:
+          name: Test
+          command: |
+            . env-linear.sh
+            stack --no-terminal test inline-java
+
 workflows:
   version: 2
   build:
     jobs:
       - build-linux-nix
       - build-bazel
+      - build-linux-linear
       - build-darwin-brew

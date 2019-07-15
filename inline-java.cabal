@@ -22,7 +22,11 @@ source-repository head
   location: https://github.com/tweag/inline-java
 
 library
-  hs-source-dirs: src
+  hs-source-dirs: src/common
+  if impl(ghc >= 8.9)
+    hs-source-dirs: src/ghc-8.9
+  else
+    hs-source-dirs: src/ghc-8.6
   c-sources: cbits/bctable.c
   cc-options: -std=c99 -Wall -Werror
   include-dirs: cbits/
@@ -33,6 +37,7 @@ library
     Language.Java.Inline.Cabal
     Language.Java.Inline.Plugin
   other-modules:
+    FastString.Extras
     Language.Java.Inline.Magic
   build-depends:
     -- Can't build at all with GHC < 8.0.2.

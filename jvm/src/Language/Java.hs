@@ -34,7 +34,6 @@
 -- class and method lookups, for performance. This memoization is safe only when
 -- no new named classes are defined at runtime.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -104,14 +103,12 @@ import qualified Data.ByteString.Unsafe as BS
 import Data.Singletons (SingI(..))
 import qualified Data.Text.Foreign as Text
 import Data.Text (Text)
-#if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 import qualified Data.Vector.Storable as Vector
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable.Mutable as MVector
 import Data.Vector.Storable.Mutable (IOVector)
 import Foreign (Ptr, Storable, withForeignPtr)
 import Foreign.Concurrent (newForeignPtr)
-#endif
 import Foreign.C (CChar)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
@@ -496,7 +493,6 @@ class Interpretation a => Reflect a where
   default reflect :: (Coercible a, Interp a ~ Ty a) => a -> IO (J (Interp a))
   reflect x = newLocalRef (jobject x)
 
-#if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
 reifyMVector
   :: Storable a
   => (JArray ty -> IO (Ptr a))
@@ -526,7 +522,6 @@ reflectMVector newfun fill mv = do
     jobj <- newfun (fromIntegral n)
     withForeignPtr fptr $ fill jobj 0 (fromIntegral n)
     return jobj
-#endif
 
 withStatic [d|
   instance (SingI ty, IsReferenceType ty) => Interpretation (J ty) where type Interp (J ty) = ty
@@ -705,9 +700,6 @@ withStatic [d|
         Text.useAsPtr x $ \ptr len ->
           newString ptr (fromIntegral len)
 
--- Instances can't be compiled on GHC 8.0.1 due to
--- https://ghc.haskell.org/trac/ghc/ticket/12082.
-#if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
   instance Interpretation (IOVector Word16) where
     type Interp (IOVector Word16) = 'Array ('Prim "char")
 
@@ -770,7 +762,7 @@ withStatic [d|
 
   instance (Storable a, Reflect (IOVector a)) => Reflect (Vector a) where
     reflect = reflect <=< Vector.thaw
-#endif
+
   instance Interpretation a => Interpretation [a] where
     type Interp [a] = 'Array (Interp a)
 
