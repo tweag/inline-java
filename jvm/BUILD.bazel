@@ -5,7 +5,7 @@ load(
 
 haskell_library(
     name = "jvm",
-    srcs = glob(['src/**/*.hs']),
+    srcs = glob(['src/common/**/*.hs']),
     deps = [
         "//jni",
         "@stackage//:base",

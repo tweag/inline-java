@@ -18,7 +18,7 @@ flags:
   jni:
     linear-types: true
   jvm:
-    ghc-head: true
+    linear-types: true
 
 extra-deps:
 - constraints-0.11

@@ -18,15 +18,16 @@ source-repository head
   location: https://github.com/tweag/inline-java
   subdir: jvm
 
-flag ghc-head
-  description: Adjusts the configuration to build with ghc-head.
+flag linear-types
+  description: Build the linear types interface.
   default: False
 
 library
-  hs-source-dirs: src
+  hs-source-dirs: src/common
   exposed-modules:
     Language.Java
     Language.Java.Internal
+    Language.Java.Unsafe
   build-depends:
     base >=4.7 && <5,
     bytestring >=0.10,
@@ -37,7 +38,13 @@ library
     jni >=0.4.0 && <0.7,
     text >=1.2,
     vector >=0.11
-  if !flag(ghc-head)
+  if flag(linear-types)
+    hs-source-dirs: src/linear-types
+    exposed-modules:
+      Language.Java.Safe
+    build-depends:
+      linear-base ==0.1.0.0
+  else
     build-depends:
       singletons >=2.5
   default-language: Haskell2010
