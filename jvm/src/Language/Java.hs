@@ -43,6 +43,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StaticPointers #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -57,6 +58,8 @@ module Language.Java
   , withJVM
   -- * JVM calls
   , classOf
+  , getClass
+  , setGetClassFunction
   , new
   , newArray
   , toArray
@@ -94,6 +97,7 @@ import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
 import Data.Constraint (Dict(..))
 import Data.Int
+import Data.IORef
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, TypeRep, typeOf)
 import Data.Word
@@ -114,7 +118,7 @@ import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import GHC.TypeLits (KnownSymbol, symbolVal)
-import System.IO.Unsafe (unsafeDupablePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
 
 data Pop a where
   PopValue :: a -> Pop a
@@ -273,6 +277,30 @@ classOf
   -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
+-- | Sets the function to use for loading classes.
+--
+-- 'findClass' is used by default.
+--
+setGetClassFunction
+  :: (forall ty. IsReferenceType ty => Sing (ty :: JType) -> IO JClass)
+  -> IO ()
+setGetClassFunction f = writeIORef getClassFunctionRef $ GetClassFun f
+
+-- | Yields a class referece. It behaves as 'findClass' unless
+-- 'setGetClassFunction' is used.
+getClass :: IsReferenceType ty => Sing (ty :: JType) -> IO JClass
+getClass s = readIORef getClassFunctionRef >>= \(GetClassFun f) -> f s
+
+newtype GetClassFun =
+    GetClassFun (forall ty. IsReferenceType ty =>
+                   Sing (ty :: JType) -> IO JClass
+                )
+
+{-# NOINLINE getClassFunctionRef #-}
+getClassFunctionRef :: IORef GetClassFun
+getClassFunctionRef =
+    unsafePerformIO $ newIORef (GetClassFun (findClass . referenceTypeName))
+
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
 --
@@ -293,7 +321,7 @@ new args = do
     let argsings = map jtypeOf args
         voidsing = sing :: Sing 'Void
         klass = unsafeDupablePerformIO $ do
-          lk <- findClass (referenceTypeName (sing :: Sing ('Class sym)))
+          lk <- getClass (sing :: Sing ('Class sym))
           gk <- newGlobalRef lk
           deleteLocalRef lk
           return gk
@@ -331,7 +359,7 @@ newArray sz = do
         Nothing -> fail $ "newArray of " ++ show tysing
         Just Dict -> do
           let klass = unsafeDupablePerformIO $ do
-                lk <- findClass (referenceTypeName tysing)
+                lk <- getClass tysing
                 gk <- newGlobalRef lk
                 deleteLocalRef lk
                 return gk
@@ -368,7 +396,7 @@ call obj mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty2
         klass = unsafeDupablePerformIO $ do
-                  lk <- findClass (referenceTypeName (sing :: Sing ty1))
+                  lk <- getClass (sing :: Sing ty1)
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
                   return gk
@@ -400,8 +428,7 @@ callStatic cname mname args = do
     let argsings = map jtypeOf args
         retsing = sing :: Sing ty
         klass = unsafeDupablePerformIO $ do
-                  lk <- findClass
-                          (referenceTypeName (SClass (JNI.toChars cname)))
+                  lk <- getClass (SClass (JNI.toChars cname))
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
                   return gk
@@ -431,7 +458,7 @@ getStaticField
 getStaticField cname fname = do
   let retsing = sing :: Sing ty
       klass = unsafeDupablePerformIO $ do
-                lk <- findClass (referenceTypeName (SClass (JNI.toChars cname)))
+                lk <- getClass (SClass (JNI.toChars cname))
                 gk <- newGlobalRef lk
                 deleteLocalRef lk
                 return gk
@@ -559,8 +586,7 @@ withStatic [d|
   instance Reify Bool where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass
-                         (referenceTypeName (SClass "java.lang.Boolean"))
+              klass <- getClass (SClass "java.lang.Boolean")
               m <- getMethodID klass "booleanValue"
                      (methodSignature [] (SPrim "boolean"))
               deleteLocalRef klass
@@ -576,7 +602,7 @@ withStatic [d|
   instance Reify CChar where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass (referenceTypeName (SClass "java.lang.Byte"))
+              klass <- getClass (SClass "java.lang.Byte")
               m <- getMethodID klass "byteValue"
                      (methodSignature [] (SPrim "byte"))
               deleteLocalRef klass
@@ -592,7 +618,7 @@ withStatic [d|
   instance Reify Int16 where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass (referenceTypeName (SClass "java.lang.Short"))
+              klass <- getClass (SClass "java.lang.Short")
               m <- getMethodID klass "shortValue"
                      (methodSignature [] (SPrim "short"))
               deleteLocalRef klass
@@ -608,8 +634,7 @@ withStatic [d|
   instance Reify Int32 where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass
-                         (referenceTypeName (SClass "java.lang.Integer"))
+              klass <- getClass (SClass "java.lang.Integer")
               m <- getMethodID klass "intValue"
                      (methodSignature [] (SPrim "int"))
               deleteLocalRef klass
@@ -625,7 +650,7 @@ withStatic [d|
   instance Reify Int64 where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass (referenceTypeName (SClass "java.lang.Long"))
+              klass <- getClass (SClass "java.lang.Long")
               m <- getMethodID klass "longValue"
                      (methodSignature [] (SPrim "long"))
               deleteLocalRef klass
@@ -641,8 +666,7 @@ withStatic [d|
   instance Reify Word16 where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass
-                         (referenceTypeName (SClass "java.lang.Character"))
+              klass <- getClass (SClass "java.lang.Character")
               m <- getMethodID klass "charValue"
                      (methodSignature [] (SPrim "char"))
               deleteLocalRef klass
@@ -658,7 +682,7 @@ withStatic [d|
   instance Reify Double where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass (referenceTypeName (SClass "java.lang.Double"))
+              klass <- getClass (SClass "java.lang.Double")
               m <- getMethodID klass "doubleValue"
                      (methodSignature [] (SPrim "double"))
               deleteLocalRef klass
@@ -674,7 +698,7 @@ withStatic [d|
   instance Reify Float where
     reify jobj = do
         let method = unsafeDupablePerformIO $ do
-              klass <- findClass (referenceTypeName (SClass "java.lang.Float"))
+              klass <- getClass (SClass "java.lang.Float")
               m <- getMethodID klass "floatValue"
                      (methodSignature [] (SPrim "float"))
               deleteLocalRef klass
