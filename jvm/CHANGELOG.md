@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 
 * Added support for ghc-8.9.
+* Added `setGetClassFunction/getClass` to have _call_ functions
+  use other loading mechanisms than `findClass`.
 
 ### Removed
 
