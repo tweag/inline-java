@@ -28,7 +28,7 @@
 -- @
 --
 -- To call Java methods using quasiquoted Java syntax instead, see
--- "Language.Java.Inline.Linear".
+-- "Language.Java.Inline.Safe".
 --
 -- __NOTE 1:__ To use any function in this module, you'll need an initialized
 -- JVM in the current process, using 'withJVM' or otherwise.

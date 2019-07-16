@@ -12,7 +12,6 @@
 -- @
 -- {&#45;\# LANGUAGE DataKinds \#&#45;}
 -- {&#45;\# LANGUAGE QuasiQuotes \#&#45;}
--- {&#45;\# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin \#&#45;}
 -- module Object where
 --
 -- import Language.Java as J

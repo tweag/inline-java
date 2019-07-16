@@ -19,6 +19,7 @@ haskell_library(
     # at the same location when building with bazel as with stack.
     srcs = glob(['src/common/**/*.hs',
                  'src/common/**/*.hsc',
+                 'src/no-linear-types/**/*.hs',
                  'cbits/bctable.h',
                  'src/ghc-8.6/**/*.hs',
                  ]),
