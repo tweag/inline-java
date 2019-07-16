@@ -57,7 +57,8 @@ import Data.List (isPrefixOf, intercalate, isSuffixOf, nub)
 import Data.String (fromString)
 import Foreign.JNI (defineClass)
 import Language.Java
-import Language.Java.Inline.Magic
+import Language.Java.Inline.Magic as Magic
+import qualified Language.Java.Inline.QQMarker as QQMarker
 import qualified Language.Java.Lexer as Java
 import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH as TH
@@ -136,9 +137,9 @@ setIJState = TH.putQ
 --
 imports :: String -> Q [TH.Dec]
 imports imp = do
-    tJI <- [t| JavaImport |]
+    tJI <- [t| Magic.JavaImport |]
     lineNumber <- fromIntegral . fst . TH.loc_start <$> TH.location
-    expJI <- TH.lift (JavaImport imp lineNumber)
+    expJI <- TH.lift (Magic.JavaImport imp lineNumber)
     TH.addTopDecls
       -- {-# ANN module (JavaImport imp :: JavaImport) #-}
       [ TH.PragmaD $ TH.AnnP TH.ModuleAnnotation (TH.SigE expJI tJI) ]
@@ -161,14 +162,14 @@ loadJavaWrappers = doit `seq` return ()
       loader :: J ('Class "java.lang.ClassLoader") <- do
         thr <- callStatic "java.lang.Thread" "currentThread" []
         call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" []
-      forEachDotClass $ \DotClass{..} -> do
+      Magic.forEachDotClass $ \Magic.DotClass{..} -> do
         _ <- defineClass (referenceTypeName (SClass className)) loader classBytecode
         return ()
       pop
 
 mangle :: TH.Module -> String
 mangle (TH.Module (TH.PkgName pkgname) (TH.ModName mname)) =
-    mangleClassName pkgname mname
+    Magic.mangleClassName pkgname mname
 
 blockOrExpQQ :: String -> Q TH.Exp
 blockOrExpQQ txt@(words -> toks) -- ignore whitespace
@@ -194,7 +195,7 @@ blockQQ input = do
       thismod <- TH.thisModule
       lineNumber <- fromIntegral . fst . TH.loc_start <$> TH.location
       [| loadJavaWrappers >>
-         qqMarker
+         QQMarker.qqMarker
              (Proxy :: Proxy $(TH.litT $ TH.strTyLit input))
              (Proxy :: Proxy $(TH.litT $ TH.strTyLit mname))
              (Proxy :: Proxy $(TH.litT $ TH.strTyLit $ intercalate "," vnames))

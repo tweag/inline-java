@@ -24,7 +24,6 @@ module Language.Java.Inline.Magic
   , JavaImport(..)
   , forEachDotClass
   , mangleClassName
-  , qqMarker
   ) where
 
 import Control.Monad (forM_)
@@ -36,10 +35,7 @@ import Foreign.C.String (peekCString)
 import Foreign.C.Types (CSize)
 import Foreign.Ptr (Ptr, nullPtr, plusPtr)
 import Foreign.Storable
-import GHC.Stack (HasCallStack, withFrozenCallStack)
-import GHC.TypeLits (Nat, Symbol)
 import qualified Language.Haskell.TH.Syntax as TH
-import Language.Java (Coercible, Ty)
 
 #include "bctable.h"
 
@@ -85,32 +81,3 @@ forEachDotClass f = peek bctable >>= go
           let dc_sz = #{size struct inline_java_dot_class}
           f =<< peekDotClass (dcs_ptr `plusPtr` (i * dc_sz))
         #{peek struct inline_java_pack, next} tbl >>= go
-
--- | A function to mark the occurrence of java quasiquotations
-qqMarker
-  :: forall
-     k
-     (args_tys :: k)     -- JType's of arguments
-     tyres               -- JType of result
-     (input :: Symbol)   -- input string of the quasiquoter
-     (mname :: Symbol)   -- name of the method to generate
-     (antiqs :: Symbol)  -- antiquoted variables as a comma-separated list
-     (line :: Nat)       -- line number of the quasiquotation
-     args_tuple          -- uncoerced argument types
-     b.                  -- uncoerced result type
-     (tyres ~ Ty b, Coercibles args_tuple args_tys, Coercible b, HasCallStack)
-  => Proxy input
-  -> Proxy mname
-  -> Proxy antiqs
-  -> Proxy line
-  -> args_tuple
-  -> Proxy args_tys
-  -> IO b
-  -> IO b
-qqMarker _ _ _ _ _ = withFrozenCallStack $
-    error
-      "A quasiquotation marker was not removed. Please, report this as a bug."
-
-class Coercibles xs (tys :: k) | xs -> tys
-instance Coercibles () ()
-instance (ty ~ Ty x, Coercible x, Coercibles xs tys) => Coercibles (x, xs) '(ty, tys)

@@ -36,7 +36,9 @@ library
     Language.Java.Inline
     Language.Java.Inline.Cabal
     Language.Java.Inline.Plugin
+    Language.Java.Inline.QQMarker
   other-modules:
+    GhcPlugins.Extras
     FastString.Extras
     Language.Java.Inline.Magic
   build-depends:
