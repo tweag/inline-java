@@ -38,7 +38,7 @@ qqMarker
   -> Proxy line
   -> args_tuple
   -> Proxy args_tys
-  -> IO b
+  -> (args_tuple -> IO b)
   -> IO b
 qqMarker = withFrozenCallStack $
     error
