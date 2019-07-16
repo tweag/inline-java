@@ -51,40 +51,10 @@ module Language.Java.Inline
   , loadJavaWrappers
   ) where
 
-import Control.Monad (when)
-import Data.Data
-import Data.List (isPrefixOf, intercalate, isSuffixOf, nub)
-import Data.String (fromString)
-import Foreign.JNI (defineClass)
-import Language.Java
-import Language.Java.Inline.Magic as Magic
-import qualified Language.Java.Inline.QQMarker as QQMarker
-import qualified Language.Java.Lexer as Java
 import Language.Haskell.TH.Quote
-import qualified Language.Haskell.TH as TH
-import qualified Language.Haskell.TH.Syntax as TH
-import Language.Haskell.TH (Q)
-import System.IO.Unsafe (unsafePerformIO)
-
--- Implementation strategy
---
--- We know we'll need to declare a new wrapper (a Java static method), but we
--- don't know the types of the arguments nor the return type. So we first name
--- this method and generate a Haskell call to it at the quasiquotation site.
--- Then, we inject a call to 'qqMarker' which carries the needed types to the
--- plugin phase.
---
--- The plugin phase is implemented in Language.Java.Inline.Plugin. In this phase
--- we make a pass over the module Core to find all the occurrences of
--- 'qqMarker'. By this point the types of all the variables in the local scope
--- that was captured are fully determined. So we can analyze these types to
--- determine what the signature of the wrapper should be, in order to declare
--- it.
---
--- The last step is to ask the Java toolchain to produce .class bytecode from
--- our declarations. We embed this bytecode in the binary, adding a reference to
--- it in a global bytecode table. That way at runtime we can enumerate
--- the bytecode blobs, and load them into the JVM one by one.
+import Language.Java
+import Language.Java.Inline.Internal
+import qualified Language.Java.Inline.QQMarker as QQMarker
 
 -- | Java code quasiquoter. Example:
 --
@@ -107,108 +77,9 @@ import System.IO.Unsafe (unsafePerformIO)
 -- quasiquote, whose type is 'Coercible' to a Java primitive or reference type.
 --
 java :: QuasiQuoter
-java = QuasiQuoter
-    { quoteExp = \txt -> blockOrExpQQ txt
-    , quotePat  = error "Language.Java.Inline: quotePat"
-    , quoteType = error "Language.Java.Inline: quoteType"
-    , quoteDec  = error "Language.Java.Inline: quoteDec"
+java = javaWithConfig QQConfig
+    { qqMarker = 'QQMarker.qqMarker
+    , qqCallStatic = 'callStatic
+    , qqCoerce = 'coerce
+    , qqWrapMarker = \qExp -> [| loadJavaWrappers >> $qExp |]
     }
-
--- | Private newtype to key the TH state.
-newtype IJState = IJState { methodCount :: Integer }
-
-initialIJState :: IJState
-initialIJState = IJState 0
-
-getIJState :: Q IJState
-getIJState = TH.getQ >>= \case
-    Nothing -> do
-      TH.putQ initialIJState
-      return initialIJState
-    Just st -> return st
-
-setIJState :: IJState -> Q ()
-setIJState = TH.putQ
-
--- | Declares /import/ statements to be included in the java compilation unit.
--- e.g.
---
--- > imports "java.util.*"
---
-imports :: String -> Q [TH.Dec]
-imports imp = do
-    tJI <- [t| Magic.JavaImport |]
-    lineNumber <- fromIntegral . fst . TH.loc_start <$> TH.location
-    expJI <- TH.lift (Magic.JavaImport imp lineNumber)
-    TH.addTopDecls
-      -- {-# ANN module (JavaImport imp :: JavaImport) #-}
-      [ TH.PragmaD $ TH.AnnP TH.ModuleAnnotation (TH.SigE expJI tJI) ]
-    return []
-
--- | Yields the next method index. A different index is produced per call.
-nextMethodIdx :: Q Integer
-nextMethodIdx = do
-    ij <- getIJState
-    setIJState $ ij { methodCount = methodCount ij + 1 }
-    return $ methodCount ij
-
--- | Idempotent action that loads all wrappers in every module of the current
--- program into the JVM. You shouldn't need to call this yourself.
-loadJavaWrappers :: IO ()
-loadJavaWrappers = doit `seq` return ()
-  where
-    {-# NOINLINE doit #-}
-    doit = unsafePerformIO $ push $ do
-      loader :: J ('Class "java.lang.ClassLoader") <- do
-        thr <- callStatic "java.lang.Thread" "currentThread" []
-        call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" []
-      Magic.forEachDotClass $ \Magic.DotClass{..} -> do
-        _ <- defineClass (referenceTypeName (SClass className)) loader classBytecode
-        return ()
-      pop
-
-mangle :: TH.Module -> String
-mangle (TH.Module (TH.PkgName pkgname) (TH.ModName mname)) =
-    Magic.mangleClassName pkgname mname
-
-blockOrExpQQ :: String -> Q TH.Exp
-blockOrExpQQ txt@(words -> toks) -- ignore whitespace
-  | ["{"] `isPrefixOf` toks
-  , ["}"] `isSuffixOf` toks = blockQQ txt
-  | otherwise = expQQ txt
-
-expQQ :: String -> Q TH.Exp
-expQQ input = blockQQ $ "{ return " ++ input ++ "; }"
-
-blockQQ :: String -> Q TH.Exp
-blockQQ input = do
-      idx <- nextMethodIdx
-      when (idx == 0) $
-        TH.addCorePlugin "Language.Java.Inline.Plugin"
-      let mname = "inline__method_" ++ show idx
-          vnames = nub
-            [ n | Java.L _ (Java.IdentTok ('$' : n)) <- Java.lexer input ]
-          thnames = map TH.mkName vnames
-          thnames' = map TH.mkName (map ('_':) vnames)
-
-      -- Return a call to the static method we just generated.
-      let args = [ [| coerce $(TH.varE name) |]
-                 | name <- thnames'
-                 ]
-      thismod <- TH.thisModule
-      lineNumber <- fromIntegral . fst . TH.loc_start <$> TH.location
-      [| loadJavaWrappers >>
-         QQMarker.qqMarker
-             (Proxy :: Proxy $(TH.litT $ TH.strTyLit input))
-             (Proxy :: Proxy $(TH.litT $ TH.strTyLit mname))
-             (Proxy :: Proxy $(TH.litT $ TH.strTyLit $ intercalate "," vnames))
-             (Proxy :: Proxy $(TH.litT $ TH.numTyLit $ lineNumber))
-             $(return $ foldr (\a b -> TH.TupE [TH.VarE a, b]) (TH.TupE []) thnames)
-             Proxy
-             (\ $(return $ foldr (\a b -> TH.TupP [TH.VarP a, b]) (TH.TupP []) thnames') ->
-               callStatic
-               (fromString $(TH.stringE ("io.tweag.inlinejava." ++ mangle thismod)))
-               (fromString $(TH.stringE mname))
-               $(TH.listE args)
-             )
-             |]

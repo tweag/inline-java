@@ -35,6 +35,7 @@ library
   exposed-modules:
     Language.Java.Inline
     Language.Java.Inline.Cabal
+    Language.Java.Inline.Internal
     Language.Java.Inline.Plugin
     Language.Java.Inline.QQMarker
   other-modules:
