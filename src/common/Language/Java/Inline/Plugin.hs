@@ -11,27 +11,22 @@ module Language.Java.Inline.Plugin (plugin) where
 
 import Control.Applicative ((<|>))
 import Control.Monad.Writer hiding ((<>))
-import Convert (thRdrNameGuesses)
 import qualified Data.ByteString as BS
 import Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as Builder
 import Data.Char (chr, ord)
-import Data.Data (Data)
 import Data.List (find, intersperse, isSuffixOf)
-import Data.Maybe (mapMaybe)
-import Data.IORef (readIORef)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import ErrUtils (ghcExit)
 import FamInstEnv (normaliseType)
 import qualified FastString.Extras
 import Foreign.JNI.Types (JType(..))
 import GhcPlugins
-import IfaceEnv (lookupOrigNameCache)
+import qualified GhcPlugins.Extras
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Magic
-import NameCache (nsNames)
+import Language.Java.Inline.QQMarker
 import TyCoRep
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>), takeDirectory)
@@ -74,13 +69,14 @@ plugin = defaultPlugin
 
     qqPass :: [CommandLineOption] -> ModGuts -> CoreM ModGuts
     qqPass args guts = do
-      findTHName 'qqMarker >>= \case
+      GhcPlugins.Extras.findTHName 'qqMarker >>= \case
         -- If qqMarker cannot be found we assume the module does not use
         -- inline-java.
         Nothing -> return guts
         Just qqMarkerName -> do
           (binds, qqOccs) <- collectQQMarkers qqMarkerName (mg_binds guts)
-          let jimports = getModuleAnnotations guts :: [JavaImport]
+          let jimports =
+                GhcPlugins.Extras.getModuleAnnotations guts :: [JavaImport]
           dcs <- buildJava guts qqOccs jimports
                    >>= maybeDumpJava args
                    >>= buildBytecode args
@@ -162,7 +158,7 @@ buildJava guts qqOccs jimports = do
       jTypeNames <- findJTypeNames
       resty <- case toJavaType jTypeNames normty of
         Just resty -> return resty
-        Nothing -> failWith $ hsep
+        Nothing -> GhcPlugins.Extras.failWith $ hsep
           [ parens (text "line" <+> integer qqOccLineNumber) <> ":"
           , text "The result type of the quasiquotation"
           , quotes (ppr qqOccResTy)
@@ -201,7 +197,7 @@ buildJava guts qqOccs jimports = do
            (expandTypeSynonyms -> toJavaType jTypeNames -> Just jtype) =
       return $ mconcat
         ["final ", Builder.byteString jtype, " $", Builder.byteString name]
-    getArg _ line name t = failWith $ hsep
+    getArg _ line name t = GhcPlugins.Extras.failWith $ hsep
         [ parens (text "line" <+> integer line) <> ":"
         , quotes (ftext (mkFastStringByteString name) <+> "::" <+> ppr t)
         , text "is not sufficiently instantiated to infer a java type."
@@ -255,12 +251,12 @@ data JTypeNames = JTypeNames
 -- if they are used in the current module.
 findJTypeNames :: CoreM JTypeNames
 findJTypeNames = do
-    nameClass <- findTHName 'Class
-    nameIface <- findTHName 'Iface
-    nameArray <- findTHName 'Array
-    nameGeneric <- findTHName 'Generic
-    namePrim <- findTHName 'Prim
-    nameVoid <- findTHName 'Void
+    nameClass <- GhcPlugins.Extras.findTHName 'Class
+    nameIface <- GhcPlugins.Extras.findTHName 'Iface
+    nameArray <- GhcPlugins.Extras.findTHName 'Array
+    nameGeneric <- GhcPlugins.Extras.findTHName 'Generic
+    namePrim <- GhcPlugins.Extras.findTHName 'Prim
+    nameVoid <- GhcPlugins.Extras.findTHName 'Void
     return $ JTypeNames {..}
 
 -- | Produces a java type from a Core 'Type' if the type is sufficiently
@@ -384,7 +380,8 @@ collectQQMarkers qqMarkerName p0 = do
         , qqOccLineNumber = lineNumber
         }
       return e
-    expMarkers (Var fid) | qqMarkerName == idName fid = lift $ failWith $
+    expMarkers (Var fid) | qqMarkerName == idName fid =
+      lift $ GhcPlugins.Extras.failWith $
       text "inline-java Plugin: found invalid qqMarker."
     expMarkers (App e a) = App <$> expMarkers e <*> expMarkers a
     expMarkers (Lam b e) = Lam b <$> expMarkers e
@@ -459,34 +456,3 @@ cConstructors = vcat
     , text "static void hs_inline_java_init(void)"
     , text "{ inline_java_bctable = inline_java_new_pack(inline_java_bctable, dcs, dc_count); }"
     ]
-
---------------------------------------------
--- Candidates for addition to GhcPlugins
---------------------------------------------
-
--- | Produces a name in GHC Core from a Template Haskell name.
---
--- Yields Nothing if the name can't be found, which may happen if the
--- module defining the named thing hasn't been loaded.
-findTHName :: TH.Name -> CoreM (Maybe Name)
-findTHName th_name =
-    case thRdrNameGuesses th_name of
-      Orig m occ : _ -> do
-        hsc_env <- getHscEnv
-        nc <- liftIO $ readIORef (hsc_NC hsc_env)
-        return $ lookupOrigNameCache (nsNames nc) m occ
-      _ -> return Nothing
-
--- | Yields module annotations with values of the given type.
-getModuleAnnotations :: Data a => ModGuts -> [a]
-getModuleAnnotations guts =
-    mapMaybe (fromSerialized deserializeWithData)
-      [ v | Annotation (ModuleTarget _) v <- mg_anns guts ]
-
--- | Prints the given error message and terminates ghc.
-failWith :: SDoc -> CoreM a
-failWith m = do
-    errorMsg m
-    dflags <- getDynFlags
-    liftIO $ ghcExit dflags 1
-    return (error "ghcExit returned!?") -- unreachable
