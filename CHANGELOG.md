@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 * Added support for ghc-8.9.
 * Use TH.addCorePlugin instead of -fplugin.
+* Added an interface based on linear types (#127).
 
 ### Removed
 

@@ -26,7 +26,7 @@ import qualified GhcPlugins.Extras
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Internal.Magic
-import Language.Java.Inline.Internal.QQMarker
+import Language.Java.Inline.Internal.QQMarker.Names (getQQMarkers)
 import TyCoRep
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>), takeDirectory)
@@ -69,12 +69,12 @@ plugin = defaultPlugin
 
     qqPass :: [CommandLineOption] -> ModGuts -> CoreM ModGuts
     qqPass args guts = do
-      GhcPlugins.Extras.findTHName 'qqMarker >>= \case
-        -- If qqMarker cannot be found we assume the module does not use
+      getQQMarkers >>= \case
+        -- If qqMarkers cannot be found we assume the module does not use
         -- inline-java.
-        Nothing -> return guts
-        Just qqMarkerName -> do
-          (binds, qqOccs) <- collectQQMarkers qqMarkerName (mg_binds guts)
+        [] -> return guts
+        qqMarkerNames -> do
+          (binds, qqOccs) <- collectQQMarkers qqMarkerNames (mg_binds guts)
           let jimports =
                 GhcPlugins.Extras.getModuleAnnotations guts :: [JavaImport]
           dcs <- buildJava guts qqOccs jimports
@@ -349,8 +349,8 @@ type QQJavaM a = WriterT (Endo [QQOcc]) CoreM a
 -- > ...
 --
 collectQQMarkers
-  :: Name -> CoreProgram -> CoreM (CoreProgram, [QQOcc])
-collectQQMarkers qqMarkerName p0 = do
+  :: [Name] -> CoreProgram -> CoreM (CoreProgram, [QQOcc])
+collectQQMarkers qqMarkerNames p0 = do
     (p1, e) <- runWriterT (mapM bindMarkers p0)
     return (p1, appEndo e [])
   where
@@ -370,7 +370,7 @@ collectQQMarkers qqMarkerName p0 = do
                  _) _) _) _) _) _) _) _) _) _) args) _)
                  e
                )
-        | qqMarkerName == idName fid = do
+        | elem (idName fid) qqMarkerNames = do
       tell $ Endo $ (:) $ QQOcc
         { qqOccResTy = tyres
         , qqOccArgTys = tyargs
@@ -380,7 +380,7 @@ collectQQMarkers qqMarkerName p0 = do
         , qqOccLineNumber = lineNumber
         }
       return (App e args)
-    expMarkers (Var fid) | qqMarkerName == idName fid =
+    expMarkers (Var fid) | elem (idName fid) qqMarkerNames =
       lift $ GhcPlugins.Extras.failWith $
       text "inline-java Plugin: found invalid qqMarker."
     expMarkers (App e a) = App <$> expMarkers e <*> expMarkers a
