@@ -59,7 +59,7 @@ import Data.List (isPrefixOf, intercalate, isSuffixOf, nub)
 import Data.String (fromString)
 import Foreign.JNI (defineClass)
 import Language.Java
-import Language.Java.Inline.Magic as Magic
+import Language.Java.Inline.Internal.Magic as Magic
 import qualified Language.Java.Lexer as Java
 import Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH as TH

@@ -25,8 +25,8 @@ import GhcPlugins
 import qualified GhcPlugins.Extras
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
-import Language.Java.Inline.Magic
-import Language.Java.Inline.QQMarker
+import Language.Java.Inline.Internal.Magic
+import Language.Java.Inline.Internal.QQMarker
 import TyCoRep
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>), takeDirectory)

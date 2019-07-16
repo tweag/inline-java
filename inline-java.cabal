@@ -36,12 +36,12 @@ library
     Language.Java.Inline
     Language.Java.Inline.Cabal
     Language.Java.Inline.Internal
+    Language.Java.Inline.Internal.Magic
+    Language.Java.Inline.Internal.QQMarker
     Language.Java.Inline.Plugin
-    Language.Java.Inline.QQMarker
   other-modules:
     GhcPlugins.Extras
     FastString.Extras
-    Language.Java.Inline.Magic
   build-depends:
     -- Can't build at all with GHC < 8.0.2.
     base >4.9.0.0 && <5,

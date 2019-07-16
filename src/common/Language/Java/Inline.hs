@@ -54,7 +54,7 @@ module Language.Java.Inline
 import Language.Haskell.TH.Quote
 import Language.Java
 import Language.Java.Inline.Internal
-import qualified Language.Java.Inline.QQMarker as QQMarker
+import qualified Language.Java.Inline.Internal.QQMarker as QQMarker
 
 -- | Java code quasiquoter. Example:
 --
