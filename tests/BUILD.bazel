@@ -5,7 +5,7 @@ load(
 
 haskell_test(
     name = "spec",
-    srcs = glob(["**/*.hs"]),
+    srcs = glob(["common/**/*.hs", "no-linear-types/**/*.hs"]),
     extra_srcs = ["@openjdk//:rpath"],
     compiler_flags = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
