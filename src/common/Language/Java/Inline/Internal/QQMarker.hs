@@ -7,7 +7,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Language.Java.Inline.QQMarker where
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
+module Language.Java.Inline.Internal.QQMarker where
 
 import Data.Proxy
 import GHC.Stack (HasCallStack, withFrozenCallStack)
