@@ -367,7 +367,7 @@ collectQQMarkers qqMarkerName p0 = do
                  (Type (LitTy (StrTyLit fs_mname))))
                  (Type (LitTy (StrTyLit fs_antiqs))))
                  (Type (LitTy (NumTyLit lineNumber))))
-                 _) _) _) _) _) _) _) _) _) _) _) _)
+                 _) _) _) _) _) _) _) _) _) _) args) _)
                  e
                )
         | qqMarkerName == idName fid = do
@@ -379,7 +379,7 @@ collectQQMarkers qqMarkerName p0 = do
         , qqOccAntiQs = FastString.Extras.bytesFS fs_antiqs
         , qqOccLineNumber = lineNumber
         }
-      return e
+      return (App e args)
     expMarkers (Var fid) | qqMarkerName == idName fid =
       lift $ GhcPlugins.Extras.failWith $
       text "inline-java Plugin: found invalid qqMarker."

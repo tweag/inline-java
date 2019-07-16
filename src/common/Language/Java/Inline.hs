@@ -189,9 +189,12 @@ blockQQ input = do
           vnames = nub
             [ n | Java.L _ (Java.IdentTok ('$' : n)) <- Java.lexer input ]
           thnames = map TH.mkName vnames
+          thnames' = map TH.mkName (map ('_':) vnames)
 
       -- Return a call to the static method we just generated.
-      let args = [ [| coerce $(TH.varE name) |] | name <- thnames ]
+      let args = [ [| coerce $(TH.varE name) |]
+                 | name <- thnames'
+                 ]
       thismod <- TH.thisModule
       lineNumber <- fromIntegral . fst . TH.loc_start <$> TH.location
       [| loadJavaWrappers >>
@@ -202,7 +205,10 @@ blockQQ input = do
              (Proxy :: Proxy $(TH.litT $ TH.numTyLit $ lineNumber))
              $(return $ foldr (\a b -> TH.TupE [TH.VarE a, b]) (TH.TupE []) thnames)
              Proxy
-             (callStatic
-             (fromString $(TH.stringE ("io.tweag.inlinejava." ++ mangle thismod)))
-             (fromString $(TH.stringE mname))
-             $(TH.listE args)) |]
+             (\ $(return $ foldr (\a b -> TH.TupP [TH.VarP a, b]) (TH.TupP []) thnames') ->
+               callStatic
+               (fromString $(TH.stringE ("io.tweag.inlinejava." ++ mangle thismod)))
+               (fromString $(TH.stringE mname))
+               $(TH.listE args)
+             )
+             |]
