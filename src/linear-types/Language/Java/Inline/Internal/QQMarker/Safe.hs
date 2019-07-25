@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -14,7 +15,6 @@ import Data.Proxy
 import GHC.Stack (HasCallStack, withFrozenCallStack)
 import GHC.TypeLits (Nat, Symbol)
 import qualified Language.Java.Safe as Safe
-import qualified System.IO.Linear as Linear
 
 -- | A function to indicate to the plugin the occurrence
 -- of java quasiquotations
@@ -28,7 +28,8 @@ qqMarker
      (antiqs :: Symbol)  -- antiquoted variables as a comma-separated list
      (line :: Nat)       -- line number of the quasiquotation
      args_tuple          -- uncoerced argument types
-     b.                  -- uncoerced result type
+     b                   -- uncoerced result type
+     m.
      ( tyres ~ Safe.Ty b
      , Coercibles args_tuple args_tys
      , Safe.Coercible b
@@ -40,8 +41,8 @@ qqMarker
   -> Proxy line
   -> args_tuple
   ->. Proxy args_tys
-  -> (args_tuple ->. Linear.IO b)
-  ->. Linear.IO b
+  -> (args_tuple ->. m b)
+  ->. m b
 qqMarker = withFrozenCallStack $
     error
       "A quasiquotation marker was not removed. Please, report this as a bug."

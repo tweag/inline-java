@@ -84,6 +84,7 @@ module Language.Java.Safe
   ) where
 
 import Control.Exception (evaluate)
+import Control.Monad.IO.Class.Linear (MonadIO, liftIO, liftIOU)
 import Control.Monad.Linear hiding ((<$>))
 import Data.ByteString (ByteString)
 import qualified Data.Choice as Choice
@@ -105,7 +106,6 @@ import GHC.TypeLits (KnownSymbol, symbolVal)
 
 import qualified Language.Java as Java
 import qualified Language.Java.Internal as Java
-import qualified System.IO.Linear as Linear
 import Prelude ((.))
 import qualified Prelude
 import Prelude.Linear hiding ((.))
@@ -223,11 +223,11 @@ classOf = Unsafe.toLinear $ \x -> (,) x $
 --    return x
 -- @
 new
-  :: forall a sym.
-     (Ty a ~ 'Class sym, Coercible a)
+  :: forall a sym m.
+     (Ty a ~ 'Class sym, Coercible a, MonadIO m)
   => [JValue]
-  ->. Linear.IO a
-new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ Linear.fromSystemIO $
+  ->. m a
+new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$
     JObject . J <$> Java.newJ @sym (toJNIJValues args)
       Prelude.<* deleteLinearJObjects args
 
@@ -241,16 +241,16 @@ new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ Linear.fromSystemIO $
 -- do arr :: 'J' (''Array' (''Prim' "boolean")) <- 'newArray' 50
 --    return arr
 -- @
-newArray :: forall ty. SingI ty => Int32 -> Linear.IO (J ('Array ty))
-newArray sz = Linear.fromSystemIO $ J <$> Java.newArray sz
+newArray :: (MonadIO m, SingI ty) => Int32 -> m (J ('Array ty))
+newArray sz = liftIO (J <$> Java.newArray sz)
 
 -- | Creates an array from a list of references.
 toArray
-  :: forall ty. (SingI ty, IsReferenceType ty)
+  :: (SingI ty, IsReferenceType ty, MonadIO m)
   => [J ty]
-  ->. Linear.IO ([J ty], J ('Array ty))
+  ->. m ([J ty], J ('Array ty))
 toArray = Unsafe.toLinear $ \xs ->
-  Linear.fromSystemIO $ (,) xs . J <$> Java.toArray (Coerce.coerce xs)
+  liftIO ((,) xs . J <$> Java.toArray (Coerce.coerce xs))
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
 -- any data type coercible to one, the name of a method, and a list of
@@ -262,20 +262,21 @@ toArray = Unsafe.toLinear $ \xs ->
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
 call
-  :: forall a b ty1 ty2.
+  :: forall a b ty1 ty2 m.
      ( ty1 ~ Ty a
      , ty2 ~ Ty b
      , IsReferenceType ty1
      , Coercible a
      , Coercible b
      , Coerce.Coercible a (J ty1)
+     , MonadIO m
      )
   => a -- ^ Any object or value 'Coercible' to one
   ->. JNI.String -- ^ Method name
   ->. [JValue] -- ^ Arguments
-  ->. Linear.IO b
+  ->. m b
 call = Unsafe.toLinear3 $ \obj mname args ->
-    Linear.fromSystemIO $ strictUnsafeUncoerce Prelude.$ do
+    liftIO Prelude.$ strictUnsafeUncoerce Prelude.$ do
       fromJNIJValue <$>
         Java.callToJValue @ty1
           (sing :: Sing ty1) (Coerce.coerce obj) mname (toJNIJValues args)
@@ -291,25 +292,25 @@ fromJNIJValue = \case
 
 -- | Same as 'call', but for static methods.
 callStatic
-  :: forall a ty. (ty ~ Ty a, Coercible a)
+  :: forall a ty m. (ty ~ Ty a, Coercible a, MonadIO m)
   => JNI.String -- ^ Class name
   ->. JNI.String -- ^ Method name
   ->. [JValue] -- ^ Arguments
-  ->. Linear.IO a
+  ->. m a
 callStatic = Unsafe.toLinear3 $ \cname mname args ->
-    Linear.fromSystemIO $ strictUnsafeUncoerce Prelude.$
+    liftIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
       Java.callStaticToJValue (sing :: Sing ty) cname mname (toJNIJValues args)
         Prelude.<* deleteLinearJObjects args
 
 -- | Get a static field.
 getStaticField
-  :: forall a ty. (ty ~ Ty a, Coercible a)
+  :: forall a ty m. (ty ~ Ty a, Coercible a, MonadIO m)
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Static field name
-  -> Linear.IO a
+  -> m a
 getStaticField cname fname =
-    Linear.fromSystemIO $ strictUnsafeUncoerce Prelude.$
+    liftIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
         Java.getStaticFieldAsJValue (sing :: Sing ty) cname fname
 
@@ -340,18 +341,17 @@ class (SingI (Interp a), IsReferenceType (Interp a)) => Interpretation (a :: k) 
 class Interpretation a => Reify a where
   -- | Invariant: The result and the argument share no direct JVM object
   -- references.
-  reify :: J (Interp a) ->. Linear.IO (J (Interp a), Unrestricted a)
+  reify :: MonadIO m => J (Interp a) ->. m (J (Interp a), Unrestricted a)
 
   default reify
-    :: (Java.Coercible a, Interp a ~ Java.Ty a)
+    :: (Java.Coercible a, Interp a ~ Java.Ty a, MonadIO m)
     => J (Interp a)
-    ->. Linear.IO (J (Interp a), Unrestricted a)
-  reify = Unsafe.toLinear $ \x -> fmap ((,) x)
-      (Linear.fromSystemIOU
-        (Java.unsafeUncoerce . Java.JObject <$> JNI.newLocalRef (unJ x))
-      )
+    ->. m (J (Interp a), Unrestricted a)
+  reify = Unsafe.toLinear $ \x -> fmap ((,) x) $
+      liftIOU Prelude.$
+        Java.unsafeUncoerce . Java.JObject <$> JNI.newLocalRef (unJ x)
 
-reify_ :: Reify a => J (Interp a) ->. Linear.IO (Unrestricted a)
+reify_ :: (Reify a, MonadIO m) => J (Interp a) ->. m (Unrestricted a)
 reify_ _j = reify _j >>= \(_j, a) -> a <$ deleteLocalRef _j
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
@@ -360,30 +360,30 @@ reify_ _j = reify _j >>= \(_j, a) -> a <$ deleteLocalRef _j
 class Interpretation a => Reflect a where
   -- | Invariant: The result and the argument share no direct JVM object
   -- references.
-  reflect :: a -> Linear.IO (J (Interp a))
+  reflect :: MonadIO m => a -> m (J (Interp a))
 
   default reflect
-    :: (Java.Coercible a, Interp a ~ Java.Ty a)
+    :: (Java.Coercible a, Interp a ~ Java.Ty a, MonadIO m)
     => a
-    -> Linear.IO (J (Interp a))
-  reflect x = Linear.fromSystemIO (J <$> JNI.newLocalRef (Java.jobject x))
+    -> m (J (Interp a))
+  reflect x = liftIO (J <$> JNI.newLocalRef (Java.jobject x))
 
 instance (SingI ty, IsReferenceType ty) => Interpretation (Java.J ty) where type Interp (Java.J ty) = ty
 instance Interpretation (Java.J ty) => Reify (Java.J ty)
 instance Interpretation (Java.J ty) => Reflect (Java.J ty)
 
 javaReify
-  :: (Java.Interp a ~ Interp a, Java.Reify a)
+  :: (Java.Interp a ~ Interp a, Java.Reify a, MonadIO m)
   => J (Interp a)
-  ->. Linear.IO (J (Interp a), Unrestricted a)
+  ->. m (J (Interp a), Unrestricted a)
 javaReify = Unsafe.toLinear $ \j ->
-    Linear.fromSystemIO ((,) j . Unrestricted <$> Java.reify (unJ j))
+    liftIO ((,) j . Unrestricted <$> Java.reify (unJ j))
 
 javaReflect
-  :: (Java.Interp a ~ Interp a, Java.Reflect a)
+  :: (Java.Interp a ~ Interp a, Java.Reflect a, MonadIO m)
   => a
-  -> Linear.IO (J (Interp a))
-javaReflect a = fmap J $ Linear.fromSystemIO (Java.reflect a)
+  -> m (J (Interp a))
+javaReflect a = fmap J $ liftIO (Java.reflect a)
 
 instance Interpretation () where type Interp () = Java.Interp ()
 instance Reify () where reify = javaReify
