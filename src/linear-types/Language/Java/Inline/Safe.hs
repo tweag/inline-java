@@ -45,12 +45,12 @@ module Language.Java.Inline.Safe
   , Java.loadJavaWrappers
   ) where
 
+import qualified Control.Monad.IO.Class.Linear as Linear
 import qualified Control.Monad.Linear as Linear
 import Language.Haskell.TH.Quote
 import qualified Language.Java.Inline.Internal as Java
 import qualified Language.Java.Inline.Internal.QQMarker.Safe as Safe
 import qualified Language.Java.Safe as Safe
-import qualified System.IO.Linear as Linear
 
 -- | Java code quasiquoter. Example:
 --
@@ -78,5 +78,5 @@ java = Java.javaWithConfig Java.QQConfig
     , Java.qqCallStatic = 'Safe.callStatic
     , Java.qqCoerce = 'Safe.coerce
     , Java.qqWrapMarker = \qExp ->
-        [| Linear.fromSystemIO loadJavaWrappers Linear.>> $qExp |]
+        [| Linear.liftIO loadJavaWrappers Linear.>> $qExp |]
     }
