@@ -28,7 +28,8 @@ qqMarker
      (antiqs :: Symbol)  -- antiquoted variables as a comma-separated list
      (line :: Nat)       -- line number of the quasiquotation
      args_tuple          -- uncoerced argument types
-     b.                  -- uncoerced result type
+     b                   -- uncoerced result type
+     m.
      ( tyres ~ Ty b
      , Coercibles args_tuple args_tys
      , Coercible b
@@ -40,8 +41,8 @@ qqMarker
   -> Proxy line
   -> args_tuple
   -> Proxy args_tys
-  -> (args_tuple -> IO b)
-  -> IO b
+  -> (args_tuple -> m b)
+  -> m b
 qqMarker = withFrozenCallStack $
     error
       "A quasiquotation marker was not removed. Please, report this as a bug."
