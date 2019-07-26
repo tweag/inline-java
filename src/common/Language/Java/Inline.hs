@@ -12,7 +12,6 @@
 -- @
 -- {&#45;\# LANGUAGE DataKinds \#&#45;}
 -- {&#45;\# LANGUAGE QuasiQuotes \#&#45;}
--- {&#45;\# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin \#&#45;}
 -- module Object where
 --
 -- import Language.Java as J
@@ -52,6 +51,7 @@ module Language.Java.Inline
   , loadJavaWrappers
   ) where
 
+import Control.Monad (when)
 import Data.Data
 import Data.List (isPrefixOf, intercalate, isSuffixOf, nub)
 import Data.String (fromString)
@@ -88,7 +88,6 @@ import System.IO.Unsafe (unsafePerformIO)
 -- | Java code quasiquoter. Example:
 --
 -- @
--- {-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 -- imports "javax.swing.JOptionPane"
 --
 -- hello :: IO ()
@@ -183,6 +182,8 @@ expQQ input = blockQQ $ "{ return " ++ input ++ "; }"
 blockQQ :: String -> Q TH.Exp
 blockQQ input = do
       idx <- nextMethodIdx
+      when (idx == 0) $
+        TH.addCorePlugin "Language.Java.Inline.Plugin"
       let mname = "inline__method_" ++ show idx
           vnames = nub
             [ n | Java.L _ (Java.IdentTok ('$' : n)) <- Java.lexer input ]

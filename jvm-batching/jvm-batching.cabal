@@ -49,7 +49,6 @@ library
     singletons >= 2.2,
     text,
     vector
-  ghc-options: -fplugin=Language.Java.Inline.Plugin
 
 test-suite spec
   type:

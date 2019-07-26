@@ -108,9 +108,8 @@ qqMarker
   -> IO b
   -> IO b
 qqMarker _ _ _ _ _ = withFrozenCallStack $
-    error $
-      "Please pass -fplugin=Language.Java.Inline.Plugin"
-      ++ " to ghc when building this module."
+    error
+      "A quasiquotation marker was not removed. Please, report this as a bug."
 
 class Coercibles xs (tys :: k) | xs -> tys
 instance Coercibles () ()

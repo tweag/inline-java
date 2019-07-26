@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 
 * Added support for ghc-8.9.
+* Use TH.addCorePlugin instead of -fplugin.
 
 ### Removed
 

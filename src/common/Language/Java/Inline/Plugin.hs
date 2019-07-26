@@ -62,7 +62,15 @@ plugin = defaultPlugin
   where
     install :: [CommandLineOption] -> [CoreToDo] -> CoreM [CoreToDo]
     install args todo = do
-      return (CoreDoPluginPass "inline-java" (qqPass args) : todo)
+      let passName = "inline-java"
+      if inTodo passName todo then return todo
+      else return (CoreDoPluginPass passName (qqPass args) : todo)
+
+    inTodo :: String -> [CoreToDo] -> Bool
+    inTodo name = \case
+      CoreDoPluginPass n _ : xs -> n == name || inTodo name xs
+      _ : xs -> inTodo name xs
+      [] -> False
 
     qqPass :: [CommandLineOption] -> ModGuts -> CoreM ModGuts
     qqPass args guts = do
