@@ -19,7 +19,7 @@ let
 in
 haskell.lib.buildStackProject ({
   name = "inline-java";
-  buildInputs = [ git openjdk gradle ];
+  buildInputs = [ git openjdk gradle zlib ];
   ghc = pkgs.haskell.compiler.ghcLinearTypes20190613;
   # XXX Workaround https://ghc.haskell.org/trac/ghc/ticket/11042.
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
