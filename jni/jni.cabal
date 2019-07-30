@@ -69,7 +69,7 @@ test-suite spec
     base,
     hspec,
     jni
-  if !flag(linear-types)
+  if !flag(ghc-head)
     build-depends:
       singletons
   default-language: Haskell2010
