@@ -135,7 +135,7 @@ jobs:
           name: Test
           command: |
             . env-linear.sh
-            stack --no-terminal test jvm inline-java
+            stack --no-terminal test jni jvm inline-java
 
 workflows:
   version: 2
