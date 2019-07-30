@@ -178,6 +178,7 @@ module Foreign.JNI
   , attachCurrentThreadAsDaemon
   , detachCurrentThread
   , runInAttachedThread
+  , ThreadNotAttached(..)
   ) where
 
 import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
@@ -369,7 +370,7 @@ detachCurrentThread =
 runInAttachedThread :: IO a -> IO a
 runInAttachedThread io = do
     attached <-
-      catch (getJNIEnv >> return True) (\ThreadNotBound -> return False)
+      catch (getJNIEnv >> return True) (\ThreadNotAttached -> return False)
     if attached
     then io
     else bracket_

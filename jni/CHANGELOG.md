@@ -14,6 +14,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 * Removed support for ghc < 8.2.1
 
+### Changed
+
+* Fixed runInAttachedThread which would otherwise throw an exception
+  everytime it was called.
+
 ## [0.6.1] - 2018-07-11
 
 ShowSing JType instance to build with singletons-2.4.
