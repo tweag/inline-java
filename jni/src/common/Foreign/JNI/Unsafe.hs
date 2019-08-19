@@ -12,6 +12,11 @@
 --
 -- The 'String' type in this module is the type of JNI strings. See
 -- "Foreign.JNI.String".
+--
+-- The functions in this module are considered unsafe in opposition
+-- to those in "Foreign.JNI.Safe", which ensure that local references are not
+-- leaked.
+--
 
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
