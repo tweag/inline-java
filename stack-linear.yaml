@@ -16,7 +16,7 @@ packages:
 
 flags:
   jni:
-    ghc-head: true
+    linear-types: true
   jvm:
     ghc-head: true
 
@@ -41,6 +41,8 @@ extra-deps:
   - inline-c
 - git: https://github.com/facundominguez/distributed-closure
   commit: a1c6780d8729a3e1091e18eddf0cb6dc977e325e
+- git: https://github.com/tweag/linear-base
+  commit: bdd1b9d0b7f24f9d1c6e27681238bbd3bc4d1e28
 
 docker:
   enable: false
