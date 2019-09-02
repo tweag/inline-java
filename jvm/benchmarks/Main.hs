@@ -8,8 +8,9 @@ module Main where
 
 import Control.DeepSeq (NFData(..))
 import Criterion.Main as Criterion
-import Control.Monad (replicateM_, void)
+import Control.Monad (replicateM, replicateM_, void)
 import Data.Int
+import Data.IORef
 import Data.Singletons (SomeSing(..))
 import qualified Data.Text.Foreign as Text
 import Data.Word
@@ -140,6 +141,41 @@ benchNew =
       return $ Box (dst, fromIntegral len)
     freeTextPtr (Box (p, _)) = free p
 
+benchArrays :: Benchmark
+benchArrays =
+    bgroup "Arrays" $ (`map` [128, 256, 512]) $ \size ->
+    let n :: Num b => b
+        n = fromIntegral (size :: Int) in
+    env (Box <$> mallocArray n) $ \ ~(Box bytes) ->
+    env (Box <$> newArray n) $ \ ~(Box jbytes) ->
+    bgroup (show n)
+    [ bench "getByteArrayElements" $
+      perBatchEnvWithCleanup (\_ -> newIORef []) (const cleanArrays) $
+      \ref -> do
+        p <- getByteArrayElements jbytes
+        modifyIORef ref ((jbytes, p) :)
+    , bench "releaseByteArrayElements" $
+      perBatchEnv
+        (\size ->
+           replicateM (fromIntegral size) (getByteArrayElements jbytes)
+           >>= newIORef
+        ) $
+      \ref -> do
+         arrays <- readIORef ref
+         case arrays of
+           x : xs -> do
+             releaseByteArrayElements jbytes x
+             writeIORef ref xs
+           _ -> error "not enough arrays"
+    , bench "getByteArrayRegion" $ nfIO $
+         getByteArrayRegion jbytes 0 n bytes
+    , bench "setByteArrayRegion" $ nfIO $
+         setByteArrayRegion jbytes 0 n bytes
+    ]
+  where
+    cleanArrays ref =
+      readIORef ref >>= mapM_ (uncurry releaseByteArrayElements)
+
 main :: IO ()
 main = withJVM [] $ do
-    Criterion.defaultMain [benchCalls, benchRefs, benchNew]
+    Criterion.defaultMain [benchCalls, benchRefs, benchNew, benchArrays]
