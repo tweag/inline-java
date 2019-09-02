@@ -8,13 +8,17 @@ module Main where
 
 import Control.DeepSeq (NFData(..))
 import Criterion.Main as Criterion
-import Control.Monad (replicateM_)
+import Control.Monad (replicateM_, void)
 import Data.Int
 import Data.Singletons (SomeSing(..))
+import qualified Data.Text.Foreign as Text
+import Data.Word
 import qualified Foreign.Concurrent as Concurrent
 import qualified Foreign.ForeignPtr as ForeignPtr
 import Foreign.JNI
-import Foreign.Marshal.Alloc (mallocBytes, finalizerFree)
+import Foreign.Marshal.Alloc (mallocBytes, finalizerFree, free)
+import Foreign.Marshal.Array (callocArray, mallocArray)
+import Foreign.Ptr (Ptr)
 import Language.Java
 
 newtype Box a = Box { unBox :: a }
@@ -104,6 +108,38 @@ benchRefs =
         replicateM_ 30 $ newLocalRef jobj >>= deleteLocalRef
     ]
 
+benchNew :: Benchmark
+benchNew =
+    bgroup "new"
+    [ bench "Integer" $
+      perBatchEnvWithCleanup
+        (pushLocalFrame . (2*) . fromIntegral)
+        (\_ _ -> void (popLocalFrame jnull)) $
+        \() -> do
+          _ <- new [JInt 2] :: IO (J ('Class "java.lang.Integer"))
+          return ()
+    , envWithCleanup allocTextPtr freeTextPtr $ \ ~(Box (ptr, len)) ->
+      bench "newString" $
+      perBatchEnvWithCleanup
+        (pushLocalFrame . (2*) . fromIntegral)
+        (\_ _ -> void (popLocalFrame jnull)) $
+        \() ->
+          void $ newString ptr (fromIntegral len)
+    , envWithCleanup allocTextPtr freeTextPtr $ \ ~(Box (ptr, len)) ->
+      bench "newArray" $
+      perBatchEnvWithCleanup
+        (pushLocalFrame . (2*) . fromIntegral)
+        (\_ _ -> void (popLocalFrame jnull)) $
+        \() ->
+          void $ newByteArray (fromIntegral len)
+    ]
+  where
+    allocTextPtr = do
+      let len = 128
+      dst <- callocArray len
+      return $ Box (dst, fromIntegral len)
+    freeTextPtr (Box (p, _)) = free p
+
 main :: IO ()
 main = withJVM [] $ do
-    Criterion.defaultMain [benchCalls, benchRefs]
+    Criterion.defaultMain [benchCalls, benchRefs, benchNew]
