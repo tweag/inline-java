@@ -17,13 +17,11 @@ import Foreign.JNI
 import Foreign.Marshal.Alloc (mallocBytes, finalizerFree)
 import Language.Java
 
-newtype BoxObject = BoxObject JObject
-newtype BoxClass = BoxClass JClass
+newtype Box a = Box { unBox :: a }
 
 -- Not much sense in deepseq'ing foreign pointers. But needed for call to 'env'
 -- below.
-instance NFData BoxObject where rnf (BoxObject (J fptr)) = fptr `seq` ()
-instance NFData BoxClass where rnf (BoxClass (J fptr)) = fptr `seq` ()
+instance NFData (Box a) where rnf (Box a) = seq a ()
 
 jabs :: Int32 -> IO Int32
 jabs x = callStatic "java.lang.Math" "abs" [coerce x]
@@ -49,7 +47,7 @@ foreign import ccall unsafe getpid :: IO Int
 
 benchCalls :: Benchmark
 benchCalls =
-    env ini $ \ ~(BoxClass klass, method) ->
+    env ini $ \ ~(Box klass, method) ->
       bgroup "Calls"
       [ bgroup "Java calls"
         [ bench "static method call: unboxed single arg / unboxed return" $ nfIO $ jabs 1
@@ -66,11 +64,11 @@ benchCalls =
     ini = do
       klass <- findClass (referenceTypeName (SClass "java/lang/Math"))
       method <- getStaticMethodID klass "abs" (methodSignature [SomeSing (sing :: Sing ('Prim "int"))] (SPrim "int"))
-      return (BoxClass klass, method)
+      return (Box klass, method)
 
 benchRefs :: Benchmark
 benchRefs =
-    env (BoxObject <$> new []) $ \ ~(BoxObject jobj) ->
+    env (Box <$> new []) $ \ ~(Box (jobj :: JObject)) ->
     bgroup "References"
     [ bench "local reference" $ nfIO $ do
         _ <- newLocalRef jobj
