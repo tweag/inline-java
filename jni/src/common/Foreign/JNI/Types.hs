@@ -61,6 +61,7 @@ module Foreign.JNI.Types
   , JFloatArray
   , JDoubleArray
   , JThrowable
+  , JBuffer
   -- * inline-c contexts
   , jniCtx
   ) where
@@ -381,6 +382,7 @@ type JIntArray = JArray ('Prim "int")
 type JLongArray = JArray ('Prim "long")
 type JFloatArray = JArray ('Prim "float")
 type JDoubleArray = JArray ('Prim "double")
+type JBuffer = J ('Class "java.nio.Buffer")
 
 jniCtx :: Context
 jniCtx = mempty { ctxTypesTable = Map.fromList tytab } <> fptrCtx

@@ -192,6 +192,11 @@ module Foreign.JNI.Unsafe
   , detachCurrentThread
   , runInAttachedThread
   , ThreadNotAttached(..)
+    -- * NIO support
+  , DirectBufferFailed(..)
+  , newDirectByteBuffer
+  , getDirectBufferAddress
+  , getDirectBufferCapacity
   ) where
 
 import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
@@ -218,7 +223,7 @@ import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array
-import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.Ptr (Ptr, castPtr, nullPtr)
 import Foreign.Storable (peek)
 import GHC.ForeignPtr (newConcForeignPtr)
 import GHC.Stack (HasCallStack, callStack, getCallStack, prettySrcLoc)
@@ -253,6 +258,11 @@ instance Exception JVMException
 data ArrayCopyFailed = ArrayCopyFailed
   deriving (Exception, Show, Typeable)
 
+-- Thrown when @NewDirectByteBuffer@ or @GetDirectBufferAddress@ returns NULL,
+-- and when @GetDirectBufferCapacity@ return @-1@.
+data DirectBufferFailed = DirectBufferFailed
+  deriving (Exception, Show, Typeable)
+
 -- | A null reference is found where a non-null reference was expected.
 data NullPointerException = NullPointerException
   deriving (Exception, Show, Typeable)
@@ -281,11 +291,11 @@ throwIfException env m = m `finally` do
       throwIO . JVMException =<< newGlobalRef =<< objectFromPtr excptr
 
 -- | Check whether a pointer is null.
-throwIfNull :: IO (Ptr a) -> IO (Ptr a)
-throwIfNull m = do
+throwIfNull :: Exception e => e -> IO (Ptr a) -> IO (Ptr a)
+throwIfNull e m = do
     ptr <- m
     if ptr == nullPtr
-    then throwIO ArrayCopyFailed
+    then throwIO e
     else return ptr
 
 -- | Throws an error if the given reference is null, otherwise performs
@@ -892,7 +902,7 @@ getStringLength jstr = throwIfJNull jstr $ withJNIEnv $ \env ->
 get/**/name/**/ArrayElements :: J/**/name/**/Array -> IO (Ptr hs_rettype); \
 get/**/name/**/ArrayElements (upcast -> array) = throwIfJNull array $ \
     withJNIEnv $ \env -> \
-    throwIfNull $ \
+    throwIfNull ArrayCopyFailed $ \
     [CU.exp| c_rettype* { \
       (*$(JNIEnv *env))->Get/**/name/**/ArrayElements($(JNIEnv *env), \
                                                       $fptr-ptr:(jobject array), \
@@ -909,7 +919,7 @@ GET_ARRAY_ELEMENTS(Double, Double, jdouble)
 
 getStringChars :: JString -> IO (Ptr Word16)
 getStringChars jstr = throwIfJNull jstr $ withJNIEnv $ \env ->
-    throwIfNull $
+    throwIfNull ArrayCopyFailed $
     [CU.exp| const jchar* {
       (*$(JNIEnv *env))->GetStringChars($(JNIEnv *env),
                                         $fptr-ptr:(jstring jstr),
@@ -1016,3 +1026,37 @@ setObjectArrayElement (arrayUpcast -> array)
                                                $fptr-ptr:(jobjectArray array),
                                                $(jsize i),
                                                $fptr-ptr:(jobject x)); } |]
+
+newDirectByteBuffer :: Ptr CChar -> Int64 -> IO JBuffer
+newDirectByteBuffer (castPtr -> address) capacity =
+    (throwIfNull NullPointerException (return address) >>) $
+    withJNIEnv $ \env ->
+    fmap (unsafeCast :: JObject -> JBuffer) $
+    (objectFromPtr =<<) $
+    throwIfNull DirectBufferFailed $
+    [C.exp| jobject {
+      (*$(JNIEnv *env))->NewDirectByteBuffer($(JNIEnv *env),
+                                             $(void *address),
+                                             $(jlong capacity)) } |]
+
+getDirectBufferAddress :: JBuffer -> IO (Ptr CChar)
+getDirectBufferAddress (upcast -> jbuffer) =
+    throwIfJNull jbuffer $
+    withJNIEnv $ \env ->
+    fmap castPtr $
+    throwIfNull DirectBufferFailed $
+    [C.exp| void* {
+      (*$(JNIEnv *env))->GetDirectBufferAddress($(JNIEnv *env),
+                                                $fptr-ptr:(jobject jbuffer)) } |]
+
+getDirectBufferCapacity :: JBuffer -> IO Int64
+getDirectBufferCapacity (upcast -> jbuffer) = do
+    capacity <- throwIfJNull jbuffer $
+      withJNIEnv $ \env ->
+      [C.exp| jlong {
+        (*$(JNIEnv *env))->GetDirectBufferCapacity($(JNIEnv *env),
+                                                   $fptr-ptr:(jobject jbuffer)) } |]
+    if capacity >= 0 then
+      return capacity
+    else
+      throwIO DirectBufferFailed
