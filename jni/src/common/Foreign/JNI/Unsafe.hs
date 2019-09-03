@@ -160,6 +160,14 @@ module Foreign.JNI.Unsafe
   , getFloatArrayElements
   , getDoubleArrayElements
   , getStringChars
+  , getBooleanArrayRegion
+  , getByteArrayRegion
+  , getCharArrayRegion
+  , getShortArrayRegion
+  , getIntArrayRegion
+  , getLongArrayRegion
+  , getFloatArrayRegion
+  , getDoubleArrayRegion
   , setBooleanArrayRegion
   , setByteArrayRegion
   , setCharArrayRegion
@@ -906,6 +914,27 @@ getStringChars jstr = throwIfJNull jstr $ withJNIEnv $ \env ->
       (*$(JNIEnv *env))->GetStringChars($(JNIEnv *env),
                                         $fptr-ptr:(jstring jstr),
                                         NULL) } |]
+
+#define GET_ARRAY_REGION(name, hs_argtype, c_argtype) \
+get/**/name/**/ArrayRegion :: J/**/name/**/Array -> Int32 -> Int32 -> Ptr hs_argtype -> IO (); \
+get/**/name/**/ArrayRegion array start len buf = throwIfJNull array $ \
+    withJNIEnv $ \env -> \
+    throwIfException env $ \
+    [CU.exp| void { \
+      (*$(JNIEnv *env))->Get/**/name/**/ArrayRegion($(JNIEnv *env), \
+                                                    $fptr-ptr:(c_argtype/**/Array array), \
+                                                    $(jsize start), \
+                                                    $(jsize len), \
+                                                    $(c_argtype *buf)) } |]
+
+GET_ARRAY_REGION(Boolean, Word8, jboolean)
+GET_ARRAY_REGION(Byte, CChar, jbyte)
+GET_ARRAY_REGION(Char, Word16, jchar)
+GET_ARRAY_REGION(Short, Int16, jshort)
+GET_ARRAY_REGION(Int, Int32, jint)
+GET_ARRAY_REGION(Long, Int64, jlong)
+GET_ARRAY_REGION(Float, Float, jfloat)
+GET_ARRAY_REGION(Double, Double, jdouble)
 
 #define SET_ARRAY_REGION(name, hs_argtype, c_argtype) \
 set/**/name/**/ArrayRegion :: J/**/name/**/Array -> Int32 -> Int32 -> Ptr hs_argtype -> IO (); \
