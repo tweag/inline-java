@@ -19,7 +19,7 @@ import qualified Foreign.ForeignPtr as ForeignPtr
 import Foreign.JNI
 import Foreign.Marshal.Alloc (mallocBytes, finalizerFree, free)
 import Foreign.Marshal.Array (callocArray, mallocArray)
-import Foreign.Ptr (Ptr)
+import Foreign.Ptr (Ptr, castPtr)
 import Language.Java
 
 newtype Box a = Box { unBox :: a }
@@ -133,6 +133,13 @@ benchNew =
         (\_ _ -> void (popLocalFrame jnull)) $
         \() ->
           void $ newByteArray (fromIntegral len)
+    , envWithCleanup allocTextPtr freeTextPtr $ \ ~(Box (ptr, len)) ->
+      bench "newDirectByteBuffer" $
+      perBatchEnvWithCleanup
+        (pushLocalFrame . (2*) . fromIntegral)
+        (\_ _ -> void (popLocalFrame jnull)) $
+        \() ->
+          void $ newDirectByteBuffer (castPtr ptr) (2 * len)
     ]
   where
     allocTextPtr = do
@@ -176,6 +183,31 @@ benchArrays =
     cleanArrays ref =
       readIORef ref >>= mapM_ (uncurry releaseByteArrayElements)
 
+benchDirectBuffers :: Benchmark
+benchDirectBuffers =
+    bgroup "DirectBuffers" $ (`map` [128, 256, 512]) $ \size ->
+    let n :: Num b => b
+        n = fromIntegral (size :: Int) in
+    env (Box <$> mallocArray n) $ \ ~(Box bytes) ->
+    bgroup (show size)
+    [ bench "getDirectBufferAddress" $
+      perBatchEnvWithCleanup
+        (\_ -> Box <$> newDirectByteBuffer bytes n)
+        (\_ -> deleteLocalRef . unBox) $
+      void . getDirectBufferAddress . unBox
+    , bench "getDirectBufferCapacity" $
+      perBatchEnvWithCleanup
+        (\_ -> Box <$> newDirectByteBuffer bytes n)
+        (\_ -> deleteLocalRef . unBox) $
+      void . getDirectBufferCapacity . unBox
+    ]
+
 main :: IO ()
 main = withJVM [] $ do
-    Criterion.defaultMain [benchCalls, benchRefs, benchNew, benchArrays]
+    Criterion.defaultMain
+      [ benchCalls
+      , benchRefs
+      , benchNew
+      , benchArrays
+      , benchDirectBuffers
+      ]
