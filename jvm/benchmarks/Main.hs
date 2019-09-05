@@ -119,6 +119,14 @@ benchNew =
         \() -> do
           _ <- new [JInt 2] :: IO (J ('Class "java.lang.Integer"))
           return ()
+    , bench "Integer.valueOf" $
+      perBatchEnvWithCleanup
+        (pushLocalFrame . (2*) . fromIntegral)
+        (\_ _ -> void (popLocalFrame jnull)) $
+        \() -> do
+          _ <- callStatic "java.lang.Integer" "valueOf" [JInt 2]
+                 :: IO (J ('Class "java.lang.Integer"))
+          return ()
     , envWithCleanup allocTextPtr freeTextPtr $ \ ~(Box (ptr, len)) ->
       bench "newString" $
       perBatchEnvWithCleanup
