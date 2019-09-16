@@ -12,14 +12,12 @@ import Control.Monad (replicateM, replicateM_, void)
 import Data.Int
 import Data.IORef
 import Data.Singletons (SomeSing(..))
-import qualified Data.Text.Foreign as Text
-import Data.Word
 import qualified Foreign.Concurrent as Concurrent
 import qualified Foreign.ForeignPtr as ForeignPtr
 import Foreign.JNI
 import Foreign.Marshal.Alloc (mallocBytes, finalizerFree, free)
 import Foreign.Marshal.Array (callocArray, mallocArray)
-import Foreign.Ptr (Ptr, castPtr)
+import Foreign.Ptr (castPtr)
 import Language.Java
 
 newtype Box a = Box { unBox :: a }
@@ -134,7 +132,7 @@ benchNew =
         (\_ _ -> void (popLocalFrame jnull)) $
         \() ->
           void $ newString ptr (fromIntegral len)
-    , envWithCleanup allocTextPtr freeTextPtr $ \ ~(Box (ptr, len)) ->
+    , envWithCleanup allocTextPtr freeTextPtr $ \ ~(Box (_ptr, len)) ->
       bench "newArray" $
       perBatchEnvWithCleanup
         (pushLocalFrame . (2*) . fromIntegral)
@@ -158,12 +156,12 @@ benchNew =
 
 benchArrays :: Benchmark
 benchArrays =
-    bgroup "Arrays" $ (`map` [128, 256, 512]) $ \size ->
+    bgroup "Arrays" $ (`map` [128, 256, 512]) $ \arraySize ->
     let n :: Num b => b
-        n = fromIntegral (size :: Int) in
+        n = fromIntegral (arraySize :: Int) in
     env (Box <$> mallocArray n) $ \ ~(Box bytes) ->
     env (Box <$> newArray n) $ \ ~(Box jbytes) ->
-    bgroup (show n)
+    bgroup (show (n :: Int))
     [ bench "getByteArrayElements" $
       perBatchEnvWithCleanup (\_ -> newIORef []) (const cleanArrays) $
       \ref -> do
@@ -171,8 +169,8 @@ benchArrays =
         modifyIORef ref ((jbytes, p) :)
     , bench "releaseByteArrayElements" $
       perBatchEnv
-        (\size ->
-           replicateM (fromIntegral size) (getByteArrayElements jbytes)
+        (\batchSize ->
+           replicateM (fromIntegral batchSize) (getByteArrayElements jbytes)
            >>= newIORef
         ) $
       \ref -> do
@@ -193,11 +191,11 @@ benchArrays =
 
 benchDirectBuffers :: Benchmark
 benchDirectBuffers =
-    bgroup "DirectBuffers" $ (`map` [128, 256, 512]) $ \size ->
+    bgroup "DirectBuffers" $ (`map` [128, 256, 512]) $ \bufferSize ->
     let n :: Num b => b
-        n = fromIntegral (size :: Int) in
+        n = fromIntegral (bufferSize :: Int) in
     env (Box <$> mallocArray n) $ \ ~(Box bytes) ->
-    bgroup (show size)
+    bgroup (show bufferSize)
     [ bench "getDirectBufferAddress" $
       perBatchEnvWithCleanup
         (\_ -> Box <$> newDirectByteBuffer bytes n)
