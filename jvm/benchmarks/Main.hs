@@ -12,6 +12,7 @@ import Control.Monad (replicateM, replicateM_, void)
 import Data.Int
 import Data.IORef
 import Data.Singletons (SomeSing(..))
+import Data.Text (Text)
 import qualified Foreign.Concurrent as Concurrent
 import qualified Foreign.ForeignPtr as ForeignPtr
 import Foreign.JNI
@@ -54,6 +55,17 @@ benchCalls =
       bgroup "Calls"
       [ bgroup "Java calls"
         [ bench "static method call: unboxed single arg / unboxed return" $ nfIO $ jabs 1
+        , bench "static method call: boxed single arg / boxed return" $
+          perBatchEnvWithCleanup
+            (\batchSize -> do
+               pushLocalFrame (2 * fromIntegral batchSize)
+               Box <$> reflect ("123" :: Text)
+            )
+            (\_ _ -> void (popLocalFrame jnull)) $
+            \(Box jStringInteger) -> do
+              _ <- callStatic "java.lang.Integer" "valueOf" [coerce jStringInteger]
+                 :: IO (J ('Class "java.lang.Integer"))
+              return ()
         , bench "jni static method call: unboxed single arg / unboxed return" $ nfIO $ jniAbs klass method 1
         , bench "method call: no args / unboxed return" $ nfIO $ intValue 1
         , bench "method call: boxed single arg / unboxed return" $ nfIO $ compareTo 1 1
@@ -156,7 +168,7 @@ benchNew =
 
 benchArrays :: Benchmark
 benchArrays =
-    bgroup "Arrays" $ (`map` [128, 256, 512]) $ \arraySize ->
+    bgroup "Arrays" $ (++ otherBenchmarks) $ (`map` [128, 256, 512]) $ \arraySize ->
     let n :: Num b => b
         n = fromIntegral (arraySize :: Int) in
     env (Box <$> mallocArray n) $ \ ~(Box bytes) ->
@@ -186,6 +198,19 @@ benchArrays =
          setByteArrayRegion jbytes 0 n bytes
     ]
   where
+    otherBenchmarks =
+     [ bench "getObjectArrayElement" $
+       perBatchEnvWithCleanup
+         (\batchSize -> do
+            pushLocalFrame (2 * fromIntegral batchSize)
+            Box <$> newArray 100
+         )
+         (\_ _ -> void (popLocalFrame jnull)) $
+         \(Box jObjectArray) -> do
+           _ <- getObjectArrayElement (jObjectArray :: JObjectArray) 40 :: IO JObject
+           return ()
+     ]
+
     cleanArrays ref =
       readIORef ref >>= mapM_ (uncurry releaseByteArrayElements)
 
