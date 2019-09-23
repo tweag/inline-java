@@ -11,10 +11,11 @@ import qualified Control.Monad
 import Control.Monad.IO.Class.Linear (MonadIO)
 import qualified Control.Monad.Linear.Builder as Linear
 import Data.Aeson
+import qualified Data.ByteString.Char8 as ByteString.Char8
 import Data.ByteString.Lazy (toStrict)
 import Data.String (fromString)
 import qualified Data.Text as Text
-import Foreign.JNI.Safe (withJVM, withLocalFrame_)
+import Foreign.JNI.Safe (newGlobalRef_, withJVM, withLocalFrame_)
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Safe
 import Language.Java.Safe (reflect)
@@ -45,6 +46,7 @@ main = getArgs Control.Monad.>>= \args -> do
     withJVM (jvmArgs ++ otherJVMArgs) $ withLocalFrame_ $
       let Linear.Builder{..} = Linear.monadBuilder in do
       jsonHandler <- createJsonHandler
+      jPlainTextHandler <- createPlainTextHandler
       jargs <- reflect (map Text.pack args)
       [java| {
         WebApplication application = new WebApplication($jargs) {
@@ -59,7 +61,9 @@ main = getArgs Control.Monad.>>= \args -> do
         };
 
         application.onSetup(app -> {
-          app.getUrlMapping().append("/json", $jsonHandler);
+          app.getUrlMapping()
+             .append("/json", $jsonHandler)
+             .append( "/plaintext", $jPlainTextHandler);
         });
         application.start();
        } |]
@@ -77,3 +81,16 @@ createJsonHandler = createHandler $ \_req resp -> Linear.withLinearIO $
     -- Don't inline, so the serialization is not cached.
     {-# NOINLINE jsonObject #-}
     jsonObject _ = object ["message" .= Text.pack "Hello, World!"]
+
+createPlainTextHandler :: MonadIO m => m JHandler
+createPlainTextHandler =
+    let Linear.Builder{..} = Linear.monadBuilder in do
+    jmsg <- reflect (ByteString.Char8.pack "Hello, World!")
+    Unrestricted jGlobalMsg <- newGlobalRef_ jmsg
+    createHandler $ \_req resp -> Linear.withLinearIO $ do
+      let ujmsg = Unrestricted jGlobalMsg
+      [java| { $resp
+               .setBody($ujmsg)
+               .appendHeader(Header.KV_CONTENT_TYPE_TEXT_PLAIN);
+             } |]
+      return (Unrestricted ())
