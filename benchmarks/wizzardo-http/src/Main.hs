@@ -14,7 +14,7 @@ import Data.Aeson
 import Data.ByteString.Lazy (toStrict)
 import Data.String (fromString)
 import qualified Data.Text as Text
-import Foreign.JNI.Safe (withJVM, withLocalFrame_)
+import Foreign.JNI.Safe (deleteLocalRef, withJVM, withLocalFrame_)
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Safe
 import Language.Java.Safe (reflect)
@@ -27,6 +27,7 @@ import Prelude.Linear (Unrestricted(..))
 imports "com.wizzardo.http.*"
 imports "com.wizzardo.http.framework.*"
 imports "com.wizzardo.http.request.*"
+imports "com.wizzardo.http.response.*"
 
 main :: IO ()
 main = getArgs Control.Monad.>>= \args -> do
@@ -45,6 +46,7 @@ main = getArgs Control.Monad.>>= \args -> do
     withJVM (jvmArgs ++ otherJVMArgs) $ withLocalFrame_ $
       let Linear.Builder{..} = Linear.monadBuilder in do
       jsonHandler <- createJsonHandler
+      deleteLocalRef jsonHandler
       jargs <- reflect (map Text.pack args)
       [java| {
         WebApplication application = new WebApplication($jargs) {
@@ -59,7 +61,17 @@ main = getArgs Control.Monad.>>= \args -> do
         };
 
         application.onSetup(app -> {
-          app.getUrlMapping().append("/json", $jsonHandler);
+          app.getUrlMapping()
+             .append
+               ( "/json"
+               , (request, response) -> response
+                 .setBody(JsonResponseHelper.renderJson(
+                    new Object() {
+                      public String message = "Hello, World!";
+                    }
+                 ))
+                 .appendHeader(Header.KV_CONTENT_TYPE_APPLICATION_JSON)
+               );
         });
         application.start();
        } |]
