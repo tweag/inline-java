@@ -99,10 +99,10 @@ createJsonHandler = createHandler $ \_req resp -> Linear.withLinearIO $
 createPlainTextHandler :: MonadIO m => m JHandler
 createPlainTextHandler =
     let Linear.Builder{..} = Linear.monadBuilder in do
-    jmsg <- reflect (ByteString.Char8.pack "Hello, World!")
-    Unrestricted jGlobalMsg <- newGlobalRef_ jmsg
+    -- jmsg <- reflect (ByteString.Char8.pack "Hello, World!")
+    -- Unrestricted jGlobalMsg <- newGlobalRef_ jmsg
     createHandler $ \_req resp -> Linear.withLinearIO $ do
-      let _ujmsg = Unrestricted jGlobalMsg
+      -- let _ujmsg = Unrestricted jGlobalMsg
       [java| { $resp
                .setBody("Hello, World!".getBytes())
                .appendHeader(Header.KV_CONTENT_TYPE_TEXT_PLAIN);
