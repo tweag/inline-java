@@ -294,10 +294,10 @@ fromJNIJValue = \case
 callStatic
   :: forall a ty m. (ty ~ Ty a, Coercible a, MonadIO m)
   => JNI.String -- ^ Class name
-  ->. JNI.String -- ^ Method name
-  ->. [JValue] -- ^ Arguments
+  -> JNI.String -- ^ Method name
+  -> [JValue] -- ^ Arguments
   ->. m a
-callStatic = Unsafe.toLinear3 $ \cname mname args ->
+callStatic cname mname = Unsafe.toLinear $ \args ->
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
       Java.callStaticToJValue (sing :: Sing ty) cname mname (toJNIJValues args)
