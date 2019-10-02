@@ -9,9 +9,15 @@ module Main where
 import Control.DeepSeq (NFData(..))
 import Criterion.Main as Criterion
 import Control.Monad (replicateM, replicateM_, void)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as Char8
+import qualified Data.HashMap.Strict as HashMap.Strict
+import qualified Data.HashTable.IO as HashTable.IO
 import Data.Int
 import Data.IORef
+import qualified Data.Map as Map
 import Data.Singletons (SomeSing(..))
+import qualified Data.UUID as UUID
 import qualified Foreign.Concurrent as Concurrent
 import qualified Foreign.ForeignPtr as ForeignPtr
 import Foreign.JNI
@@ -19,6 +25,7 @@ import Foreign.Marshal.Alloc (mallocBytes, finalizerFree, free)
 import Foreign.Marshal.Array (callocArray, mallocArray)
 import Foreign.Ptr (castPtr)
 import Language.Java
+import System.Random
 
 newtype Box a = Box { unBox :: a }
 
@@ -208,10 +215,53 @@ benchDirectBuffers =
       void . getDirectBufferCapacity . unBox
     ]
 
+benchHashTables :: Benchmark
+benchHashTables =
+    bgroup "HashTables"
+    [ env createHashMap $ \ ~(h, key) ->
+      bench "HashMap.Strict" $
+        whnf (\k -> HashMap.Strict.lookup (Char8.pack k) h) key
+    , env createMap $ \ ~(m, key) ->
+      bench "Map" $
+        whnf (\k -> Map.lookup k m) key
+    , env createBasicHashTable $ \ ~(Box h, key) ->
+      bench "HashTable.IO.Basic" $ nfIO $
+        HashTable.IO.lookup h (Char8.pack key)
+    ]
+  where
+    n = 100
+
+    createMap = do
+      uuids <- replicateM n randomIO
+      let uuidStrings = map UUID.toString (uuids :: [UUID.UUID])
+      return
+        ( Map.fromList (zip uuidStrings uuidStrings)
+        , uuidStrings !! (div n 2)
+        )
+
+    createHashMap = do
+      uuids <- replicateM n randomIO
+      let uuidStrings = map (Char8.pack . UUID.toString) (uuids :: [UUID.UUID])
+      return
+        ( HashMap.Strict.fromList (zip uuidStrings uuidStrings)
+        , Char8.unpack $ uuidStrings !! (div n 2)
+        )
+
+    createBasicHashTable = do
+      uuids <- replicateM n randomIO
+      let uuidStrings = map (Char8.pack . UUID.toString) (uuids :: [UUID.UUID])
+      let size = ceiling (fromIntegral n / 9 :: Double)
+      h <- HashTable.IO.fromListWithSizeHint size (zip uuidStrings uuidStrings)
+      return
+        ( Box (h :: HashTable.IO.BasicHashTable ByteString ByteString)
+        , Char8.unpack $ uuidStrings !! (div n 2)
+        )
+
 main :: IO ()
 main = withJVM [] $ do
     Criterion.defaultMain
       [ benchCalls
+      , benchHashTables
       , benchRefs
       , benchNew
       , benchArrays
