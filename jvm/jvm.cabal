@@ -74,11 +74,17 @@ benchmark micro-benchmarks
   hs-source-dirs: benchmarks
   build-depends:
     base >=4.8 && <5,
+    bytestring,
+    containers,
     criterion,
     deepseq >=1.4.2,
+    hashtables,
     jni,
     jvm,
+    random,
     singletons,
-    text >=1.2
+    text >=1.2,
+    unordered-containers,
+    uuid
   default-language: Haskell2010
   ghc-options: -threaded
