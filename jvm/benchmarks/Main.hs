@@ -69,6 +69,27 @@ benchCalls =
         , bench "jni static method call: unboxed single arg / unboxed return" $ nfIO $ jniAbs klass method 1
         , bench "method call: no args / unboxed return" $ nfIO $ intValue 1
         , bench "method call: boxed single arg / unboxed return" $ nfIO $ compareTo 1 1
+        , bench "getClass" $
+          perBatchEnvWithCleanup
+            (pushLocalFrame . (2*) . fromIntegral)
+            (\_ _ -> void (popLocalFrame jnull)) $
+            \() -> do
+              _ <- getClass (SClass "java/lang/Math")
+              return ()
+        , bench "getStaticMethodID" $
+          perBatchEnvWithCleanup
+            (\_ -> Box <$> getClass (SClass "java/lang/Math"))
+            (\_ (Box c) -> deleteLocalRef c) $
+            \ ~(Box c) -> do
+              _ <- getStaticMethodID c "abs" absSignature
+              return ()
+        , bench "getMethodID" $
+          perBatchEnvWithCleanup
+            (\_ -> Box <$> getClass (SClass "java/lang/Integer"))
+            (\_ (Box c) -> deleteLocalRef c) $
+            \ ~(Box c) -> do
+              _ <- getMethodID c "intValue" (methodSignature [] (SPrim "int"))
+              return ()
         ]
       , bgroup "Haskell calls"
         [ bench "incr haskell" $ nfIO $ incrHaskell 1
@@ -76,9 +97,10 @@ benchCalls =
         ]
       ]
   where
+    absSignature = methodSignature [SomeSing (sing :: Sing ('Prim "int"))] (SPrim "int")
     ini = do
       klass <- findClass (referenceTypeName (SClass "java/lang/Math"))
-      method <- getStaticMethodID klass "abs" (methodSignature [SomeSing (sing :: Sing ('Prim "int"))] (SPrim "int"))
+      method <- getStaticMethodID klass "abs" absSignature
       return (Box klass, method)
 
 benchRefs :: Benchmark
