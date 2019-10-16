@@ -68,6 +68,7 @@ module Language.Java.Unsafe
   , toArray
   , call
   , callStatic
+  , callStaticWithSings
   , getStaticField
   -- * Reference management
   , push
@@ -101,6 +102,7 @@ import qualified Data.Coerce as Coerce
 import Data.Constraint (Dict(..))
 import Data.Int
 import Data.Proxy (Proxy(..))
+import Data.Singletons (SomeSing)
 import Data.Typeable (Typeable, TypeRep, typeOf)
 import Data.Word
 import Data.ByteString (ByteString)
@@ -376,7 +378,21 @@ callStatic
   -> IO a
 {-# INLINE callStatic #-}
 callStatic cname mname args =
-    unsafeUncoerce <$> callStaticToJValue (sing :: Sing ty) cname mname args
+    callStaticWithSings cname mname (map jtypeOf args) args
+
+-- | Same as 'callStatic', but allows for caching some internal state when
+-- the type of the arguments doesn't change from call to call.
+callStaticWithSings
+  :: forall a ty. (ty ~ Ty a, Coercible a)
+  => JNI.String -- ^ Class name
+  -> JNI.String -- ^ Method name
+  -> [SomeSing JType] -- ^ Singletons of argument types
+  -> [JValue] -- ^ Arguments
+  -> IO a
+{-# INLINE callStaticWithSings #-}
+callStaticWithSings cname mname argsings args =
+    unsafeUncoerce <$> callStaticToJValue
+      (sing :: Sing ty) cname mname argsings args
 
 -- | Get a static field.
 getStaticField

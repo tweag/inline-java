@@ -360,14 +360,14 @@ collectQQMarkers qqMarkerNames p0 = do
 
     expMarkers :: CoreExpr -> QQJavaM CoreExpr
     expMarkers (App (App (App (App (App (App (App (App (App (App (App (App (App
-                 (App (App (App (App (App (App (App (App (Var fid) _)
+                 (App (App (App (App (App (App (App (App (App (Var fid) _)
                  (Type (parseArgTys -> Just tyargs)))
                  (Type tyres))
                  (Type (LitTy (StrTyLit fs_input))))
                  (Type (LitTy (StrTyLit fs_mname))))
                  (Type (LitTy (StrTyLit fs_antiqs))))
                  (Type (LitTy (NumTyLit lineNumber))))
-                 _) _) _) _) _) _) _) _) _) _) _) args) _)
+                 _) _) _) _) _) _) _) _) _) _) _) args) _) p)
                  e
                )
         | elem (idName fid) qqMarkerNames = do
@@ -379,7 +379,7 @@ collectQQMarkers qqMarkerNames p0 = do
         , qqOccAntiQs = FastString.Extras.bytesFS fs_antiqs
         , qqOccLineNumber = lineNumber
         }
-      return (App e args)
+      return (App (App e p) args)
     expMarkers (Var fid) | elem (idName fid) qqMarkerNames =
       lift $ GhcPlugins.Extras.failWith $
       text "inline-java Plugin: found invalid qqMarker."

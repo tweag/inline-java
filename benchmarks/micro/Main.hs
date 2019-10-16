@@ -40,8 +40,9 @@ benchCallbacks =
                   s = ((java.util.function.BiFunction<String,String,String>) $fun).apply($jstr, $jstr2);          };
                 return s.concat($jstr);
               } |]
-        , bench "no-callback" $ withLocalFrame 1 $
-            void @_ @JObject [java| { if ($jstr3 == null){}; return $jstr.concat($jstr2); } |]
+        , bench "no-callback" $ nfIO $ do
+            [java| { } |] :: IO ()
+            return ()
         , bench "no-callback-4-args" $ withLocalFrame 1 $
             void @_ @JObject [java| { if ($jstr3 == $jstr4){}; return $jstr.concat($jstr2); } |]
         , bench "loadJavaWrappers" $ nfIO $ loadJavaWrappers

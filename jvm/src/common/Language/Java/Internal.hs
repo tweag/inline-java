@@ -19,7 +19,7 @@ module Language.Java.Internal
   ) where
 
 import Data.IORef
-import Data.Singletons (SingI(..))
+import Data.Singletons (SingI(..), SomeSing)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
@@ -104,17 +104,20 @@ callStaticToJValue
   :: Sing (k :: JType)
   -> JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
+  -> [SomeSing JType] -- ^ Singletons of argument types
   -> [JValue] -- ^ Arguments
   -> IO JValue
 {-# INLINE callStaticToJValue #-}
-callStaticToJValue retsing cname mname args = do
-    let argsings = map jtypeOf args
-        klass = unsafeDupablePerformIO $ do
+callStaticToJValue retsing cname mname argsings args = do
+    let klass = unsafeDupablePerformIO $ do
                   lk <- getClass (SClass (JNI.toChars cname))
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
+                  putStrLn "callStatic getClass"
                   return gk
-        method = unsafeDupablePerformIO $ getStaticMethodID klass mname (methodSignature argsings retsing)
+        method = unsafeDupablePerformIO $ -- do
+          -- putStrLn "callStatic getStaticMethodID"
+          getStaticMethodID klass mname (methodSignature argsings retsing)
     case retsing of
       SPrim "boolean" -> JBoolean . fromIntegral . fromEnum <$>
                            callStaticBooleanMethod klass method args

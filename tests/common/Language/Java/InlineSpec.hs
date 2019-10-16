@@ -14,6 +14,7 @@ import Foreign.JNI (JVMException)
 import Language.Java
 import Language.Java.Inline
 import Test.Hspec
+import System.Clock
 
 type ObjectClass = 'Class "java.lang.Object"
 type ListClass = 'Iface "java.util.List"
@@ -27,7 +28,10 @@ spec :: Spec
 spec = do
     describe "Java quasiquoter" $ do
       it "Can return ()" $ do
+        t0 <- getTime Monotonic
         [java| { } |] :: IO ()
+        t1 <- getTime Monotonic
+        print (diffTimeSpec t1 t0)
 
       it "Evaluates simple expressions" $ do
         [java| 1 + 1 |] `shouldReturn` (2 :: Int32)

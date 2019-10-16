@@ -2,6 +2,7 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -12,19 +13,27 @@
 --
 -- -O0 is necessary to workaround a bug in ghc-8.9.20190613
 -- https://github.com/tweag/ghc/issues/384
-{-# OPTIONS_GHC -dcore-lint -Wall -Werror -Wno-name-shadowing -O0 #-}
+{- OPTIONS_GHC -dcore-lint -Wall -Werror -Wno-name-shadowing -O0 #-}
 
 module Language.Java.Inline.SafeSpec(spec) where
 
+import Control.Monad.IO.Class.Linear (MonadIO, liftIO, liftIOU)
+import qualified Control.Monad.Linear
 import qualified Control.Monad.Linear.Builder as Linear
 import Data.Int
-import Foreign.JNI (JVMException)
+import Data.String (fromString)
+import Foreign.JNI (JVMException, runInAttachedThread)
 import Foreign.JNI.Safe
 import Language.Java.Safe
+import qualified Language.Java.Unsafe as Unsafe
+import qualified Language.Java.Inline.Unsafe as Unsafe
 import Language.Java.Inline.Safe
 import qualified Control.Monad.Builder as Prelude
 import Prelude hiding ((>>=), (>>))
+import Prelude.Linear(Unrestricted(..))
 import Test.Hspec
+import System.Clock
+import qualified System.IO.Linear as Linear
 
 type ObjectClass = 'Class "java.lang.Object"
 type ListClass = 'Iface "java.util.List"
@@ -34,13 +43,44 @@ type List a = J (ListClass <> '[a])
 
 imports "java.util.*"
 
+
+replicateM_ :: Control.Monad.Linear.Monad m => Int -> m () -> m ()
+replicateM_ 0 _ = Control.Monad.Linear.return ()
+replicateM_ n m = m Control.Monad.Linear.>>= \() -> replicateM_ (n - 1) m
+
+
+jabs :: Int32 -> Linear.IO (Unrestricted Int32)
+jabs x = callStatic "java.lang.Math" "abs" [coerce x]
+
+ujabs :: Int32 -> IO Int32
+ujabs x = Unsafe.callStatic "java.lang.Math" "abs" [Unsafe.coerce x]
+
 spec :: Spec
 spec =
     let Prelude.Builder{..} = Prelude.monadBuilder in do
     describe "Linear Java quasiquoter" $ do
       it "Can return ()" $
-        withLocalFrame_ [java| { } |]
+        runInAttachedThread $
+        withLocalFrame_ $
+          let Linear.Builder{..} = Linear.monadBuilder in do
+          () <- [java| { } |]
+          Unrestricted t0 <- liftIOU (getTime Monotonic)
 
+          () <- replicateM_ 100 (do
+            Unrestricted (_ :: Int32) <- liftIOU (ujabs 1) -- [java| java.lang.Math.abs(1) |]
+            return ()
+            )
+          Unrestricted t1 <- liftIOU (getTime Monotonic)
+          liftIO $ print (diffTimeSpec t1 t0)
+          Unrestricted t0 <- liftIOU (getTime Monotonic)
+          () <- replicateM_ 100 (do
+            Unrestricted (_ :: Int32) <- [java| java.lang.Math.abs(1) |]
+            return ()
+            )
+          Unrestricted t1 <- liftIOU (getTime Monotonic)
+          liftIO $ print (diffTimeSpec t1 t0)
+
+{-
       it "Evaluates simple expressions" $
         withLocalFrame [java| 1 + 1 |] `shouldReturn` (2 :: Int32)
 
@@ -152,3 +192,4 @@ spec =
             st :: J ('Class "java.lang.Thread$State") <- [java| Thread.State.NEW |]
             [java| $st == Thread.State.NEW |]
            ) `shouldReturn` True
+-}

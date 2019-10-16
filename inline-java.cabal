@@ -86,13 +86,14 @@ test-suite spec
     Language.Java.InlineSpec
   build-depends:
     base,
+    clock,
     jni,
     jvm,
     hspec,
     inline-java,
     text
   default-language: Haskell2010
-  ghc-options: -DHSPEC_DISCOVER=hspec-discover
+  ghc-options: -DHSPEC_DISCOVER=hspec-discover -threaded
   if flag(linear-types)
     hs-source-dirs: tests/linear-types
     other-modules:

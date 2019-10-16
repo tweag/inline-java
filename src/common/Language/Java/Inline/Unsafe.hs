@@ -84,7 +84,8 @@ import qualified Language.Java.Inline.Internal.QQMarker as QQMarker
 java :: QuasiQuoter
 java = javaWithConfig QQConfig
     { qqMarker = 'QQMarker.qqMarker
-    , qqCallStatic = 'callStatic
+    , qqCallStatic = 'callStaticWithSings
+    , qqSings = 'QQMarker.sings
     , qqCoerce = 'coerce
     , qqWrapMarker = \qExp -> [| loadJavaWrappers >> $qExp |]
     }

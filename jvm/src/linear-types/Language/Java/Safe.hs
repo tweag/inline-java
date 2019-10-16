@@ -69,6 +69,7 @@ module Language.Java.Safe
   , toArray
   , call
   , callStatic
+  , callStaticWithSings
   , getStaticField
   -- * Coercions
   , Coercible(..)
@@ -90,7 +91,7 @@ import Data.ByteString (ByteString)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
 import Data.Int
-import Data.Singletons (SingI(..))
+import Data.Singletons (SingI(..), SomeSing)
 import Data.Text (Text)
 import Data.Typeable
 import qualified Data.Unrestricted.Linear as Unrestricted
@@ -275,6 +276,7 @@ call
   ->. JNI.String -- ^ Method name
   ->. [JValue] -- ^ Arguments
   ->. m b
+{-# INLINE call #-}
 call = Unsafe.toLinear3 $ \obj mname args ->
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$ do
       fromJNIJValue <$>
@@ -297,11 +299,31 @@ callStatic
   -> JNI.String -- ^ Method name
   -> [JValue] -- ^ Arguments
   ->. m a
+{-# INLINE callStatic #-}
 callStatic cname mname = Unsafe.toLinear $ \args ->
+    liftIO Prelude.$ strictUnsafeUncoerce Prelude.$ do
+      let jniArgs = toJNIJValues args
+      fromJNIJValue <$>
+        Java.callStaticToJValue
+          (sing :: Sing ty) cname mname (map Java.jtypeOf jniArgs) jniArgs
+        Prelude.<* deleteLinearJObjects args
+
+-- | Same as 'callStatic', but allows for caching some internal state when
+-- the type of the arguments doesn't change from call to call.
+callStaticWithSings
+  :: forall a ty m. (ty ~ Ty a, Coercible a, MonadIO m)
+  => JNI.String -- ^ Class name
+  -> JNI.String -- ^ Method name
+  -> [SomeSing JType]
+  -> [JValue] -- ^ Arguments
+  ->. m a
+{-# INLINE callStaticWithSings #-}
+callStaticWithSings cname mname argsings = Unsafe.toLinear $ \args ->
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
-      Java.callStaticToJValue (sing :: Sing ty) cname mname (toJNIJValues args)
-        Prelude.<* deleteLinearJObjects args
+      Java.callStaticToJValue
+        (sing :: Sing ty) cname mname argsings (toJNIJValues args)
+      Prelude.<* deleteLinearJObjects args
 
 -- | Get a static field.
 getStaticField
