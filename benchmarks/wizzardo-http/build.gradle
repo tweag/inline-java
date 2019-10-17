@@ -12,5 +12,5 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 dependencies {
-    compile 'com.wizzardo:http:0.2+'
+    compile 'com.wizzardo:http:0.3'
 }
