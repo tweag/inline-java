@@ -75,9 +75,7 @@ import qualified Language.Java.Safe as Safe
 java :: QuasiQuoter
 java = Java.javaWithConfig Java.QQConfig
     { Java.qqMarker = 'Safe.qqMarker
-    , Java.qqCallStatic = 'Safe.callStaticWithSings
-    , Java.qqSings = 'Safe.sings
-    , Java.qqCoerce = 'Safe.coerce
+    , Java.qqCallStatic = 'Safe.callStatic
     , Java.qqWrapMarker = \qExp ->
         [| Linear.liftIO loadJavaWrappers Linear.>> $qExp |]
     }

@@ -54,12 +54,12 @@ newJ
      ( ty ~ 'Class sym
      , SingI ty
      )
-  => [JValue]
+  => [SomeSing JType] -- ^ Singletons of argument types
+  -> [JValue]
   -> IO (J ty)
 {-# INLINE newJ #-}
-newJ args = do
-    let argsings = map jtypeOf args
-        voidsing = sing :: Sing 'Void
+newJ argsings args = do
+    let voidsing = sing :: Sing 'Void
         klass = unsafeDupablePerformIO $ do
           lk <- getClass (sing :: Sing ('Class sym))
           gk <- newGlobalRef lk
@@ -72,12 +72,12 @@ callToJValue
   => Sing (k :: JType)
   -> J ty1 -- ^ Any object
   -> JNI.String -- ^ Method name
+  -> [SomeSing JType] -- ^ Singletons of argument types
   -> [JValue] -- ^ Arguments
   -> IO JValue
 {-# INLINE callToJValue #-}
-callToJValue retsing obj mname args = do
-    let argsings = map jtypeOf args
-        klass = unsafeDupablePerformIO $ do
+callToJValue retsing obj mname argsings args = do
+    let klass = unsafeDupablePerformIO $ do
                   lk <- getClass (sing :: Sing ty1)
                   gk <- newGlobalRef lk
                   deleteLocalRef lk

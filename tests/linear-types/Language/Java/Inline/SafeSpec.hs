@@ -50,10 +50,10 @@ replicateM_ n m = m Control.Monad.Linear.>>= \() -> replicateM_ (n - 1) m
 
 
 jabs :: Int32 -> Linear.IO (Unrestricted Int32)
-jabs x = callStatic "java.lang.Math" "abs" [coerce x]
+jabs x = callStatic "java.lang.Math" "abs" x
 
 ujabs :: Int32 -> IO Int32
-ujabs x = Unsafe.callStatic "java.lang.Math" "abs" [Unsafe.coerce x]
+ujabs x = Unsafe.callStatic "java.lang.Math" "abs" x
 
 spec :: Spec
 spec =

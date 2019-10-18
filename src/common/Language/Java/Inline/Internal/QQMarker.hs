@@ -4,7 +4,6 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -13,7 +12,6 @@
 module Language.Java.Inline.Internal.QQMarker where
 
 import Data.Proxy
-import Data.Singletons (Sing, SingI(..), SomeSing(..))
 import GHC.Stack (HasCallStack, withFrozenCallStack)
 import GHC.TypeLits (Nat, Symbol)
 import Language.Java
@@ -43,17 +41,13 @@ qqMarker
   -> Proxy line
   -> args_tuple
   -> Proxy args_tys
-  -> Proxy args_tuple
-  -> (Proxy args_tuple -> args_tuple -> m b)
+  -> (args_tuple -> m b)
   -> m b
 qqMarker = withFrozenCallStack $
     error
       "A quasiquotation marker was not removed. Please, report this as a bug."
 
-class Coercibles xs (tys :: k) | xs -> tys where
-  sings :: Proxy xs -> [SomeSing JType]
-instance Coercibles () () where
-  sings _ = []
+class Coercibles xs (tys :: k) | xs -> tys
+instance Coercibles () ()
 instance (ty ~ Ty x, Coercible x, Coercibles xs tys)
-    => Coercibles (x, xs) '(ty, tys) where
-  sings _ = SomeSing (sing :: Sing ty) : sings (Proxy @xs)
+    => Coercibles (x, xs) '(ty, tys)
