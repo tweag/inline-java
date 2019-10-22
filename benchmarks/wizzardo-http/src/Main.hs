@@ -45,8 +45,8 @@ main = getArgs Control.Monad.>>= \args -> do
           ]
     withJVM (jvmArgs ++ otherJVMArgs) $ withLocalFrame_ $
       let Linear.Builder{..} = Linear.monadBuilder in do
-      jsonHandler <- createJsonHandler
       jPlainTextHandler <- createPlainTextHandler
+      jsonHandler <- createJsonHandler
       jargs <- reflect (map Text.pack args)
       [java| {
         WebApplication application = new WebApplication($jargs) {
