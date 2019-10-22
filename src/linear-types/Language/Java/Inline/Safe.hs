@@ -76,7 +76,6 @@ java :: QuasiQuoter
 java = Java.javaWithConfig Java.QQConfig
     { Java.qqMarker = 'Safe.qqMarker
     , Java.qqCallStatic = 'Safe.callStatic
-    , Java.qqCoerce = 'Safe.coerce
     , Java.qqWrapMarker = \qExp ->
         [| Linear.liftIO loadJavaWrappers Linear.>> $qExp |]
     }

@@ -37,6 +37,7 @@
 -- class and method lookups, for performance. This memoization is safe only when
 -- no new named classes are defined at runtime.
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
@@ -49,6 +50,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StaticPointers #-}
 {-# LANGUAGE TypeApplications #-}
@@ -90,7 +92,7 @@ import Data.ByteString (ByteString)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
 import Data.Int
-import Data.Singletons (SingI(..))
+import Data.Singletons (SingI(..), SomeSing(..))
 import Data.Text (Text)
 import Data.Typeable
 import qualified Data.Unrestricted.Linear as Unrestricted
@@ -215,6 +217,124 @@ classOf
 classOf = Unsafe.toLinear $ \x -> (,) x $
   JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
+-- | A class to collect the arguments of a function call and the singletons of
+-- their types.
+--
+-- The instances of @JNIArguments@ allow @xs@ to be of the form:
+--
+-- > (Coercible x1, ... , Coercible xn) => (x1, ... , xn)
+--
+-- This class allows computing MethodIDs of JNI calls exclusively
+-- from types, which enables caching MethodIDs for multiple
+-- invocations of a method.
+--
+class JNIArguments xs where
+  -- | Singletons of the argument types of a JNICall.
+  --
+  -- > sings (Proxy @(x1, ... , xn)) =
+  -- >  [SomeSing (sing :: Sing x0), ..., SomeSing (sing :: Sing xn)]
+  --
+  sings :: Proxy xs -> [SomeSing JType]
+
+  -- |
+  -- > jvalues (x1, ... ,xn) = [coerce x1, ... , coerce xn]
+  --
+  jvalues :: xs -> [JValue]
+
+instance JNIArguments () where
+  sings _ = []
+  jvalues _ = []
+
+instance {-# OVERLAPPABLE #-} Coercible x => JNIArguments x where
+  sings _ = [SomeSing (sing :: Sing (Ty x))]
+  jvalues x = [coerce x]
+
+instance (Coercible x1, Coercible x2) => JNIArguments (x1, x2) where
+  sings _ = [SomeSing (sing :: Sing (Ty x1)), SomeSing (sing :: Sing (Ty x2))]
+  jvalues (x1, x2) = [coerce x1, coerce x2]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    ) => JNIArguments (x1, x2, x3) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    ]
+  jvalues (x1, x2, x3) = [coerce x1, coerce x2, coerce x3]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    , Coercible x4
+    ) => JNIArguments (x1, x2, x3, x4) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    , SomeSing (sing :: Sing (Ty x4))
+    ]
+  jvalues (x1, x2, x3, x4) = [coerce x1, coerce x2, coerce x3, coerce x4]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    , Coercible x4
+    , Coercible x5
+    ) => JNIArguments (x1, x2, x3, x4, x5) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    , SomeSing (sing :: Sing (Ty x4))
+    , SomeSing (sing :: Sing (Ty x5))
+    ]
+  jvalues (x1, x2, x3, x4, x5) = [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    , Coercible x4
+    , Coercible x5
+    , Coercible x6
+    ) => JNIArguments (x1, x2, x3, x4, x5, x6) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    , SomeSing (sing :: Sing (Ty x4))
+    , SomeSing (sing :: Sing (Ty x5))
+    , SomeSing (sing :: Sing (Ty x6))
+    ]
+  jvalues (x1, x2, x3, x4, x5, x6) =
+    [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5, coerce x6]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    , Coercible x4
+    , Coercible x5
+    , Coercible x6
+    , Coercible x7
+    ) => JNIArguments (x1, x2, x3, x4, x5, x6, x7) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    , SomeSing (sing :: Sing (Ty x4))
+    , SomeSing (sing :: Sing (Ty x5))
+    , SomeSing (sing :: Sing (Ty x6))
+    , SomeSing (sing :: Sing (Ty x7))
+    ]
+  jvalues (x1, x2, x3, x4, x5, x6, x7) =
+    [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5, coerce x6, coerce x7]
+
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
 --
@@ -223,14 +343,15 @@ classOf = Unsafe.toLinear $ \x -> (,) x $
 --    return x
 -- @
 new
-  :: forall a sym m.
-     (Ty a ~ 'Class sym, Coercible a, MonadIO m)
-  => [JValue]
+  :: forall a sym m args.
+     (Ty a ~ 'Class sym, Coercible a, MonadIO m, JNIArguments args)
+  => args
   ->. m a
 {-# INLINE new #-}
-new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$
-    JObject . J <$> Java.newJ @sym (toJNIJValues args)
-      Prelude.<* deleteLinearJObjects args
+new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$ do
+    let jargs = jvalues args
+    JObject . J <$> Java.newJ @sym (sings @args Proxy) (toJNIJValues jargs)
+      Prelude.<* deleteLinearJObjects jargs
 
 -- | Creates a new Java array of the given size. The type of the elements
 -- of the resulting array is determined by the return type a call to
@@ -264,7 +385,7 @@ toArray = Unsafe.toLinear $ \xs ->
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
 call
-  :: forall a b ty1 ty2 m.
+  :: forall a b ty1 ty2 m args.
      ( ty1 ~ Ty a
      , ty2 ~ Ty b
      , IsReferenceType ty1
@@ -272,18 +393,24 @@ call
      , Coercible b
      , Coerce.Coercible a (J ty1)
      , MonadIO m
+     , JNIArguments args
      )
   => a -- ^ Any object or value 'Coercible' to one
   ->. JNI.String -- ^ Method name
-  -> [JValue] -- ^ Arguments
+  -> args -- ^ Arguments
   ->. m b
 {-# INLINE call #-}
-call = Unsafe.toLinear $ \obj mname -> Unsafe.toLinear $ \args ->
+call = Unsafe.toLinear $ \obj mname -> Unsafe.toLinear $ \args -> do
+    let jargs = jvalues args
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$ do
       fromJNIJValue <$>
         Java.callToJValue @ty1
-          (sing :: Sing ty1) (Coerce.coerce obj) mname (toJNIJValues args)
-        Prelude.<* deleteLinearJObjects args
+          (sing :: Sing ty1)
+          (Coerce.coerce obj)
+          mname
+          (sings @args Proxy)
+          (toJNIJValues jargs)
+        Prelude.<* deleteLinearJObjects jargs
 
 strictUnsafeUncoerce :: Coercible a => IO JValue -> IO a
 strictUnsafeUncoerce m = m Prelude.>>= \x -> evaluate (unsafeUncoerce x)
@@ -295,17 +422,19 @@ fromJNIJValue = \case
 
 -- | Same as 'call', but for static methods.
 callStatic
-  :: forall a ty m. (ty ~ Ty a, Coercible a, MonadIO m)
+  :: forall a args m. (MonadIO m, JNIArguments args, Coercible a)
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
-  -> [JValue] -- ^ Arguments
+  -> args
   ->. m a
 {-# INLINE callStatic #-}
 callStatic cname mname = Unsafe.toLinear $ \args ->
-    liftIO Prelude.$ strictUnsafeUncoerce Prelude.$
+    liftIO Prelude.$ strictUnsafeUncoerce Prelude.$ do
+      let jargs = jvalues args
       fromJNIJValue <$>
-      Java.callStaticToJValue (sing :: Sing ty) cname mname (toJNIJValues args)
-        Prelude.<* deleteLinearJObjects args
+        Java.callStaticToJValue
+          (sing :: Sing (Ty a)) cname mname (sings @args Proxy) (toJNIJValues jargs)
+        Prelude.<* deleteLinearJObjects jargs
 
 -- | Get a static field.
 getStaticField

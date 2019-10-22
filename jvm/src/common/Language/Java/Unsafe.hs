@@ -42,8 +42,10 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -101,6 +103,7 @@ import qualified Data.Coerce as Coerce
 import Data.Constraint (Dict(..))
 import Data.Int
 import Data.Proxy (Proxy(..))
+import Data.Singletons (SomeSing(..))
 import Data.Typeable (Typeable, TypeRep, typeOf)
 import Data.Word
 import Data.ByteString (ByteString)
@@ -280,6 +283,129 @@ classOf
   -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
+-- | A class to collect the arguments of a function call and the singletons of
+-- their types.
+--
+-- The instances of @JNIArguments@ allow @xs@ to be of the form:
+--
+-- > (Coercible x1, ... , Coercible xn) => (x1, ... , xn)
+--
+-- This class allows computing MethodIDs of JNI calls exclusively
+-- from types, which enables caching MethodIDs for multiple
+-- invocations of a method.
+--
+class JNIArguments xs where
+  -- | Singletons of the argument types of a JNICall.
+  --
+  -- > sings (Proxy @(x1, ... , xn)) =
+  -- >   SomeSing (sing :: Sing x0), ..., SomeSing (sing :: Sing xn)]
+  --
+  sings :: Proxy xs -> [SomeSing JType]
+
+  -- |
+  -- > jvalues (x1, ... ,xn) = [coerce x1, ... , coerce xn]
+  --
+  jvalues :: xs -> [JValue]
+
+instance JNIArguments () where
+  sings _ = []
+  jvalues _ = []
+
+instance {-# OVERLAPPABLE #-} Coercible x => JNIArguments x where
+  sings _ = [SomeSing (sing :: Sing (Ty x))]
+  jvalues x = [coerce x]
+
+instance (Coercible x1, Coercible x2) => JNIArguments (x1, x2) where
+  sings _ = [SomeSing (sing :: Sing (Ty x1)), SomeSing (sing :: Sing (Ty x2))]
+  jvalues (x1, x2) = [coerce x1, coerce x2]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    ) => JNIArguments (x1, x2, x3) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    ]
+  jvalues (x1, x2, x3) = [coerce x1, coerce x2, coerce x3]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    , Coercible x4
+    ) => JNIArguments (x1, x2, x3, x4) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    , SomeSing (sing :: Sing (Ty x4))
+    ]
+  jvalues (x1, x2, x3, x4) = [coerce x1, coerce x2, coerce x3, coerce x4]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    , Coercible x4
+    , Coercible x5
+    ) => JNIArguments (x1, x2, x3, x4, x5) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    , SomeSing (sing :: Sing (Ty x4))
+    , SomeSing (sing :: Sing (Ty x5))
+    ]
+  jvalues (x1, x2, x3, x4, x5) = [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    , Coercible x4
+    , Coercible x5
+    , Coercible x6
+    ) => JNIArguments (x1, x2, x3, x4, x5, x6) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    , SomeSing (sing :: Sing (Ty x4))
+    , SomeSing (sing :: Sing (Ty x5))
+    , SomeSing (sing :: Sing (Ty x6))
+    ]
+  jvalues (x1, x2, x3, x4, x5, x6) =
+    [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5, coerce x6]
+
+instance
+    ( Coercible x1
+    , Coercible x2
+    , Coercible x3
+    , Coercible x4
+    , Coercible x5
+    , Coercible x6
+    , Coercible x7
+    ) => JNIArguments (x1, x2, x3, x4, x5, x6, x7) where
+  sings _ =
+    [ SomeSing (sing :: Sing (Ty x1))
+    , SomeSing (sing :: Sing (Ty x2))
+    , SomeSing (sing :: Sing (Ty x3))
+    , SomeSing (sing :: Sing (Ty x4))
+    , SomeSing (sing :: Sing (Ty x5))
+    , SomeSing (sing :: Sing (Ty x6))
+    , SomeSing (sing :: Sing (Ty x7))
+    ]
+  jvalues (x1, x2, x3, x4, x5, x6, x7) =
+    [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5, coerce x6, coerce x7]
+
+type family JNIResult t :: * where
+  JNIResult (IO a) = a
+  JNIResult (a -> b) = JNIResult b
+  JNIResult a = ()
+
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
 --
@@ -288,15 +414,16 @@ classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 --    return x
 -- @
 new
-  :: forall a sym.
+  :: forall a sym args.
      ( Ty a ~ 'Class sym
      , Coerce.Coercible a (J ('Class sym))
      , Coercible a
+     , JNIArguments args
      )
-  => [JValue]
+  => args
   -> IO a
 {-# INLINE new #-}
-new args = Coerce.coerce <$> newJ @sym args
+new args = Coerce.coerce <$> newJ @sym (sings @args Proxy) (jvalues args)
 
 -- | Creates a new Java array of the given size. The type of the elements
 -- of the resulting array is determined by the return type a call to
@@ -357,26 +484,42 @@ toArray xs = do
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
 call
-  :: forall a b ty1 ty2. (ty1 ~ Ty a, ty2 ~ Ty b, IsReferenceType ty1, Coercible a, Coercible b, Coerce.Coercible a (J ty1))
+  :: forall a args b.
+    ( IsReferenceType (Ty a)
+    , Coercible a
+    , Coercible b
+    , Coerce.Coercible a (J (Ty a))
+    , JNIArguments args
+    )
   => a -- ^ Any object or value 'Coercible' to one
   -> JNI.String -- ^ Method name
-  -> [JValue] -- ^ Arguments
+  -> args -- ^ Arguments
   -> IO b
 {-# INLINE call #-}
 call obj mname args =
-    unsafeUncoerce <$>
-      callToJValue (sing :: Sing ty2) (Coerce.coerce obj :: J ty1) mname args
+    unsafeUncoerce <$> callToJValue
+        (sing :: Sing (Ty b))
+        (Coerce.coerce obj :: J (Ty a))
+        mname
+        (sings @args Proxy)
+        (jvalues args)
 
 -- | Same as 'call', but for static methods.
 callStatic
-  :: forall a ty. (ty ~ Ty a, Coercible a)
+  :: forall args b. (JNIArguments args, Coercible b)
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
-  -> [JValue] -- ^ Arguments
-  -> IO a
+  -> args -- ^ Arguments
+  -> IO b
 {-# INLINE callStatic #-}
 callStatic cname mname args =
-    unsafeUncoerce <$> callStaticToJValue (sing :: Sing ty) cname mname args
+    unsafeUncoerce <$>
+      callStaticToJValue
+        (sing :: Sing (Ty b))
+        cname
+        mname
+        (sings @args Proxy)
+        (jvalues args)
 
 -- | Get a static field.
 getStaticField
@@ -469,7 +612,7 @@ withStatic [d|
   -- We take an arbitrary serializable type to represent it.
   instance Interpretation () where type Interp () = 'Class "java.lang.Short"
   instance Reify () where reify _ = return ()
-  instance Reflect () where reflect () = new [JShort 0]
+  instance Reflect () where reflect () = new (0 :: Int16)
 
   instance Interpretation ByteString where
     type Interp ByteString = 'Array ('Prim "byte")
@@ -504,7 +647,7 @@ withStatic [d|
         callBooleanMethod jobj method []
 
   instance Reflect Bool where
-    reflect x = new [JBoolean (fromIntegral (fromEnum x))]
+    reflect = new
 
   instance Interpretation CChar where
     type Interp CChar = 'Class "java.lang.Byte"
@@ -520,7 +663,7 @@ withStatic [d|
         callByteMethod jobj method []
 
   instance Reflect CChar where
-    reflect x = Language.Java.Unsafe.new [JByte x]
+    reflect = Language.Java.Unsafe.new
 
   instance Interpretation Int16 where
     type Interp Int16 = 'Class "java.lang.Short"
@@ -536,7 +679,7 @@ withStatic [d|
         callShortMethod jobj method []
 
   instance Reflect Int16 where
-    reflect x = new [JShort x]
+    reflect = new
 
   instance Interpretation Int32 where
     type Interp Int32 = 'Class "java.lang.Integer"
@@ -552,7 +695,7 @@ withStatic [d|
         callIntMethod jobj method []
 
   instance Reflect Int32 where
-    reflect x = new [JInt x]
+    reflect = new
 
   instance Interpretation Int64 where
     type Interp Int64 = 'Class "java.lang.Long"
@@ -568,7 +711,7 @@ withStatic [d|
         callLongMethod jobj method []
 
   instance Reflect Int64 where
-    reflect x = new [JLong x]
+    reflect = new
 
   instance Interpretation Word16 where
     type Interp Word16 = 'Class "java.lang.Character"
@@ -584,7 +727,7 @@ withStatic [d|
         fromIntegral <$> callCharMethod jobj method []
 
   instance Reflect Word16 where
-    reflect x = new [JChar x]
+    reflect = new
 
   instance Interpretation Double where
     type Interp Double = 'Class "java.lang.Double"
@@ -600,7 +743,7 @@ withStatic [d|
         callDoubleMethod jobj method []
 
   instance Reflect Double where
-    reflect x = new [JDouble x]
+    reflect = new
 
   instance Interpretation Float where
     type Interp Float = 'Class "java.lang.Float"
@@ -616,7 +759,7 @@ withStatic [d|
         callFloatMethod jobj method []
 
   instance Reflect Float where
-    reflect x = new [JFloat x]
+    reflect = new
 
   instance Interpretation Text where
     type Interp Text = 'Class "java.lang.String"

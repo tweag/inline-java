@@ -85,6 +85,5 @@ java :: QuasiQuoter
 java = javaWithConfig QQConfig
     { qqMarker = 'QQMarker.qqMarker
     , qqCallStatic = 'callStatic
-    , qqCoerce = 'coerce
     , qqWrapMarker = \qExp -> [| loadJavaWrappers >> $qExp |]
     }
