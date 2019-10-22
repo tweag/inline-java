@@ -18,7 +18,7 @@ executable wizzardo-http-benchmark
     Wizzardo.Http.Handler
   hs-source-dirs:      src
   build-depends:
-    aeson,
+    buffer-builder,
     base<5,
     bytestring,
     clock,

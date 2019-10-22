@@ -10,11 +10,11 @@ module Main where
 import qualified Control.Monad
 import Control.Monad.IO.Class.Linear (MonadIO, liftIO)
 import qualified Control.Monad.Linear.Builder as Linear
-import Data.Aeson
 import qualified Control.Monad.Builder as Prelude
+import qualified Data.BufferBuilder.Json as Json
+import           Data.BufferBuilder.Json ((.=))
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as ByteString.Char8
-import Data.ByteString.Lazy (toStrict)
 import Data.String (fromString)
 import Data.Int
 import qualified Data.Text as Text
@@ -83,7 +83,7 @@ createJsonHandler = createHandler $ \_req resp ->
     DirectBuffer.withDirectBuffer bufferPool $ \jbuffer buffer ->
     Linear.withLinearIO $
     let Linear.Builder{..} = Linear.monadBuilder in do
-    let bs = toStrict $ encode $ jsonObject resp
+    let bs = Json.encodeJson $ jsonObject resp
         len = fromIntegral (ByteString.length bs) :: Int32
         ubuffer = Unrestricted jbuffer
     liftIO $
@@ -104,7 +104,7 @@ createJsonHandler = createHandler $ \_req resp ->
   where
     -- Don't inline, so the serialization is not cached.
     {-# NOINLINE jsonObject #-}
-    jsonObject _ = object ["message" .= Text.pack "Hello, World!"]
+    jsonObject _ = "message" .= Text.pack "Hello, World!"
 
 createPlainTextHandler :: MonadIO m => m JHandler
 createPlainTextHandler =
