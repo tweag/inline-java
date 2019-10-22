@@ -322,9 +322,7 @@ reflectArrayBatch reflectB getLength concatenate vecs = do
     bigvec <- concatenate $ V.toList vecs
     jvec <- reflectB bigvec
     jends <- reflect ends
-    generic <$> Language.Java.new [ coerce (upcast jvec)
-                                  , coerce (upcast jends)
-                                  ]
+    generic <$> Language.Java.new (upcast jvec, upcast jends)
 
 withStatic [d|
   instance Batchable Bool where

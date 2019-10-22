@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * Benchmarks for arrays and direct buffer operations
 * An interface based on linear types (https://github.com/tweag/inline-java/pull/127)
 * An abstract monad to use in the safe interfaces (https://github.com/tweag/inline-java/pull/128)
+* Caching of MethodIDs (https://github.com/tweag/inline-java/pull/133)
 
 ### Removed
 

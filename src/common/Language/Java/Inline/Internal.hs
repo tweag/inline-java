@@ -140,8 +140,8 @@ loadJavaWrappers = doit `seq` return ()
     {-# NOINLINE doit #-}
     doit = unsafePerformIO $ push $ do
       loader :: J ('Class "java.lang.ClassLoader") <- do
-        thr <- callStatic "java.lang.Thread" "currentThread" []
-        call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" []
+        thr <- callStatic "java.lang.Thread" "currentThread" ()
+        call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" ()
       Magic.forEachDotClass $ \Magic.DotClass{..} -> do
         _ <- defineClass (referenceTypeName (SClass className)) loader classBytecode
         return ()
@@ -158,9 +158,6 @@ data QQConfig = QQConfig
     qqMarker :: TH.Name
     -- | This is the name of the function to use to invoke the Java stub.
   , qqCallStatic :: TH.Name
-    -- | This is the name of the function to use for coercing the values of
-    -- antiquotations to `JValues`.
-  , qqCoerce :: TH.Name
     -- | This is given as argument the invocation of the Java stub, and
     -- is expected to prepend it with code that ensures that the stub is
     -- previously loaded in the JVM.
@@ -188,9 +185,7 @@ blockQQ config input = do
           thnames' = map TH.mkName (map ('_':) vnames)
 
       -- Return a call to the static method we just generated.
-      let args = [ [| $(TH.varE (qqCoerce config)) $(TH.varE name) |]
-                 | name <- thnames'
-                 ]
+      let args = [ TH.varE name | name <- thnames' ]
       thismod <- TH.thisModule
       lineNumber <- fromIntegral . fst . TH.loc_start <$> TH.location
       qqWrapMarker config
@@ -205,6 +200,6 @@ blockQQ config input = do
                $(TH.varE (qqCallStatic config))
                (fromString $(TH.stringE ("io.tweag.inlinejava." ++ mangle thismod)))
                (fromString $(TH.stringE mname))
-               $(TH.listE args)
+               $(TH.tupE args)
              )
              |]
