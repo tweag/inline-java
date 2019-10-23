@@ -1027,11 +1027,11 @@ setObjectArrayElement (arrayUpcast -> array)
                                                $(jsize i),
                                                $fptr-ptr:(jobject x)); } |]
 
-newDirectByteBuffer :: Ptr CChar -> Int64 -> IO JBuffer
+newDirectByteBuffer :: Ptr CChar -> Int64 -> IO JByteBuffer
 newDirectByteBuffer (castPtr -> address) capacity =
     (throwIfNull NullPointerException (return address) >>) $
     withJNIEnv $ \env ->
-    fmap (unsafeCast :: JObject -> JBuffer) $
+    fmap (unsafeCast :: JObject -> JByteBuffer) $
     (objectFromPtr =<<) $
     throwIfNull DirectBufferFailed $
     [C.exp| jobject {
@@ -1039,7 +1039,7 @@ newDirectByteBuffer (castPtr -> address) capacity =
                                              $(void *address),
                                              $(jlong capacity)) } |]
 
-getDirectBufferAddress :: JBuffer -> IO (Ptr CChar)
+getDirectBufferAddress :: JByteBuffer -> IO (Ptr CChar)
 getDirectBufferAddress (upcast -> jbuffer) =
     throwIfJNull jbuffer $
     withJNIEnv $ \env ->
@@ -1049,7 +1049,7 @@ getDirectBufferAddress (upcast -> jbuffer) =
       (*$(JNIEnv *env))->GetDirectBufferAddress($(JNIEnv *env),
                                                 $fptr-ptr:(jobject jbuffer)) } |]
 
-getDirectBufferCapacity :: JBuffer -> IO Int64
+getDirectBufferCapacity :: JByteBuffer -> IO Int64
 getDirectBufferCapacity (upcast -> jbuffer) = do
     capacity <- throwIfJNull jbuffer $
       withJNIEnv $ \env ->
