@@ -21,6 +21,7 @@ executable wizzardo-http-benchmark
     aeson,
     base<5,
     bytestring,
+    clock,
     inline-java,
     jni,
     jvm,

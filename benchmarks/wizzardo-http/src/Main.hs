@@ -11,6 +11,7 @@ import qualified Control.Monad
 import Control.Monad.IO.Class.Linear (MonadIO, liftIO)
 import qualified Control.Monad.Linear.Builder as Linear
 import Data.Aeson
+import qualified Control.Monad.Builder as Prelude
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as ByteString.Char8
 import Data.ByteString.Lazy (toStrict)
@@ -22,11 +23,12 @@ import Foreign.JNI.Safe (newGlobalRef_, withJVM, withLocalFrame_)
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Safe
 import Language.Java.Safe (reflect)
+import System.Clock
 import System.Environment (getArgs, lookupEnv)
 import qualified System.IO.Linear as Linear
 import System.IO.Unsafe (unsafePerformIO)
 import Wizzardo.Http.Handler (JHandler, createHandler)
-import Prelude (IO, (=<<), Maybe(..), fromInteger, fromIntegral, map, ($), (++))
+import Prelude (IO, (=<<), Maybe(..), fromInteger, fromIntegral, map, print, ($), (++))
 import Prelude.Linear (Unrestricted(..))
 
 imports "com.wizzardo.http.*"
@@ -84,7 +86,13 @@ createJsonHandler = createHandler $ \_req resp ->
     let bs = toStrict $ encode $ jsonObject resp
         len = fromIntegral (ByteString.length bs) :: Int32
         ubuffer = Unrestricted jbuffer
-    liftIO $ DirectBuffer.writeBuffer buffer bs
+    liftIO $
+      let Prelude.Builder{..} = Prelude.monadBuilder in do
+      t0 <- getTime Monotonic
+      Control.Monad.forM_ [1..100] $ \i ->
+        DirectBuffer.writeBuffer buffer (toStrict $ encode $ jsonObject (i :: Int))
+      t1 <- getTime Monotonic
+      print (diffTimeSpec t1 t0)
     [java| {
        byte[] jmsg = new byte[$len];
        $ubuffer.rewind();
