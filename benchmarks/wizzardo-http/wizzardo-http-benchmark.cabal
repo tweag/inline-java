@@ -14,6 +14,7 @@ executable wizzardo-http-benchmark
   main-is:             Main.hs
   ghc-options: -threaded -rtsopts
   other-modules:
+    DirectBuffer
     Wizzardo.Http.Handler
   hs-source-dirs:      src
   build-depends:

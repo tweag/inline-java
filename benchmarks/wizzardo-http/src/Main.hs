@@ -8,21 +8,25 @@
 module Main where
 
 import qualified Control.Monad
-import Control.Monad.IO.Class.Linear (MonadIO)
+import Control.Monad.IO.Class.Linear (MonadIO, liftIO)
 import qualified Control.Monad.Linear.Builder as Linear
 import Data.Aeson
+import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as ByteString.Char8
 import Data.ByteString.Lazy (toStrict)
 import Data.String (fromString)
+import Data.Int
 import qualified Data.Text as Text
+import qualified DirectBuffer
 import Foreign.JNI.Safe (newGlobalRef_, withJVM, withLocalFrame_)
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Safe
 import Language.Java.Safe (reflect)
 import System.Environment (getArgs, lookupEnv)
 import qualified System.IO.Linear as Linear
+import System.IO.Unsafe (unsafePerformIO)
 import Wizzardo.Http.Handler (JHandler, createHandler)
-import Prelude (IO, (=<<), Maybe(..), fromInteger, map, ($), (++))
+import Prelude (IO, (=<<), Maybe(..), fromInteger, fromIntegral, map, ($), (++))
 import Prelude.Linear (Unrestricted(..))
 
 imports "com.wizzardo.http.*"
@@ -61,18 +65,31 @@ main = getArgs Control.Monad.>>= \args -> do
         };
 
         application.onSetup(app -> {
-          app.getUrlMapping().append("/json", $jsonHandler)
+          app.getUrlMapping()
+             .append("/json", $jsonHandler)
              .append("/plaintext", $jPlainTextHandler);
         });
         application.start();
        } |]
 
+bufferPool :: DirectBuffer.DirectBufferPool
+{- NOINLINE bufferPool -}
+bufferPool = unsafePerformIO DirectBuffer.newDirectBufferPool
+
 createJsonHandler :: MonadIO m => m JHandler
-createJsonHandler = createHandler $ \_req resp -> Linear.withLinearIO $
+createJsonHandler = createHandler $ \_req resp ->
+    DirectBuffer.withDirectBuffer bufferPool $ \jbuffer buffer ->
+    Linear.withLinearIO $
     let Linear.Builder{..} = Linear.monadBuilder in do
-    jmsg <- reflect (toStrict $ encode $ jsonObject resp)
-    [java| { $resp
-            .setBody($jmsg)
+    let bs = toStrict $ encode $ jsonObject resp
+        len = fromIntegral (ByteString.length bs) :: Int32
+        ubuffer = Unrestricted jbuffer
+    liftIO $ DirectBuffer.writeBuffer buffer bs
+    [java| {
+       byte[] jmsg = new byte[$len];
+       $ubuffer.rewind();
+       $ubuffer.get(jmsg);
+       $resp.setBody(jmsg)
             .appendHeader(Header.KV_CONTENT_TYPE_APPLICATION_JSON);
            } |]
     return (Unrestricted ())
