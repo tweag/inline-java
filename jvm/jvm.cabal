@@ -27,7 +27,7 @@ library
   exposed-modules:
     Language.Java
   build-depends:
-    base >=4.7 && <5,
+    base >=4.10 && <5,
     bytestring >=0.10,
     constraints >=0.8,
     choice >=0.1,
