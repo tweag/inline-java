@@ -2,8 +2,6 @@
 
 [![CircleCI](https://circleci.com/gh/tweag/inline-java.svg?style=svg)](https://circleci.com/gh/tweag/inline-java)
 
-**NOTE 1: you'll need GHC >= 8.0.2 to compile and use this package.**
-
 The Haskell standard includes a native foreign function interface
 (FFI). Using it can be a bit involved and only C support is
 implemented in GHC. `inline-java` lets you call any JVM function
