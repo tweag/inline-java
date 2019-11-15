@@ -11,7 +11,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * Support for ghc-8.9
 * `setGetClassFunction/getClass` to have _call_ functions
   use other loading mechanisms than `findClass`
-* Benchmarks for arrays and direct buffer operations.
+* Benchmarks for arrays and direct buffer operations
+* An interface based on linear types (https://github.com/tweag/inline-java/pull/127)
+* An abstract monad to use in the safe interfaces (https://github.com/tweag/inline-java/pull/128)
 
 ### Removed
 

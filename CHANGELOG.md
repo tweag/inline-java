@@ -9,8 +9,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 
 * Added support for ghc-8.9.
-* Use TH.addCorePlugin instead of -fplugin.
-* Added an interface based on linear types (#127).
+* Use TH.addCorePlugin instead of -fplugin
+* An interface based on linear types (https://github.com/tweag/inline-java/pull/127)
+* An abstract monad to use in the safe interfaces (https://github.com/tweag/inline-java/pull/128)
 
 ### Removed
 
