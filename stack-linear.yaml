@@ -19,6 +19,8 @@ flags:
     linear-types: true
   jvm:
     linear-types: true
+  inline-java:
+    linear-types: true
 
 extra-deps:
 - constraints-0.11
