@@ -120,7 +120,7 @@ jobs:
           name: Build dependencies
           command: |
             . env-linear.sh
-            stack --no-terminal build --only-dependencies --prefetch --test -j4 jni jvm inline-java
+            stack --no-terminal build --only-dependencies --prefetch --test -j1 jni jvm inline-java
       - save_cache:
           key: inline-java-stack-linear-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
           paths:
@@ -130,7 +130,7 @@ jobs:
           name: Build project
           command: |
             . env-linear.sh
-            stack --no-terminal build -j4 --pedantic --test --no-run-tests --no-run-benchmarks inline-java
+            stack --no-terminal build -j1 --pedantic --test --no-run-tests --no-run-benchmarks inline-java
       - run:
           name: Test
           command: |
