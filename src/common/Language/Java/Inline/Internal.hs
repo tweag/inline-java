@@ -140,8 +140,8 @@ loadJavaWrappers = doit `seq` return ()
     {-# NOINLINE doit #-}
     doit = unsafePerformIO $ push $ do
       loader :: J ('Class "java.lang.ClassLoader") <- do
-        thr <- callStatic "java.lang.Thread" "currentThread" []
-        call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" []
+        thr <- callStatic "java.lang.Thread" "currentThread"
+        call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader"
       Magic.forEachDotClass $ \Magic.DotClass{..} -> do
         _ <- defineClass (referenceTypeName (SClass className)) loader classBytecode
         return ()
@@ -186,11 +186,11 @@ blockQQ config input = do
             [ n | Java.L _ (Java.IdentTok ('$' : n)) <- Java.lexer input ]
           thnames = map TH.mkName vnames
           thnames' = map TH.mkName (map ('_':) vnames)
+      -- Keep consistent with number of instances generated Language.Java.Internal.
+      when (length vnames > 32) $
+        TH.reportError "Blocks with more than 32 antiquotation variables not supported."
 
       -- Return a call to the static method we just generated.
-      let args = [ [| $(TH.varE (qqCoerce config)) $(TH.varE name) |]
-                 | name <- thnames'
-                 ]
       thismod <- TH.thisModule
       lineNumber <- fromIntegral . fst . TH.loc_start <$> TH.location
       qqWrapMarker config
@@ -202,9 +202,11 @@ blockQQ config input = do
              $(return $ foldr (\a b -> TH.TupE [TH.VarE a, b]) (TH.TupE []) thnames)
              Proxy
              (\ $(return $ foldr (\a b -> TH.TupP [TH.VarP a, b]) (TH.TupP []) thnames') ->
-               $(TH.varE (qqCallStatic config))
-               (fromString $(TH.stringE ("io.tweag.inlinejava." ++ mangle thismod)))
-               (fromString $(TH.stringE mname))
-               $(TH.listE args)
+                $(TH.appsE
+                    ([ TH.varE (qqCallStatic config)
+                     , [| fromString $(TH.stringE ("io.tweag.inlinejava." ++ mangle thismod)) |]
+                     , [| fromString $(TH.stringE mname) |]
+                     ] ++ map TH.varE thnames')
+                 )
              )
              |]

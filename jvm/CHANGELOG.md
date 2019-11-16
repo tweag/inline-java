@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+### Changed
+
+* `call`, `callStatic` and `new` are now variadic. Instead of packing
+  arguments to methods and to constructors into a list, the arguments
+  can now be passed directly. This is a breaking change.
+
 ### Added
 
 * Support for ghc-8.9
