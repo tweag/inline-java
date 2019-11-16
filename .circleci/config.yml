@@ -37,20 +37,20 @@ jobs:
     docker:
       - image: nixos/nix
     working_directory: ~/inline-java
-    environment:
-      - NIXRUN: nix-shell -I nixpkgs=./nixpkgs.nix --pure -p gcc bazel stack nix openjdk11 ghc python3 --run
     steps:
       - checkout
       - run:
           name: Install system dependencies
           command: |
             apk update --no-progress && apk --no-progress add ca-certificates bash binutils zip
-            $NIXRUN "echo nix dependencies installed"
+            nix-env -f nixpkgs.nix -iA gcc bazel stack nix openjdk11 ghc python3
       - run:
           name: Build project
           command: |
-            echo "common --host_platform=@io_tweag_rules_haskell//haskell/platforms:linux_x86_64_nixpkgs" > .bazelrc.local
-            $NIXRUN "bazel build --jobs 2 //..."
+            echo "common --host_platform=@rules_haskell//haskell/platforms:linux_x86_64_nixpkgs" > .bazelrc.local
+            # Build in two steps to avoid OOM.
+            bazel build --jobs 2 @stackage//:singletons
+            bazel build --jobs 2 //...
 
   build-darwin-brew:
     macos:
