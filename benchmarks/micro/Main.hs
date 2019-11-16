@@ -48,9 +48,9 @@ benchCallbacks =
         ]
       , bgroup "jvm"
         [ bench "return" $ withLocalFrame 1 $
-            void @_ @JObject $ call fun "apply" [coerce obj, coerce (JNI.upcast jstr)]
+            void @_ @JObject $ call fun "apply" With2Args obj (JNI.upcast jstr)
         , bench "no-callback" $ withLocalFrame 1 $
-            void @_ @JString $ call jstr "concat" [coerce jstr2]
+            void @_ @JString $ call jstr "concat" With1Args jstr2
         ]
       ]
   where
