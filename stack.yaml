@@ -11,7 +11,7 @@ packages:
 - examples/classpath
 
 nix:
-  shell-file: shell.nix
+  shell-file: shell-stack.nix
   path: ["nixpkgs=./nixpkgs.nix"]
 
 docker:
