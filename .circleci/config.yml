@@ -37,7 +37,7 @@ jobs:
   build-bazel:
     docker:
       - image: nixos/nix
-    working_directory: ~/sparkle
+    working_directory: ~/inline-java
     environment:
       - NIXRUN: nix-shell -I nixpkgs=./nixpkgs.nix --pure -p gcc bazel stack nix openjdk11 ghc python3 --run
     steps:
