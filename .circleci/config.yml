@@ -17,14 +17,13 @@ jobs:
               (echo shell.nix; echo nixpkgs.nix; find . -name "*.cabal" -o -name "stack.yaml" -type f) | sort | xargs cat > /tmp/stack-deps
       - restore_cache:
           keys:
-            - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
-            - inline-java-stack-dependencies-{{ arch }}-
+            - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}-{{ checksum "nixpkgs.nix" }}
       - run:
           name: Build dependencies
           command: |
             stack --no-terminal --nix build --only-snapshot --prefetch --test --bench -j2
       - save_cache:
-          key: inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+          key: inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}-{{ checksum "nixpkgs.nix" }}
           paths:
             - ~/.stack
       - run:
