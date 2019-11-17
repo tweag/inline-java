@@ -3,25 +3,20 @@ workspace(name = "io_tweag_inline_java")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
-    name = "io_tweag_rules_haskell",
-    sha256 = "9da2afb9f91ae876edb2614a8b177db492703bd31355ce2b86414828e4b32230",
-    strip_prefix = "rules_haskell-3564881798919455b27f970f76ae6fd91dfb4fa1",
-    urls = ["https://github.com/tweag/rules_haskell/archive/3564881798919455b27f970f76ae6fd91dfb4fa1.tar.gz"],
+    name = "rules_haskell",
+    sha256 = "d5d8361a1a5a67cf24f7f44035e8120a7993089bc8c05b2415cc0ecf16884a73",
+    strip_prefix = "rules_haskell-c53f7cc0fa11eb8f8107cf7cd977a6835b9f9ad6",
+    urls = ["https://github.com/tweag/rules_haskell/archive/c53f7cc0fa11eb8f8107cf7cd977a6835b9f9ad6.tar.gz"],
 )
 
-load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
+load("@rules_haskell//haskell:repositories.bzl", "haskell_repositories")
 haskell_repositories()
-
-http_archive(
-    name = "io_tweag_rules_nixpkgs",
-    strip_prefix = "rules_nixpkgs-0.5.1",
-    urls = ["https://github.com/tweag/rules_nixpkgs/archive/v0.5.1.tar.gz"]
-)
 
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
     "nixpkgs_local_repository",
     "nixpkgs_package",
+    "nixpkgs_python_configure",
 )
 
 nixpkgs_local_repository(
@@ -29,13 +24,15 @@ nixpkgs_local_repository(
     nix_file = "//:nixpkgs.nix",
 )
 
+nixpkgs_python_configure(repository = "@nixpkgs")
+
 nixpkgs_package(
     name = "alex",
     attribute_path = "haskellPackages.alex",
     repository = "@nixpkgs",
 )
 
-load("@io_tweag_rules_haskell//haskell:cabal.bzl", "stack_snapshot")
+load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
 stack_snapshot(
     name = "stackage",
@@ -70,7 +67,7 @@ stack_snapshot(
     tools = ["@alex//:bin/alex"],
 )
 
-load("@io_tweag_rules_haskell//haskell:nixpkgs.bzl", "haskell_register_ghc_nixpkgs")
+load("@rules_haskell//haskell:nixpkgs.bzl", "haskell_register_ghc_nixpkgs")
 
 nixpkgs_package(
     name = "glibc_locales",
