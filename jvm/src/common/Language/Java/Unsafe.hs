@@ -38,11 +38,13 @@
 -- class and method lookups, for performance. This memoization is safe only when
 -- no new named classes are defined at runtime.
 
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
@@ -64,7 +66,6 @@ module Language.Java.Unsafe
   , classOf
   , getClass
   , setGetClassFunction
-  , Arity(..)
   , new
   , newArray
   , toArray
@@ -122,6 +123,7 @@ import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import GHC.TypeLits (KnownSymbol, symbolVal)
+import qualified Language.Haskell.TH as TH
 import Language.Java.Internal
 import System.IO.Unsafe (unsafeDupablePerformIO)
 
@@ -275,6 +277,19 @@ instance Coercible (Choice.Choice a) where
   coerce = coerce . Choice.toBool
   unsafeUncoerce = Choice.fromBool . unsafeUncoerce
 
+-- | Inject a value (of primitive or reference type) to a 'JValue'. This
+-- datatype is useful for e.g. passing arguments as a list of homogeneous type.
+-- Synonym for 'coerce'.
+jvalue :: (ty ~ Ty a, Coercible a) => a -> JValue
+jvalue = coerce
+
+-- | If @ty@ is a reference type, then it should be possible to get an object
+-- from a value.
+jobject :: (ty ~ Ty a, Coercible a, IsReferenceType ty) => a -> J ty
+jobject x
+  | JObject jobj <- coerce x = unsafeCast jobj
+  | otherwise = error "impossible"
+
 -- | Get the Java class of an object or anything 'Coercible' to one.
 classOf
   :: forall a sym. (Ty a ~ 'Class sym, Coercible a, KnownSymbol sym)
@@ -282,32 +297,17 @@ classOf
   -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
--- | A specification for how many arguments a method requires. A specification
--- of type @Arity ty r@ stands for a method of arbitrary arity whose return
--- value has JVM type @ty@.
-data Arity ty r where
-  With0Args :: (Coercible b, ty ~ Ty b) => Arity ty (IO b)
-  With1Args :: (Coercible a1, Coercible b, ty ~ Ty b) => Arity ty (a1 -> IO b)
-  With2Args :: (Coercible a1, Coercible a2, Coercible b, ty ~ Ty b) => Arity ty (a1 -> a2 -> IO b)
-  With3Args :: (Coercible a1, Coercible a2, Coercible a3, Coercible b, ty ~ Ty b) => Arity ty (a1 -> a2 -> a3 -> IO b)
-  With4Args :: (Coercible a1, Coercible a2, Coercible a3, Coercible a4, Coercible b, ty ~ Ty b) => Arity ty (a1 -> a2 -> a3 -> a4 -> IO b)
-  With5Args :: (Coercible a1, Coercible a2, Coercible a3, Coercible a4, Coercible a5, Coercible b, ty ~ Ty b) => Arity ty (a1 -> a2 -> a3 -> a4 -> a5 -> IO b)
-  With6Args :: (Coercible a1, Coercible a2, Coercible a3, Coercible a4, Coercible a5, Coercible a6, Coercible b, ty ~ Ty b) => Arity ty (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> IO b)
-  With7Args :: (Coercible a1, Coercible a2, Coercible a3, Coercible a4, Coercible a5, Coercible a6, Coercible a7, Coercible b, ty ~ Ty b) => Arity ty (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> IO b)
-  With8Args :: (Coercible a1, Coercible a2, Coercible a3, Coercible a4, Coercible a5, Coercible a6, Coercible a7, Coercible a8, Coercible b, ty ~ Ty b) => Arity ty (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> a8 -> IO b)
-  WithManyArgs :: (Coercible b, ty ~ Ty b) => Arity ty ([JValue] -> IO b)
+class New r where
+  new_ :: r
 
-interpretArity :: (forall b. (ty ~ Ty b, Coercible b) => [JValue] -> IO b) -> Arity ty r -> r
-interpretArity k With0Args = k []
-interpretArity k With1Args = \x1 -> k [coerce x1]
-interpretArity k With2Args = \x1 x2 -> k [coerce x1, coerce x2]
-interpretArity k With3Args = \x1 x2 x3 -> k [coerce x1, coerce x2, coerce x3]
-interpretArity k With4Args = \x1 x2 x3 x4 -> k [coerce x1, coerce x2, coerce x3, coerce x4]
-interpretArity k With5Args = \x1 x2 x3 x4 x5 -> k [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5]
-interpretArity k With6Args = \x1 x2 x3 x4 x5 x6 -> k [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5, coerce x6]
-interpretArity k With7Args = \x1 x2 x3 x4 x5 x6 x7 -> k [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5, coerce x6, coerce x7]
-interpretArity k With8Args = \x1 x2 x3 x4 x5 x6 x7 x8 -> k [coerce x1, coerce x2, coerce x3, coerce x4, coerce x5, coerce x6, coerce x7, coerce x8]
-interpretArity k WithManyArgs = \args -> k args
+$(mkVariadic [t| J ('Class $(TH.varT (TH.mkName "sym"))) |] $ \ctx typ pats argsings args -> do
+    [d| instance $ctx => New $typ where
+          new_ :: $typ
+          {-# INLINE new_ #-}
+          new_ =
+            $(TH.lamE
+               pats
+               [| newJ $argsings $args |]) |])
 
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
@@ -316,12 +316,9 @@ interpretArity k WithManyArgs = \args -> k args
 -- do x :: 'J' (''Class' "java.lang.Integer") <- new 'With1Args' 42
 --    return x
 -- @
-new :: forall sym r. Arity ('Class sym) r -> r
+new :: New r => r
 {-# INLINE new #-}
-new = interpretArity wrap
-  where
-    wrap :: ('Class sym ~ Ty b, Coercible b) => [JValue] -> IO b
-    wrap args = (unsafeUncoerce . coerce) <$> newJ @sym args
+new = new_
 
 -- | Creates a new Java array of the given size. The type of the elements
 -- of the resulting array is determined by the return type a call to
@@ -368,6 +365,26 @@ toArray xs = do
     zipWithM_ (setObjectArrayElement jxs) [0 .. n - 1] xs
     return jxs
 
+class Call r where
+  call_
+    :: (ty ~ Ty a, IsReferenceType ty, Coercible a, Coerce.Coercible a (J ty))
+    => a
+    -> JNI.String
+    -> r
+
+$(let retty = TH.varT (TH.mkName "ret") in mkVariadic retty $ \ctx typ pats argsings args ->
+    [d| instance $ctx => Call $typ where
+          call_
+            :: forall a ty. (ty ~ Ty a, IsReferenceType ty, Coercible a, Coerce.Coercible a (J ty))
+            => a
+            -> JNI.String
+            -> $typ
+          {-# INLINE call_ #-}
+          call_ obj mname =
+            $(TH.lamE
+               pats
+               [| unsafeUncoerce <$> callToJValue (sing :: Sing (Ty $retty)) (Coerce.coerce obj :: J ty) mname $argsings $args |]) |])
+
 -- | The Swiss Army knife for calling Java methods. Give it an object or any
 -- data type coercible to one, a specification of the arity of the method and as
 -- many arguments as the specification prescribes. Based on the type indexes of
@@ -384,18 +401,23 @@ toArray xs = do
 -- call obj "frobnicate" 'With3Args' x y z
 -- @
 call
-  :: forall a ty1 ty2 r. (ty1 ~ Ty a, IsReferenceType ty1, Coercible a, Coerce.Coercible a (J ty1))
-  => a -- ^ Any object or value 'Coercible' to one
+  :: (Call r, ty ~ Ty a, IsReferenceType ty, Coercible a, Coerce.Coercible a (J ty))
+  => a
   -> JNI.String
-  -> Arity ty2 r
   -> r
-{-# INLINE call #-}
-call obj mname = interpretArity wrap
-  where
-    wrap :: forall b. (ty2 ~ Ty b, Coercible b) => [JValue] -> IO b
-    wrap args =
-      unsafeUncoerce <$>
-        callToJValue (sing :: Sing ty2) (Coerce.coerce obj :: J ty1) mname args
+call = call_
+
+class CallStatic r where
+  callStatic_ :: JNI.String -> JNI.String -> r
+
+$(let retty = TH.varT (TH.mkName "ret") in mkVariadic retty $ \ctx typ pats argsings args ->
+    [d| instance $ctx => CallStatic $typ where
+          callStatic_ :: JNI.String -> JNI.String -> $typ
+          {-# INLINE callStatic_ #-}
+          callStatic_ cname mname =
+            $(TH.lamE
+               pats
+               [| unsafeUncoerce <$> callStaticToJValue (sing :: Sing (Ty $retty)) cname mname $argsings $args |]) |])
 
 -- | Same as 'call', but for static methods.
 --
@@ -405,16 +427,12 @@ call obj mname = interpretArity wrap
 -- callStatic "java.lang.Integer" "parseInt" 'With1Args' jstr
 -- @
 callStatic
-  :: forall ty r.
-     JNI.String -- ^ Class name
+  :: CallStatic r
+  => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
-  -> Arity ty r
   -> r
 {-# INLINE callStatic #-}
-callStatic cname mname = interpretArity wrap
-  where
-    wrap :: forall b. (ty ~ Ty b, Coercible b) => [JValue] -> IO b
-    wrap args = unsafeUncoerce <$> callStaticToJValue (sing :: Sing ty) cname mname args
+callStatic = callStatic_
 
 -- | Get a static field.
 getStaticField
@@ -425,19 +443,6 @@ getStaticField
 {-# INLINE getStaticField #-}
 getStaticField cname fname =
     unsafeUncoerce <$> getStaticFieldAsJValue (sing :: Sing ty) cname fname
-
--- | Inject a value (of primitive or reference type) to a 'JValue'. This
--- datatype is useful for e.g. passing arguments as a list of homogeneous type.
--- Synonym for 'coerce'.
-jvalue :: (ty ~ Ty a, Coercible a) => a -> JValue
-jvalue = coerce
-
--- | If @ty@ is a reference type, then it should be possible to get an object
--- from a value.
-jobject :: (ty ~ Ty a, Coercible a, IsReferenceType ty) => a -> J ty
-jobject x
-  | JObject jobj <- coerce x = unsafeCast jobj
-  | otherwise = error "impossible"
 
 -- | The 'Interp' type family is used by both 'Reify' and 'Reflect'. In order to
 -- benefit from @-XGeneralizedNewtypeDeriving@ of new instances, we make this an
@@ -507,7 +512,7 @@ withStatic [d|
   -- We take an arbitrary serializable type to represent it.
   instance Interpretation () where type Interp () = 'Class "java.lang.Short"
   instance Reify () where reify _ = return ()
-  instance Reflect () where reflect () = new With1Args (0 :: Int16)
+  instance Reflect () where reflect () = new (0 :: Int16)
 
   instance Interpretation ByteString where
     type Interp ByteString = 'Array ('Prim "byte")
@@ -542,7 +547,7 @@ withStatic [d|
         callBooleanMethod jobj method []
 
   instance Reflect Bool where
-    reflect = new With1Args
+    reflect = new
 
   instance Interpretation CChar where
     type Interp CChar = 'Class "java.lang.Byte"
@@ -558,7 +563,7 @@ withStatic [d|
         callByteMethod jobj method []
 
   instance Reflect CChar where
-    reflect = Language.Java.Unsafe.new With1Args
+    reflect = Language.Java.Unsafe.new
 
   instance Interpretation Int16 where
     type Interp Int16 = 'Class "java.lang.Short"
@@ -574,7 +579,7 @@ withStatic [d|
         callShortMethod jobj method []
 
   instance Reflect Int16 where
-    reflect = new With1Args
+    reflect = new
 
   instance Interpretation Int32 where
     type Interp Int32 = 'Class "java.lang.Integer"
@@ -590,7 +595,7 @@ withStatic [d|
         callIntMethod jobj method []
 
   instance Reflect Int32 where
-    reflect = new With1Args
+    reflect = new
 
   instance Interpretation Int64 where
     type Interp Int64 = 'Class "java.lang.Long"
@@ -606,7 +611,7 @@ withStatic [d|
         callLongMethod jobj method []
 
   instance Reflect Int64 where
-    reflect = new With1Args
+    reflect = new
 
   instance Interpretation Word16 where
     type Interp Word16 = 'Class "java.lang.Character"
@@ -622,7 +627,7 @@ withStatic [d|
         fromIntegral <$> callCharMethod jobj method []
 
   instance Reflect Word16 where
-    reflect = new With1Args
+    reflect = new
 
   instance Interpretation Double where
     type Interp Double = 'Class "java.lang.Double"
@@ -638,7 +643,7 @@ withStatic [d|
         callDoubleMethod jobj method []
 
   instance Reflect Double where
-    reflect = new With1Args
+    reflect = new
 
   instance Interpretation Float where
     type Interp Float = 'Class "java.lang.Float"
@@ -654,7 +659,7 @@ withStatic [d|
         callFloatMethod jobj method []
 
   instance Reflect Float where
-    reflect = new With1Args
+    reflect = new
 
   instance Interpretation Text where
     type Interp Text = 'Class "java.lang.String"

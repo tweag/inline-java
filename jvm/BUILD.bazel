@@ -15,6 +15,7 @@ haskell_library(
         "@stackage//:distributed-closure",
         "@stackage//:exceptions",
         "@stackage//:singletons",
+        "@stackage//:template-haskell",
         "@stackage//:text",
         "@stackage//:vector",
     ],

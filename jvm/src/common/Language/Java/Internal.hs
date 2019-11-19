@@ -7,6 +7,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Language.Java.Internal
@@ -16,13 +17,17 @@ module Language.Java.Internal
   , getStaticFieldAsJValue
   , getClass
   , setGetClassFunction
+  -- * Template Haskell
+  , mkVariadic
   ) where
 
 import Data.IORef
-import Data.Singletons (SingI(..))
+import Data.Singletons (SingI(..), SomeSing(..))
+import Data.Traversable (for)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
+import qualified Language.Haskell.TH as TH
 import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
 
 -- | Sets the function to use for loading classes.
@@ -54,12 +59,12 @@ newJ
      ( ty ~ 'Class sym
      , SingI ty
      )
-  => [JValue]
+  => [SomeSing JType] -- ^ Singletons of argument types
+  -> [JValue]
   -> IO (J ty)
 {-# INLINE newJ #-}
-newJ args = do
-    let argsings = map jtypeOf args
-        voidsing = sing :: Sing 'Void
+newJ argsings args = do
+    let voidsing = sing :: Sing 'Void
         klass = unsafeDupablePerformIO $ do
           lk <- getClass (sing :: Sing ('Class sym))
           gk <- newGlobalRef lk
@@ -72,12 +77,12 @@ callToJValue
   => Sing (k :: JType)
   -> J ty1 -- ^ Any object
   -> JNI.String -- ^ Method name
+  -> [SomeSing JType] -- ^ Singletons of argument types
   -> [JValue] -- ^ Arguments
   -> IO JValue
 {-# INLINE callToJValue #-}
-callToJValue retsing obj mname args = do
-    let argsings = map jtypeOf args
-        klass = unsafeDupablePerformIO $ do
+callToJValue retsing obj mname argsings args = do
+    let klass = unsafeDupablePerformIO $ do
                   lk <- getClass (sing :: Sing ty1)
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
@@ -104,12 +109,12 @@ callStaticToJValue
   :: Sing (k :: JType)
   -> JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
+  -> [SomeSing JType] -- ^ Singletons of argument types
   -> [JValue] -- ^ Arguments
   -> IO JValue
 {-# INLINE callStaticToJValue #-}
-callStaticToJValue retsing cname mname args = do
-    let argsings = map jtypeOf args
-        klass = unsafeDupablePerformIO $ do
+callStaticToJValue retsing cname mname argsings args = do
+    let klass = unsafeDupablePerformIO $ do
                   lk <- getClass (SClass (JNI.toChars cname))
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
@@ -155,3 +160,20 @@ getStaticFieldAsJValue retsing cname fname = do
     SPrim "double" -> JDouble <$> getStaticDoubleField klass field
     SVoid -> fail "getStaticField cannot yield an object of type void"
     _ -> JObject <$> getStaticObjectField klass field
+
+mkVariadic :: TH.TypeQ -> (TH.TypeQ -> TH.TypeQ -> [TH.PatQ] -> TH.ExpQ -> TH.ExpQ -> TH.DecsQ) -> TH.DecsQ
+mkVariadic retty k = fmap concat $ for [0..32 :: Int] $ \n -> do
+    let -- Coercible type class and Ty associated type defined in downstream module.
+        coercible = TH.conT (TH.mkName "Coercible")
+        coercibleTy = TH.conT (TH.mkName "Ty")
+        xs = [TH.mkName ("x" ++ show m) | m <- [1..n]]
+        tyvars = [TH.varT (TH.mkName ("a" ++ show m)) | m <- [1..n]]
+        argsings =
+          TH.listE [[| SomeSing (sing :: Sing ($coercibleTy $tyvar)) |] | tyvar <- tyvars]
+        args = TH.listE [[| coerce $(TH.varE x) |] | x <- xs]
+        typ = foldr (TH.appT . TH.appT TH.arrowT) [t| IO $retty|] tyvars
+        constraints =
+          [[t| $coercible $tyvar |] | tyvar <- tyvars] ++
+          [[t| $coercible $retty |]]
+        ctx = foldl TH.appT (TH.tupleT (length constraints)) constraints
+    k ctx typ (map TH.varP xs) argsings args

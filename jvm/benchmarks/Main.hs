@@ -28,7 +28,7 @@ newtype Box a = Box { unBox :: a }
 instance NFData (Box a) where rnf (Box a) = seq a ()
 
 jabs :: Int32 -> IO Int32
-jabs x = callStatic "java.lang.Math" "abs" With1Args x
+jabs x = callStatic "java.lang.Math" "abs" x
 
 jniAbs :: JClass -> JMethodID -> Int32 -> IO Int32
 jniAbs klass method x = callStaticIntMethod klass method [coerce x]
@@ -36,13 +36,13 @@ jniAbs klass method x = callStaticIntMethod klass method [coerce x]
 intValue :: Int32 -> IO Int32
 intValue x = do
     jx <- reflect x
-    call jx "intValue" With0Args
+    call jx "intValue"
 
 compareTo :: Int32 -> Int32 -> IO Int32
 compareTo x y = do
     jx <- reflect x
     jy <- reflect y
-    call jx "compareTo" With1Args jy
+    call jx "compareTo" jy
 
 incrHaskell :: Int32 -> IO Int32
 incrHaskell x = return (x + 1)
@@ -63,7 +63,7 @@ benchCalls =
             )
             (\_ _ -> void (popLocalFrame jnull)) $
             \(Box jStringInteger) -> do
-              _ <- callStatic "java.lang.Integer" "valueOf" With1Args jStringInteger
+              _ <- callStatic "java.lang.Integer" "valueOf" jStringInteger
                  :: IO (J ('Class "java.lang.Integer"))
               return ()
         , bench "jni static method call: unboxed single arg / unboxed return" $ nfIO $ jniAbs klass method 1
@@ -105,7 +105,7 @@ benchCalls =
 
 benchRefs :: Benchmark
 benchRefs =
-    env (Box <$> new With0Args) $ \ ~(Box (jobj :: JObject)) ->
+    env (Box <$> new) $ \ ~(Box (jobj :: JObject)) ->
     bgroup "References"
     [ bench "local reference" $ nfIO $ do
         _ <- newLocalRef jobj
@@ -149,14 +149,14 @@ benchNew =
         (pushLocalFrame . (2*) . fromIntegral)
         (\_ _ -> void (popLocalFrame jnull)) $
         \() -> do
-          _ <- new With1Args (2 :: Int32) :: IO (J ('Class "java.lang.Integer"))
+          _ <- new (2 :: Int32) :: IO (J ('Class "java.lang.Integer"))
           return ()
     , bench "Integer.valueOf" $
       perBatchEnvWithCleanup
         (pushLocalFrame . (2*) . fromIntegral)
         (\_ _ -> void (popLocalFrame jnull)) $
         \() -> do
-          _ <- callStatic "java.lang.Integer" "valueOf" With1Args (2 :: Int32)
+          _ <- callStatic "java.lang.Integer" "valueOf" (2 :: Int32)
                  :: IO (J ('Class "java.lang.Integer"))
           return ()
     , envWithCleanup allocTextPtr freeTextPtr $ \ ~(Box (ptr, len)) ->

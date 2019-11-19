@@ -140,8 +140,8 @@ loadJavaWrappers = doit `seq` return ()
     {-# NOINLINE doit #-}
     doit = unsafePerformIO $ push $ do
       loader :: J ('Class "java.lang.ClassLoader") <- do
-        thr <- callStatic "java.lang.Thread" "currentThread" With0Args
-        call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader" With0Args
+        thr <- callStatic "java.lang.Thread" "currentThread"
+        call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader"
       Magic.forEachDotClass $ \Magic.DotClass{..} -> do
         _ <- defineClass (referenceTypeName (SClass className)) loader classBytecode
         return ()
@@ -186,21 +186,9 @@ blockQQ config input = do
             [ n | Java.L _ (Java.IdentTok ('$' : n)) <- Java.lexer input ]
           thnames = map TH.mkName vnames
           thnames' = map TH.mkName (map ('_':) vnames)
-          arityCon = case length thnames' of
-            0 -> [| With0Args |]
-            1 -> [| With1Args |]
-            2 -> [| With2Args |]
-            3 -> [| With3Args |]
-            4 -> [| With4Args |]
-            5 -> [| With5Args |]
-            6 -> [| With6Args |]
-            7 -> [| With7Args |]
-            8 -> [| With8Args |]
-            _ -> [| WithManyArgs |]
-          args
-            -- Keep consistent with arityCon.
-            | length thnames' > 8 = [TH.listE (map TH.varE thnames')]
-            | otherwise = map TH.varE thnames'
+      -- Keep consistent with number of instances generated Language.Java.Internal.
+      when (length vnames > 32) $
+        TH.reportError "Blocks with more than 32 antiquotation variables not supported."
 
       -- Return a call to the static method we just generated.
       thismod <- TH.thisModule
@@ -218,8 +206,7 @@ blockQQ config input = do
                     ([ TH.varE (qqCallStatic config)
                      , [| fromString $(TH.stringE ("io.tweag.inlinejava." ++ mangle thismod)) |]
                      , [| fromString $(TH.stringE mname) |]
-                     , arityCon
-                     ] ++ args)
+                     ] ++ map TH.varE thnames')
                  )
              )
              |]
