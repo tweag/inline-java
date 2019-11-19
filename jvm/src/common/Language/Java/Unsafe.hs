@@ -55,10 +55,12 @@
 {-# LANGUAGE StaticPointers #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 
 module Language.Java.Unsafe
   ( module Foreign.JNI.Types
@@ -125,7 +127,8 @@ import Foreign.C (CChar)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
-import GHC.TypeLits (KnownSymbol, symbolVal)
+import GHC.TypeLits (KnownSymbol, Symbol, TypeError, symbolVal)
+import qualified GHC.TypeLits as TypeError (ErrorMessage(..))
 import qualified Language.Haskell.TH as TH
 import Language.Java.Internal
 import System.IO.Unsafe (unsafeDupablePerformIO)
@@ -318,6 +321,13 @@ $(mkVariadic [t| J ('Class $(TH.varT (TH.mkName "sym"))) |] $ \ctx typ pats args
                pats
                [| newJ $argsings $args |]) |])
 
+instance
+  {-# OVERLAPPABLE #-}
+  TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b where n ≤ 32" TypeError.:$$:
+             TypeError.Text "Actual: " TypeError.:<>: TypeError.ShowType x) =>
+  New x where
+  new_ = undefined
+
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
 --
@@ -399,6 +409,13 @@ $(let retty = TH.varT (TH.mkName "ret") in mkVariadic retty $ \ctx typ pats args
                pats
                [| unsafeUncoerce <$> callToJValue (sing :: Sing (Ty $retty)) (Coerce.coerce obj :: J ty) mname $argsings $args |]) |])
 
+instance
+  {-# OVERLAPPABLE #-}
+  TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b where n ≤ 32" TypeError.:$$:
+             TypeError.Text "Actual: " TypeError.:<>: TypeError.ShowType x) =>
+  Call x where
+  call_ = undefined
+
 -- | The Swiss Army knife for calling Java methods. Give it an object or any
 -- data type coercible to one and any number of 'Coercible' arguments. Based on
 -- the types of each argument, and based on the return type, 'call' will invoke
@@ -435,6 +452,13 @@ $(let retty = TH.varT (TH.mkName "ret") in mkVariadic retty $ \ctx typ pats args
             $(TH.lamE
                pats
                [| unsafeUncoerce <$> callStaticToJValue (sing :: Sing (Ty $retty)) cname mname $argsings $args |]) |])
+
+instance
+  {-# OVERLAPPABLE #-}
+  TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b where n ≤ 32" TypeError.:$$:
+             TypeError.Text "Actual: " TypeError.:<>: TypeError.ShowType x) =>
+  CallStatic x where
+  callStatic_ = undefined
 
 -- | Same as 'call', but for static methods.
 --
