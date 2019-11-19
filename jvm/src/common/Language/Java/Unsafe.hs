@@ -27,9 +27,11 @@
 -- To call Java methods using quasiquoted Java syntax instead, see
 -- "Language.Java.Inline".
 --
--- The functions in this module are considered unsafe in opposition
--- to those in "Language.Java.Safe", which ensure that local references are not
--- leaked.
+-- The functions in this module are considered unsafe, as opposed to those in
+-- "Language.Java.Safe", which guarantee that local references are not leaked.
+-- Functions with a @Variadic@ constraint in their context are variadic, meaning
+-- that you can apply them to any number of arguments, provided they are
+-- 'Coercible'.
 --
 -- __NOTE 1:__ To use any function in this module, you'll need an initialized
 -- JVM in the current process, using 'withJVM' or otherwise.
@@ -102,6 +104,7 @@ import Data.Char (chr, ord)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
 import Data.Constraint (Dict(..))
+import Data.Kind (Constraint)
 import Data.Int
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, TypeRep, typeOf)
@@ -297,6 +300,11 @@ classOf
   -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
+-- | Document that a function is variadic.
+type family Variadic (sym :: Symbol) r :: Constraint
+
+type instance Variadic "new" r = New r
+
 -- Unexported type classes.
 class New r where
   new_ :: r
@@ -319,7 +327,7 @@ $(mkVariadic [t| J ('Class $(TH.varT (TH.mkName "sym"))) |] $ \ctx typ pats args
 -- @
 --
 -- You can pass any number of 'Coercible' arguments to the constructor.
-new :: New r => r
+new :: Variadic "new" r => r
 {-# INLINE new #-}
 new = new_
 
@@ -368,6 +376,8 @@ toArray xs = do
     zipWithM_ (setObjectArrayElement jxs) [0 .. n - 1] xs
     return jxs
 
+type instance Variadic "call" r = Call r
+
 -- Unexported type classes.
 class Call r where
   call_
@@ -402,14 +412,16 @@ $(let retty = TH.varT (TH.mkName "ret") in mkVariadic retty $ \ctx typ pats args
 -- Example:
 --
 -- @
--- call obj "frobnicate" 'With3Args' x y z
+-- call obj "frobnicate" x y z
 -- @
 call
-  :: (Call r, ty ~ Ty a, IsReferenceType ty, Coercible a, Coerce.Coercible a (J ty))
+  :: (Variadic "call" r, ty ~ Ty a, IsReferenceType ty, Coercible a, Coerce.Coercible a (J ty))
   => a
   -> JNI.String
   -> r
 call = call_
+
+type instance Variadic "callStatic" r = CallStatic r
 
 -- Unexported type classes.
 class CallStatic r where
@@ -432,7 +444,7 @@ $(let retty = TH.varT (TH.mkName "ret") in mkVariadic retty $ \ctx typ pats args
 -- callStatic "java.lang.Integer" "parseInt" jstr
 -- @
 callStatic
-  :: CallStatic r
+  :: Variadic "callStatic" r
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
   -> r
