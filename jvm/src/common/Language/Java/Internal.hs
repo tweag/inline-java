@@ -17,18 +17,13 @@ module Language.Java.Internal
   , getStaticFieldAsJValue
   , getClass
   , setGetClassFunction
-  -- * Template Haskell
-  , maxVariadicArgs
-  , mkVariadic
   ) where
 
 import Data.IORef
 import Data.Singletons (SingI(..), SomeSing(..))
-import Data.Traversable (for)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
-import qualified Language.Haskell.TH as TH
 import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
 
 -- | Sets the function to use for loading classes.
@@ -161,30 +156,3 @@ getStaticFieldAsJValue retsing cname fname = do
     SPrim "double" -> JDouble <$> getStaticDoubleField klass field
     SVoid -> fail "getStaticField cannot yield an object of type void"
     _ -> JObject <$> getStaticObjectField klass field
-
--- | The maximum supported number of arguments to variadic functions.
-maxVariadicArgs :: Int
-maxVariadicArgs = 32
-
--- | Generate variadic function type class instances.
-mkVariadic
-  :: -- Return type
-     TH.TypeQ
-     -- context, action type, argument patterns, argument type singletons, arguments
-  -> (TH.TypeQ -> TH.TypeQ -> [TH.PatQ] -> TH.ExpQ -> TH.ExpQ -> TH.DecsQ)
-  -> TH.DecsQ
-mkVariadic retty k = fmap concat $ for [0..maxVariadicArgs] $ \n -> do
-    let -- Coercible type class and Ty associated type defined in downstream module.
-        coercible = TH.conT (TH.mkName "Coercible")
-        coercibleTy = TH.conT (TH.mkName "Ty")
-        xs = [TH.mkName ("x" ++ show m) | m <- [1..n]]
-        tyvars = [TH.varT (TH.mkName ("a" ++ show m)) | m <- [1..n]]
-        argsings =
-          TH.listE [[| SomeSing (sing :: Sing ($coercibleTy $tyvar)) |] | tyvar <- tyvars]
-        args = TH.listE [[| coerce $(TH.varE x) |] | x <- xs]
-        typ = foldr (TH.appT . TH.appT TH.arrowT) [t| IO $retty|] tyvars
-        constraints =
-          [[t| $coercible $tyvar |] | tyvar <- tyvars] ++
-          [[t| $coercible $retty |]]
-        ctx = foldl TH.appT (TH.tupleT (length constraints)) constraints
-    k ctx typ (map TH.varP xs) argsings args

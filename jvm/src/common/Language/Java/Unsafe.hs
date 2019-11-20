@@ -45,9 +45,11 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -106,7 +108,6 @@ import Data.Char (chr, ord)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
 import Data.Constraint (Dict(..))
-import Data.Kind (Constraint)
 import Data.Int
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, TypeRep, typeOf)
@@ -114,7 +115,7 @@ import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Unsafe as BS
-import Data.Singletons (SingI(..))
+import Data.Singletons (SingI(..), SomeSing(..))
 import qualified Data.Text.Foreign as Text
 import Data.Text (Text)
 import qualified Data.Vector.Storable as Vector
@@ -127,9 +128,8 @@ import Foreign.C (CChar)
 import Foreign.JNI hiding (throw)
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
-import GHC.TypeLits (KnownSymbol, Symbol, TypeError, symbolVal)
+import GHC.TypeLits (KnownSymbol, TypeError, symbolVal)
 import qualified GHC.TypeLits as TypeError (ErrorMessage(..))
-import qualified Language.Haskell.TH as TH
 import Language.Java.Internal
 import System.IO.Unsafe (unsafeDupablePerformIO)
 
@@ -303,30 +303,39 @@ classOf
   -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
--- | Document that a function is variadic.
-type family Variadic (sym :: Symbol) r :: Constraint
 
-type instance Variadic "new" r = New r
+class Variadic_ f where
+  sings :: Proxy f -> [SomeSing JType]
+  apply :: ([JValue] -> ReturnType f) -> f
 
--- Unexported type classes.
-class New r where
-  new_ :: r
+-- The return type of a variadic function
+--
+-- We keep it as a standalone type family to enable
+-- the definition of the catch all @Variadic x@ instance.
+type family ReturnType x :: *
 
-$(mkVariadic [t| J ('Class $(TH.varT (TH.mkName "sym"))) |] $ \ctx typ pats argsings args -> do
-    [d| instance $ctx => New $typ where
-          new_ :: $typ
-          {-# INLINE new_ #-}
-          new_ =
-            $(TH.lamE
-               pats
-               [| newJ $argsings $args |]) |])
+-- | Document that a function is variadic
+type Variadic f r = (ReturnType f ~ r, Variadic_ f)
+
+type instance ReturnType (IO a) = IO a
+
+instance Variadic_ (IO a) where
+  sings _ = []
+  apply f = f []
+
+type instance ReturnType (a -> f) = ReturnType f
+
+instance (Coercible a, Variadic_ f) => Variadic_ (a -> f) where
+  sings _ = SomeSing (sing @(Ty a)) : sings @f Proxy
+  apply f x = apply (\xs -> f (coerce x : xs))
 
 instance
   {-# OVERLAPPABLE #-}
-  TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b where n ≤ 32" TypeError.:$$:
+  TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b" TypeError.:$$:
              TypeError.Text "Actual: " TypeError.:<>: TypeError.ShowType x) =>
-  New x where
-  new_ = undefined
+  Variadic_ x where
+  sings = undefined
+  apply = undefined
 
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
@@ -337,9 +346,15 @@ instance
 -- @
 --
 -- You can pass any number of 'Coercible' arguments to the constructor.
-new :: Variadic "new" r => r
+new
+  :: forall a f sym.
+     ( Ty a ~ 'Class sym
+     , Coerce.Coercible a (J ('Class sym))
+     , Coercible a
+     , Variadic f (IO a)
+     ) => f
 {-# INLINE new #-}
-new = new_
+new = apply $ \args -> Coerce.coerce <$> newJ @sym (sings @f Proxy) args
 
 -- | Creates a new Java array of the given size. The type of the elements
 -- of the resulting array is determined by the return type a call to
@@ -386,36 +401,6 @@ toArray xs = do
     zipWithM_ (setObjectArrayElement jxs) [0 .. n - 1] xs
     return jxs
 
-type instance Variadic "call" r = Call r
-
--- Unexported type classes.
-class Call r where
-  call_
-    :: (ty ~ Ty a, IsReferenceType ty, Coercible a, Coerce.Coercible a (J ty))
-    => a
-    -> JNI.String
-    -> r
-
-$(let retty = TH.varT (TH.mkName "ret") in mkVariadic retty $ \ctx typ pats argsings args ->
-    [d| instance $ctx => Call $typ where
-          call_
-            :: forall a ty. (ty ~ Ty a, IsReferenceType ty, Coercible a, Coerce.Coercible a (J ty))
-            => a
-            -> JNI.String
-            -> $typ
-          {-# INLINE call_ #-}
-          call_ obj mname =
-            $(TH.lamE
-               pats
-               [| unsafeUncoerce <$> callToJValue (sing :: Sing (Ty $retty)) (Coerce.coerce obj :: J ty) mname $argsings $args |]) |])
-
-instance
-  {-# OVERLAPPABLE #-}
-  TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b where n ≤ 32" TypeError.:$$:
-             TypeError.Text "Actual: " TypeError.:<>: TypeError.ShowType x) =>
-  Call x where
-  call_ = undefined
-
 -- | The Swiss Army knife for calling Java methods. Give it an object or any
 -- data type coercible to one and any number of 'Coercible' arguments. Based on
 -- the types of each argument, and based on the return type, 'call' will invoke
@@ -432,33 +417,25 @@ instance
 -- call obj "frobnicate" x y z
 -- @
 call
-  :: (Variadic "call" r, ty ~ Ty a, IsReferenceType ty, Coercible a, Coerce.Coercible a (J ty))
+  :: forall a b ty f.
+  ( Variadic f (IO b)
+  , ty ~ Ty a
+  , IsReferenceType ty
+  , Coercible a
+  , Coercible b
+  , Coerce.Coercible a (J ty)
+  )
   => a
   -> JNI.String
-  -> r
-call = call_
-
-type instance Variadic "callStatic" r = CallStatic r
-
--- Unexported type classes.
-class CallStatic r where
-  callStatic_ :: JNI.String -> JNI.String -> r
-
-$(let retty = TH.varT (TH.mkName "ret") in mkVariadic retty $ \ctx typ pats argsings args ->
-    [d| instance $ctx => CallStatic $typ where
-          callStatic_ :: JNI.String -> JNI.String -> $typ
-          {-# INLINE callStatic_ #-}
-          callStatic_ cname mname =
-            $(TH.lamE
-               pats
-               [| unsafeUncoerce <$> callStaticToJValue (sing :: Sing (Ty $retty)) cname mname $argsings $args |]) |])
-
-instance
-  {-# OVERLAPPABLE #-}
-  TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b where n ≤ 32" TypeError.:$$:
-             TypeError.Text "Actual: " TypeError.:<>: TypeError.ShowType x) =>
-  CallStatic x where
-  callStatic_ = undefined
+  -> f
+call obj mname = apply $ \args ->
+    unsafeUncoerce <$>
+    callToJValue
+      (sing @(Ty b))
+      (Coerce.coerce obj :: J ty)
+      mname
+      (sings @f Proxy)
+      args
 
 -- | Same as 'call', but for static methods.
 --
@@ -468,12 +445,14 @@ instance
 -- callStatic "java.lang.Integer" "parseInt" jstr
 -- @
 callStatic
-  :: Variadic "callStatic" r
+  :: forall a ty f.
+     (ty ~ Ty a, Coercible a, Variadic f (IO a))
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
-  -> r
+  -> f
 {-# INLINE callStatic #-}
-callStatic = callStatic_
+callStatic cname mname = apply $ \args ->
+   unsafeUncoerce <$> callStaticToJValue (sing @ty) cname mname (sings @f Proxy) args
 
 -- | Get a static field.
 getStaticField
