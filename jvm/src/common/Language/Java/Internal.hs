@@ -18,6 +18,7 @@ module Language.Java.Internal
   , getClass
   , setGetClassFunction
   -- * Template Haskell
+  , maxVariadicArgs
   , mkVariadic
   ) where
 
@@ -161,6 +162,10 @@ getStaticFieldAsJValue retsing cname fname = do
     SVoid -> fail "getStaticField cannot yield an object of type void"
     _ -> JObject <$> getStaticObjectField klass field
 
+-- | The maximum supported number of arguments to variadic functions.
+maxVariadicArgs :: Int
+maxVariadicArgs = 32
+
 -- | Generate variadic function type class instances.
 mkVariadic
   :: -- Return type
@@ -168,7 +173,7 @@ mkVariadic
      -- context, action type, argument patterns, argument type singletons, arguments
   -> (TH.TypeQ -> TH.TypeQ -> [TH.PatQ] -> TH.ExpQ -> TH.ExpQ -> TH.DecsQ)
   -> TH.DecsQ
-mkVariadic retty k = fmap concat $ for [0..32] $ \n -> do
+mkVariadic retty k = fmap concat $ for [0..maxVariadicArgs] $ \n -> do
     let -- Coercible type class and Ty associated type defined in downstream module.
         coercible = TH.conT (TH.mkName "Coercible")
         coercibleTy = TH.conT (TH.mkName "Ty")

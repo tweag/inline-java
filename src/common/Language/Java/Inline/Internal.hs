@@ -58,6 +58,7 @@ import Data.List (isPrefixOf, intercalate, isSuffixOf, nub)
 import Data.String (fromString)
 import Foreign.JNI (defineClass)
 import Language.Java
+import Language.Java.Internal (maxVariadicArgs)
 import Language.Java.Inline.Internal.Magic as Magic
 import qualified Language.Java.Lexer as Java
 import Language.Haskell.TH.Quote
@@ -187,7 +188,7 @@ blockQQ config input = do
           thnames = map TH.mkName vnames
           thnames' = map TH.mkName (map ('_':) vnames)
       -- Keep consistent with number of instances generated Language.Java.Internal.
-      when (length vnames > 32) $
+      when (length vnames > maxVariadicArgs) $
         TH.reportError "Blocks with more than 32 antiquotation variables not supported."
 
       -- Return a call to the static method we just generated.
