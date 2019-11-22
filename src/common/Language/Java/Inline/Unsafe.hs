@@ -56,6 +56,7 @@ module Language.Java.Inline.Unsafe
   , loadJavaWrappers
   ) where
 
+import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote
 import Language.Java
 import Language.Java.Inline.Internal
@@ -84,7 +85,6 @@ import qualified Language.Java.Inline.Internal.QQMarker as QQMarker
 java :: QuasiQuoter
 java = javaWithConfig QQConfig
     { qqMarker = 'QQMarker.qqMarker
-    , qqCallStatic = 'callStatic
-    , qqCoerce = 'coerce
+    , qqCallStatic = \qargs -> TH.appsE $ TH.varE 'callStatic : qargs
     , qqWrapMarker = \qExp -> [| loadJavaWrappers >> $qExp |]
     }

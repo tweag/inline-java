@@ -47,6 +47,7 @@ module Language.Java.Inline.Safe
 
 import qualified Control.Monad.IO.Class.Linear as Linear
 import qualified Control.Monad.Linear as Linear
+import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote
 import qualified Language.Java.Inline.Internal as Java
 import qualified Language.Java.Inline.Internal.QQMarker.Safe as Safe
@@ -75,8 +76,12 @@ import qualified Language.Java.Safe as Safe
 java :: QuasiQuoter
 java = Java.javaWithConfig Java.QQConfig
     { Java.qqMarker = 'Safe.qqMarker
-    , Java.qqCallStatic = 'Safe.callStatic
-    , Java.qqCoerce = 'Safe.coerce
+    , Java.qqCallStatic = \qargs ->
+        let (args, tolist) = splitAt 2 qargs
+         in TH.appsE $
+              TH.varE 'Safe.callStatic :
+              args ++
+              [TH.listE $ map (TH.appE $ TH.varE 'Safe.coerce) tolist]
     , Java.qqWrapMarker = \qExp ->
         [| Linear.liftIO loadJavaWrappers Linear.>> $qExp |]
     }
