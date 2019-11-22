@@ -228,8 +228,9 @@ new
   => [JValue]
   ->. m a
 {-# INLINE new #-}
-new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$
-    JObject . J <$> Java.newJ @sym (toJNIJValues args)
+new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$ do
+    let jargs = toJNIJValues args
+    JObject . J <$> Java.newJ @sym (map Java.jtypeOf jargs) jargs
       Prelude.<* deleteLinearJObjects args
 
 -- | Creates a new Java array of the given size. The type of the elements
@@ -278,11 +279,17 @@ call
   -> [JValue] -- ^ Arguments
   ->. m b
 {-# INLINE call #-}
-call = Unsafe.toLinear $ \obj mname -> Unsafe.toLinear $ \args ->
+call = Unsafe.toLinear $ \obj mname -> Unsafe.toLinear $ \args -> do
+    let jargs = toJNIJValues args
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$ do
       fromJNIJValue <$>
-        Java.callToJValue @ty1
-          (sing :: Sing ty1) (Coerce.coerce obj) mname (toJNIJValues args)
+        Java.callToJValue
+          @ty1
+          (sing :: Sing ty1)
+          (Coerce.coerce obj)
+          mname
+          (map Java.jtypeOf jargs)
+          jargs
         Prelude.<* deleteLinearJObjects args
 
 strictUnsafeUncoerce :: Coercible a => IO JValue -> IO a
@@ -301,10 +308,15 @@ callStatic
   -> [JValue] -- ^ Arguments
   ->. m a
 {-# INLINE callStatic #-}
-callStatic cname mname = Unsafe.toLinear $ \args ->
+callStatic cname mname = Unsafe.toLinear $ \args -> do
+    let jargs = toJNIJValues args
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
-      Java.callStaticToJValue (sing :: Sing ty) cname mname (toJNIJValues args)
+      Java.callStaticToJValue
+        (sing :: Sing ty)
+        cname mname
+        (map Java.jtypeOf jargs)
+        jargs
         Prelude.<* deleteLinearJObjects args
 
 -- | Get a static field.
