@@ -29,8 +29,8 @@
 --
 -- The functions in this module are considered unsafe, as opposed to those in
 -- "Language.Java.Safe", which guarantee that local references are not leaked.
--- Functions with a @Variadic@ constraint in their context are variadic, meaning
--- that you can apply them to any number of arguments, provided they are
+-- Functions with a 'VariadicIO' constraint in their context are variadic,
+-- meaning that you can apply them to any number of arguments, provided they are
 -- 'Coercible'.
 --
 -- __NOTE 1:__ To use any function in this module, you'll need an initialized
@@ -78,7 +78,7 @@ module Language.Java.Unsafe
   , call
   , callStatic
   , getStaticField
-  , Variadic
+  , VariadicIO
   -- * Reference management
   , push
   , pushWithSizeHint
@@ -304,7 +304,7 @@ classOf
   -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
--- | @Variadic_ f@ states that @f@ is a function producing an IO
+-- | @VariadicIO_ f@ states that @f@ is a function producing an IO
 -- computation with all arguments having instances of 'Coercible'.
 -- That is,
 --
@@ -314,7 +314,7 @@ classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 --
 -- > (Coercible a₁, ... , Coercible aₙ)
 --
-class Variadic_ f where
+class VariadicIO_ f where
   -- | The singletons of the argument types of @f@.
   --
   -- > sings (Proxy (a₁ -> ... -> aₙ -> IO b) =
@@ -323,23 +323,23 @@ class Variadic_ f where
   sings :: Proxy f -> [SomeSing JType]
 
   -- | @apply g a₁ ... aₙ = g [coerce a₁, ... , coerce aₙ]@
-  apply :: ([JValue] -> ReturnType f) -> f
+  apply :: ([JValue] -> IO (ReturnTypeIO f)) -> f
 
 -- | The return type of a variadic function
 --
 -- In general,
 --
--- > ReturnType (a₁ -> ... -> aₙ -> b) = b
+-- > ReturnTypeIO (a₁ -> ... -> aₙ -> IO b) = b
 --
 -- We keep it as a standalone type family to enable
--- the definition of the catch-all @Variadic_ x@ instance.
-type family ReturnType f :: *
+-- the definition of the catch-all @VariadicIO_ x@ instance.
+type family ReturnTypeIO f :: *
 
 -- | Document that a function is variadic
 --
--- @Variadic f r@ constraints @f@ to be of the form:
+-- @VariadicIO f b@ constraints @f@ to be of the form:
 --
--- > a₁ -> ... -> aₙ -> r
+-- > a₁ -> ... -> aₙ -> IO b
 --
 -- for any value of @n@,
 --
@@ -347,29 +347,27 @@ type family ReturnType f :: *
 --
 -- > (Coercible a₁, ... , Coercible aₙ)
 --
--- and @r@ is constrained to be @IO b@ for some type @b@.
---
-type Variadic f r = (ReturnType f ~ r, Variadic_ f)
+type VariadicIO f b = (ReturnTypeIO f ~ b, VariadicIO_ f)
 
-type instance ReturnType (IO a) = IO a
+type instance ReturnTypeIO (IO a) = a
 
-instance Variadic_ (IO a) where
+instance VariadicIO_ (IO a) where
   sings _ = []
   apply f = f []
 
-type instance ReturnType (a -> f) = ReturnType f
+type instance ReturnTypeIO (a -> f) = ReturnTypeIO f
 
-instance (Coercible a, Variadic_ f) => Variadic_ (a -> f) where
+instance (Coercible a, VariadicIO_ f) => VariadicIO_ (a -> f) where
   sings _ = SomeSing (sing @(Ty a)) : sings @f Proxy
   apply f x = apply (\xs -> f (coerce x : xs))
 
--- All errors of the form "Could not deduce (Variadic_ x) from ..."
+-- All errors of the form "Could not deduce (VariadicIO_ x) from ..."
 -- are replaced with the following type error.
 instance
   {-# OVERLAPPABLE #-}
   TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b" TypeError.:$$:
              TypeError.Text "Actual: " TypeError.:<>: TypeError.ShowType x) =>
-  Variadic_ x where
+  VariadicIO_ x where
   sings = undefined
   apply = undefined
 
@@ -387,7 +385,7 @@ new
      ( Ty a ~ 'Class sym
      , Coerce.Coercible a (J ('Class sym))
      , Coercible a
-     , Variadic f (IO a)
+     , VariadicIO f a
      ) => f
 {-# INLINE new #-}
 new = apply $ \args -> Coerce.coerce <$> newJ @sym (sings @f Proxy) args
@@ -454,7 +452,7 @@ toArray xs = do
 -- @
 call
   :: forall a b ty f.
-  ( Variadic f (IO b)
+  ( VariadicIO f b
   , ty ~ Ty a
   , IsReferenceType ty
   , Coercible a
@@ -482,7 +480,7 @@ call obj mname = apply $ \args ->
 -- @
 callStatic
   :: forall a ty f.
-     (ty ~ Ty a, Coercible a, Variadic f (IO a))
+     (ty ~ Ty a, Coercible a, VariadicIO f a)
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
   -> f
