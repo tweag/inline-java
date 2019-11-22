@@ -304,13 +304,11 @@ classOf
   -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
--- | @VariadicIO_ f@ states that @f@ is a function producing an IO
--- computation with all arguments having instances of 'Coercible'.
--- That is,
+-- | @VariadicIO_ f@ constraints @f@ to be of the form
 --
 -- > f :: a₁ -> ... -> aₙ -> IO b
 --
--- where the context has instances
+-- for any value of @n@, where the context provides
 --
 -- > (Coercible a₁, ... , Coercible aₙ)
 --
@@ -337,13 +335,11 @@ type family ReturnTypeIO f :: *
 
 -- | Document that a function is variadic
 --
--- @VariadicIO f b@ constraints @f@ to be of the form:
+-- @VariadicIO f b@ constraints @f@ to be of the form
 --
 -- > a₁ -> ... -> aₙ -> IO b
 --
--- for any value of @n@,
---
--- where the context has instances
+-- for any value of @n@, where the context provides
 --
 -- > (Coercible a₁, ... , Coercible aₙ)
 --
