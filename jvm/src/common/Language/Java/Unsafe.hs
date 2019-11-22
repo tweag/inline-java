@@ -358,7 +358,7 @@ instance VariadicIO_ (IO a) where
 type instance ReturnTypeIO (a -> f) = ReturnTypeIO f
 
 instance (Coercible a, VariadicIO_ f) => VariadicIO_ (a -> f) where
-  sings _ = SomeSing (sing @(Ty a)) : sings @f Proxy
+  sings _ = SomeSing (sing :: Sing (Ty a)) : sings @f Proxy
   apply f x = apply (\xs -> f (coerce x : xs))
 
 -- All errors of the form "Could not deduce (VariadicIO_ x) from ..."
@@ -465,7 +465,7 @@ call
 call obj mname = apply $ \args ->
     unsafeUncoerce <$>
     callToJValue
-      (sing @(Ty b))
+      (sing :: Sing (Ty b))
       (Coerce.coerce obj :: J ty)
       mname
       (sings @f Proxy)
@@ -486,7 +486,8 @@ callStatic
   -> f
 {-# INLINE callStatic #-}
 callStatic cname mname = apply $ \args ->
-   unsafeUncoerce <$> callStaticToJValue (sing @ty) cname mname (sings @f Proxy) args
+   unsafeUncoerce <$>
+     callStaticToJValue (sing :: Sing ty) cname mname (sings @f Proxy) args
 
 -- | Get a static field.
 getStaticField
