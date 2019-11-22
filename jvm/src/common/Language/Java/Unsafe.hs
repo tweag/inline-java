@@ -78,6 +78,7 @@ module Language.Java.Unsafe
   , call
   , callStatic
   , getStaticField
+  , Variadic
   -- * Reference management
   , push
   , pushWithSizeHint
@@ -303,18 +304,51 @@ classOf
   -> JNI.String
 classOf x = JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
-
+-- | @Variadic_ f@ states that @f@ is a function producing an IO
+-- computation with all arguments having instances of 'Coercible'.
+-- That is,
+--
+-- > f :: a₁ -> ... -> aₙ -> IO b
+--
+-- where the context has instances
+--
+-- > (Coercible a₁, ... , Coercible aₙ)
+--
 class Variadic_ f where
+  -- | The singletons of the argument types of @f@.
+  --
+  -- > sings (Proxy (a₁ -> ... -> aₙ -> IO b) =
+  -- >   [SomeSing (sing @a₁), ... , SomeSing (sing @aₙ)]
+  --
   sings :: Proxy f -> [SomeSing JType]
+
+  -- | @apply g a₁ ... aₙ = g [coerce a₁, ... , coerce aₙ]@
   apply :: ([JValue] -> ReturnType f) -> f
 
--- The return type of a variadic function
+-- | The return type of a variadic function
+--
+-- In general,
+--
+-- > ReturnType (a₁ -> ... -> aₙ -> b) = b
 --
 -- We keep it as a standalone type family to enable
--- the definition of the catch all @Variadic x@ instance.
-type family ReturnType x :: *
+-- the definition of the catch-all @Variadic_ x@ instance.
+type family ReturnType f :: *
 
 -- | Document that a function is variadic
+--
+-- @Variadic f r@ constraints @f@ to be of the form:
+--
+-- > a₁ -> ... -> aₙ -> r
+--
+-- for any value of @n@,
+--
+-- where the context has instances
+--
+-- > (Coercible a₁, ... , Coercible aₙ)
+--
+-- and @r@ is constrained to be @IO b@ for some type @b@.
+--
 type Variadic f r = (ReturnType f ~ r, Variadic_ f)
 
 type instance ReturnType (IO a) = IO a
@@ -329,6 +363,8 @@ instance (Coercible a, Variadic_ f) => Variadic_ (a -> f) where
   sings _ = SomeSing (sing @(Ty a)) : sings @f Proxy
   apply f x = apply (\xs -> f (coerce x : xs))
 
+-- All errors of the form "Could not deduce (Variadic_ x) from ..."
+-- are replaced with the following type error.
 instance
   {-# OVERLAPPABLE #-}
   TypeError (TypeError.Text "Expected: a₁ -> ... -> aₙ -> IO b" TypeError.:$$:
