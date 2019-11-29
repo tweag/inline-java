@@ -19,10 +19,10 @@
 --   deriving (J.Coercible, J.Interpretation, J.Reify, J.Reflect)
 --
 -- clone :: Object ->. Linear.IO Object
--- clone obj = J.'call' obj "clone" []
+-- clone obj = J.'call' obj "clone"
 --
 -- equals :: Object ->. Object ->. Linear.IO Bool
--- equals obj1 obj2 = J.'call' obj1 "equals" ['jvalue' obj2]
+-- equals obj1 obj2 = J.'call' obj1 "equals" obj2
 --
 -- ...
 -- @
@@ -38,6 +38,7 @@
 -- no new named classes are defined at runtime.
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -53,6 +54,7 @@
 {-# LANGUAGE StaticPointers #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -70,6 +72,7 @@ module Language.Java.Safe
   , call
   , callStatic
   , getStaticField
+  , MonadJava
   -- * Coercions
   , Coercible(..)
   , jvalue
@@ -89,8 +92,9 @@ import Control.Monad.Linear hiding ((<$>))
 import Data.ByteString (ByteString)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
+import Data.Kind (Constraint, FUN, Type)
 import Data.Int
-import Data.Singletons (SingI(..))
+import Data.Singletons (SingI(..), SomeSing(..))
 import Data.Text (Text)
 import Data.Typeable
 import qualified Data.Unrestricted.Linear as Unrestricted
@@ -102,13 +106,16 @@ import qualified Foreign.JNI as JNI
 import Foreign.JNI.Safe
 import Foreign.JNI.Types.Safe
 import qualified Foreign.JNI.String as JNI
-import GHC.TypeLits (KnownSymbol, symbolVal)
+import GHC.Types (Multiplicity(One, Omega))
+import GHC.TypeLits (KnownSymbol, TypeError, symbolVal)
+import qualified GHC.TypeLits as TypeError (ErrorMessage(..))
 
 import qualified Language.Java as Java
 import qualified Language.Java.Internal as Java
 import Prelude ((.))
 import qualified Prelude
 import Prelude.Linear hiding ((.))
+import qualified System.IO.Linear as Linear
 import qualified Unsafe.Linear as Unsafe
 
 
@@ -207,6 +214,143 @@ instance (Java.Coercible a, Typeable a) => Coercible (Unrestricted a) where
     JObject j -> unsafeUncoerce (JValue (Java.JObject (unJ j)))
     v -> Unsafe.toLinear (Unrestricted $!) (unsafeUncoercePrim v)
 
+-- | @Variadic_ n f r@ constraints @f@ to be of the form
+--
+-- > f :: a₁ ->. ... ->. aₙ -> r
+--
+-- where the context provides
+--
+-- > (Coercible a₁, ... , Coercible aₙ)
+--
+-- and @r@ is not allowed to be a linear function.
+--
+class Variadic_ (arity :: Nat) f r | f -> r where
+
+  -- | The singletons of the argument types of @f@.
+  --
+  -- > sings (Proxy (a₁ -> ... -> aₙ -> IO b) =
+  -- >   [SomeSing (sing @a₁), ... , SomeSing (sing @aₙ)]
+  --
+  sings :: Proxy arity -> Proxy f -> [SomeSing JType]
+
+  -- | @apply g a₁ ... aₙ = g [coerce a₁, ... , coerce aₙ]@
+  apply :: Proxy arity -> ([JValue] ->. r) ->. f
+
+-- | Type-level nats
+data Nat = Zero | Succ Nat
+
+-- | @ArityOf (f :: a₁ ->. ... ->. aₙ ->. b) = n@ where @b@ is not a function
+type family ArityOf f where
+  ArityOf (m b) = ArityOfFunctor (IsArrowFunctor m) b
+  ArityOf _ = Zero
+
+-- | A flag for type variables @m :: * -> *@
+--
+-- See 'IsArrowFunctor'.
+data ArrowFunctorFlag
+  = ArrowFunctor      -- ^ @m == ((->) _)@
+  | NotAnArrowFunctor -- ^ @m /= ((->) _)@
+
+-- | @ArityOfFunctor (IsArrowFunctor m) b = ArityOf (m b)@
+--
+-- This form of calculating the arity delegates to 'IsArrowFunctor'
+-- the decision of whether @m b@ is a function or not.
+type family ArityOfFunctor arrow_flag b where
+  ArityOfFunctor ArrowFunctor b = Succ (ArityOf b)
+  ArityOfFunctor NotAnArrowFunctor _ = Zero
+
+-- | Determines if @m@ is of the form @((->) _)@ or @((->.) _)@.
+--
+-- It allows to avoid the use of quantified constraints in the
+-- super classes of 'MonadJava', by replacing
+--
+-- > forall b. Zero ~ ArityOf (m b)
+--
+-- with
+--
+-- > IsArrowFunctor m ~ NotAnArrowFunctor
+--
+type family IsArrowFunctor (m :: * -> *) where
+  -- XXX: We need to list multiplicities explicitly.
+  -- For some reason @IsArrowFunctor (FUN _ _)@ doesn't match the linear arrow.
+  IsArrowFunctor (FUN One _) = ArrowFunctor
+  IsArrowFunctor (FUN Omega _) = ArrowFunctor
+  IsArrowFunctor _ = NotAnArrowFunctor
+
+-- | @CanReduceToNat n (TypeError msg)@ produces no constraint if
+-- @n@ is a 'Nat', and otherwise has the compiler produce an error
+-- with message @msg@.
+--
+-- This is used to customize the error message that the compiler
+-- gives when some part of @n@ is not sufficiently instantiated.
+type family IfCannotReduceToNat n err :: Constraint where
+  IfCannotReduceToNat Zero _ = ()
+  IfCannotReduceToNat (Succ n) err = IfCannotReduceToNat n err
+
+type family UnsufficientlyInstantiatedError f where
+  UnsufficientlyInstantiatedError f =
+    TypeError
+      (TypeError.Text "Expected: " TypeError.:<>: TypeError.ShowType f TypeError.:$$:
+       TypeError.Text "Actual: MonadJava m => a₁ -> ... -> aₙ -> m b" TypeError.:$$:
+       TypeError.Text "Is (MonadJava m) available in the context?"
+      )
+
+-- | @Variadic f m b@ constraints @f@ to be of the form
+--
+-- > a₁ ->. ... ->. aₙ ->. m b
+--
+-- for any value of @n@, where the context provides
+--
+-- > (Coercible a₁, ... , Coercible aₙ)
+--
+type Variadic f m b =
+  ( IfCannotReduceToNat (ArityOf f) (UnsufficientlyInstantiatedError f)
+  , Variadic_ (ArityOf f) f (m b)
+  )
+
+-- | @IfNotATypeApplication r err@ produces error @err@ if @r@ is not
+-- of the form @m a@.
+type family IfNotATypeApplication r err :: Constraint where
+  IfNotATypeApplication (m a) _ = ()
+  IfNotATypeApplication other err = err
+
+-- | Monads with instances of MonadJava can do calls to the JVM
+--
+-- Provided that your monad has @MonadIO@, blessing it for JVM
+-- calls is done with
+--
+-- > instance MonadJava YourMonad
+--
+class (MonadIO m, IsArrowFunctor m ~ NotAnArrowFunctor) => MonadJava m
+instance MonadJava Linear.IO
+
+type family NotAMonadError r where
+  NotAMonadError r =
+    TypeError
+      (TypeError.Text "Expected: " TypeError.:<>: TypeError.ShowType r TypeError.:$$:
+       TypeError.Text "Actual: MonadJava m => m a"
+      )
+
+instance IfNotATypeApplication r (NotAMonadError r) => Variadic_ Zero r r where
+  sings _ _ = []
+  apply _ f = f []
+
+instance (Coercible a, Variadic_ n f r) => Variadic_ (Succ n) (a ->. f) r where
+  sings _ _ = SomeSing (sing :: Sing (Ty a)) : sings @n @f Proxy Proxy
+  apply _ f x = apply @n Proxy (\xs -> f (coerce x : xs))
+
+instance
+  ( TypeError
+     (TypeError.Text "Expected: " TypeError.:<>: TypeError.ShowType (a -> f) TypeError.:$$:
+      TypeError.Text "Actual: " TypeError.:<>:
+        TypeError.ShowType a TypeError.:<>: TypeError.Text " ->. ..."
+     )
+  , Variadic_ n f r
+  )
+  => Variadic_ (Succ n) (a -> f) r where
+  sings = undefined
+  apply = undefined
+
 -- | Get the Java class of an object or anything 'Coercible' to one.
 classOf
   :: forall a sym. (Ty a ~ 'Class sym, Coercible a, KnownSymbol sym)
@@ -219,18 +363,27 @@ classOf = Unsafe.toLinear $ \x -> (,) x $
 -- type. For instance,
 --
 -- @
--- do x :: 'J' (''Class' "java.lang.Integer") <- new ['coerce' 42]
+-- do x :: 'J' (''Class' "java.lang.Integer") <- new 42
 --    return x
 -- @
+--
+-- You can pass any number of 'Coercible' arguments to the constructor.
 new
-  :: forall a sym m.
-     (Ty a ~ 'Class sym, Coercible a, MonadIO m)
-  => [JValue]
-  ->. m a
+  :: forall a sym m f.
+     ( Ty a ~ 'Class sym
+     , Coercible a
+     , MonadJava m
+     , Variadic f m a
+     )
+  => f
 {-# INLINE new #-}
-new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$ do
-    let jargs = toJNIJValues args
-    JObject . J <$> Java.newJ @sym (map Java.jtypeOf jargs) jargs
+new = apply @(ArityOf f) @f Proxy $
+    Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$ do
+    JObject . J <$>
+        Java.newJ
+          @sym
+          (sings @(ArityOf f) @f Proxy Proxy)
+          (toJNIJValues args)
       Prelude.<* deleteLinearJObjects args
 
 -- | Creates a new Java array of the given size. The type of the elements
@@ -264,23 +417,29 @@ toArray = Unsafe.toLinear $ \xs ->
 -- When the method name is overloaded, use 'upcast' or 'unsafeCast'
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
+--
+-- Example:
+--
+-- @
+-- call obj "frobnicate" x y z
+-- @
 call
-  :: forall a b ty1 ty2 m.
+  :: forall a b ty1 ty2 m f.
      ( ty1 ~ Ty a
      , ty2 ~ Ty b
      , IsReferenceType ty1
      , Coercible a
      , Coercible b
      , Coerce.Coercible a (J ty1)
-     , MonadIO m
+     , MonadJava m
+     , Variadic f m b
      )
   => a -- ^ Any object or value 'Coercible' to one
   ->. JNI.String -- ^ Method name
-  -> [JValue] -- ^ Arguments
-  ->. m b
+  -> f
 {-# INLINE call #-}
-call = Unsafe.toLinear $ \obj mname -> Unsafe.toLinear $ \args -> do
-    let jargs = toJNIJValues args
+call = Unsafe.toLinear $ \obj mname ->
+    apply @(ArityOf f) @f Proxy $ Unsafe.toLinear $ \args -> do
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$ do
       fromJNIJValue <$>
         Java.callToJValue
@@ -288,8 +447,8 @@ call = Unsafe.toLinear $ \obj mname -> Unsafe.toLinear $ \args -> do
           (sing :: Sing ty1)
           (Coerce.coerce obj)
           mname
-          (map Java.jtypeOf jargs)
-          jargs
+          (sings @(ArityOf f) @f Proxy Proxy)
+          (toJNIJValues args)
         Prelude.<* deleteLinearJObjects args
 
 strictUnsafeUncoerce :: Coercible a => IO JValue -> IO a
@@ -301,22 +460,32 @@ fromJNIJValue = \case
     v -> JValue v
 
 -- | Same as 'call', but for static methods.
+--
+-- Example:
+--
+-- @
+-- callStatic "java.lang.Integer" "parseInt" jstr
+-- @
 callStatic
-  :: forall a ty m. (ty ~ Ty a, Coercible a, MonadIO m)
+  :: forall a ty m f.
+     ( ty ~ Ty a
+     , Coercible a
+     , MonadJava m
+     , Variadic f m a
+     )
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
-  -> [JValue] -- ^ Arguments
-  ->. m a
+  -> f
 {-# INLINE callStatic #-}
-callStatic cname mname = Unsafe.toLinear $ \args -> do
-    let jargs = toJNIJValues args
+callStatic cname mname =
+    apply @(ArityOf f) @f Proxy $ Unsafe.toLinear $ \args -> do
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
       Java.callStaticToJValue
         (sing :: Sing ty)
         cname mname
-        (map Java.jtypeOf jargs)
-        jargs
+        (sings @(ArityOf f) @f Proxy Proxy)
+        (toJNIJValues args)
         Prelude.<* deleteLinearJObjects args
 
 -- | Get a static field.

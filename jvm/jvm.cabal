@@ -44,7 +44,8 @@ library
     exposed-modules:
       Language.Java.Safe
     build-depends:
-      linear-base ==0.1.0.0
+      linear-base ==0.1.0.0,
+      ghc-prim
   else
     build-depends:
       singletons >=2.5
