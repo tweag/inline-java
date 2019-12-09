@@ -120,7 +120,7 @@ newIterator stream0 = mdo
           @Override
           public void finalize() { hsFinalize($tblPtr); }
         } |]
-    klass <- JNI.getObjectClass iterator >>= JNI.newGlobalRef
+    klass <- JNI.getObjectClass iterator
     fieldEndId <- JNI.getFieldID klass "end"
                     (JNI.signature (sing :: Sing ('Prim "boolean")))
     let popStream :: Ptr JObject -> IO (J ty)
@@ -146,6 +146,7 @@ newIterator stream0 = mdo
           (methodSignature [SomeSing (sing :: Sing ('Prim "long"))] (sing :: Sing 'Void))
           freeIteratorPtr
       ]
+    JNI.deleteLocalRef klass
     -- Call next once to initialize the iterator.
     () <- [java| { $iterator.next(); } |]
     return $ generic iterator
