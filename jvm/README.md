@@ -32,7 +32,8 @@ main = withJVM [] $ do
     callStatic
       (classOf (undefined :: JOptionPane))
       "showMessageDialog"
-      [JObject nullComponent, JObject (upcast message)]
+      nullComponent
+      (upcast message)
   where
     nullComponent :: J ('Class "java.awt.Component")
     nullComponent = jnull
