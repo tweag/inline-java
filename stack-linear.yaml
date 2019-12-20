@@ -36,7 +36,6 @@ extra-deps:
 - git: https://github.com/tweag/linear-base
   commit: 4d43dc099f6f1381b949ee29ac63ce3088597ab0
 
-docker:
-  enable: false
-  image: tweag/linear-types:1.0.5
-  stack-exe: download
+nix:
+  shell-file: shell-stack-linear-types.nix
+  path: ["nixpkgs=./nixpkgs.nix"]
