@@ -1,6 +1,6 @@
 # inline-java: Call any JVM function from Haskell
 
-[![CircleCI](https://circleci.com/gh/tweag/inline-java.svg?style=svg)](https://circleci.com/gh/tweag/inline-java)
+[![Build status](https://badge.buildkite.com/143d77b1eec06bb865d694dbe685f2ed7712caa12852c8808e.svg)](https://buildkite.com/tweag-1/inline-java)
 
 The Haskell standard includes a native foreign function interface
 (FFI). Using it can be a bit involved and only C support is
