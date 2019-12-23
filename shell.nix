@@ -14,6 +14,7 @@ mkShell {
 
   buildInputs = [
     bazel
+    git
     nix
     openjdk11
     python3
