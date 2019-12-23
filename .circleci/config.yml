@@ -88,5 +88,4 @@ workflows:
   version: 2
   build:
     jobs:
-      - build-linux-linear
       - build-darwin-brew

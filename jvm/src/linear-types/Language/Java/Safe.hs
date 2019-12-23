@@ -19,10 +19,10 @@
 --   deriving (J.Coercible, J.Interpretation, J.Reify, J.Reflect)
 --
 -- clone :: Object ->. Linear.IO Object
--- clone obj = J.'call' obj "clone" []
+-- clone obj = J.'call' obj "clone" End
 --
 -- equals :: Object ->. Object ->. Linear.IO Bool
--- equals obj1 obj2 = J.'call' obj1 "equals" ['jvalue' obj2]
+-- equals obj1 obj2 = J.'call' obj1 "equals" obj2 End
 --
 -- ...
 -- @
@@ -37,7 +37,7 @@
 -- class and method lookups, for performance. This memoization is safe only when
 -- no new named classes are defined at runtime.
 
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -53,6 +53,7 @@
 {-# LANGUAGE StaticPointers #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -70,6 +71,8 @@ module Language.Java.Safe
   , call
   , callStatic
   , getStaticField
+  , End(..)
+  , Variadic
   -- * Coercions
   , Coercible(..)
   , jvalue
@@ -90,7 +93,7 @@ import Data.ByteString (ByteString)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
 import Data.Int
-import Data.Singletons (SingI(..))
+import Data.Singletons (SingI(..), SomeSing(..))
 import Data.Text (Text)
 import Data.Typeable
 import qualified Data.Unrestricted.Linear as Unrestricted
@@ -102,7 +105,8 @@ import qualified Foreign.JNI as JNI
 import Foreign.JNI.Safe
 import Foreign.JNI.Types.Safe
 import qualified Foreign.JNI.String as JNI
-import GHC.TypeLits (KnownSymbol, symbolVal)
+import GHC.TypeLits (KnownSymbol, TypeError, symbolVal)
+import qualified GHC.TypeLits as TypeError (ErrorMessage(..))
 
 import qualified Language.Java as Java
 import qualified Language.Java.Internal as Java
@@ -215,22 +219,84 @@ classOf
 classOf = Unsafe.toLinear $ \x -> (,) x $
   JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
+-- | A sentinel value to end the list of arguments in variadic
+-- functions
+data End = End
+
+-- | @Variadic_ f@ constraints @f@ to be of the form
+--
+-- > f :: a₁ ->. ... ->. aₙ ->. End -> ReturnType f
+--
+-- for any value of @n@, where the context provides
+--
+-- > (Coercible a₁, ... , Coercible aₙ)
+--
+class Variadic_ f where
+  -- | The singletons of the argument types of @f@.
+  --
+  -- > sings (Proxy (a₁ ->. ... ->. aₙ ->. End -> r) =
+  -- >   [SomeSing (sing @a₁), ... , SomeSing (sing @aₙ)]
+  --
+  sings :: Proxy f -> [SomeSing JType]
+
+  -- | @apply g a₁ ... aₙ End = g [coerce a₁, ... , coerce aₙ]@
+  apply :: ([JValue] ->. ReturnType f) ->. f
+
+instance Variadic_ (End -> r) where
+  sings _ = []
+  apply f End = f []
+
+instance (Coercible a, Variadic_ f) => Variadic_ (a ->. f) where
+  sings _ = SomeSing (sing :: Sing (Ty a)) : sings @f Proxy
+  apply f x = apply (\xs -> f (coerce x : xs))
+
+-- All errors of the form "Could not deduce (Variadic_ x) from ..."
+-- are replaced with the following type error.
+instance
+  {-# OVERLAPPABLE #-}
+  TypeError ('TypeError.Text "Expected: a₁ ->. ... ->. aₙ ->. End -> r" 'TypeError.:$$:
+             'TypeError.Text "Actual: " 'TypeError.:<>: 'TypeError.ShowType x) =>
+  Variadic_ x where
+  sings = undefined
+  apply = undefined
+
+-- | The return type of a variadic function
+--
+-- In general,
+--
+-- > ReturnType (a₁ ->. ... ->. aₙ ->. End -> r) = r
+--
+-- We keep it as a standalone type family to enable
+-- the definition of the catch-all @Variadic_ x@ instance.
+type family ReturnType f :: * where
+  ReturnType (End -> r) = r
+  ReturnType (a ->. f) = ReturnType f
+
+-- | @VariadicIO f b@ constraints @f@ to be of the form
+--
+-- > a₁ ->. ... ->. aₙ ->. End -> IO b
+--
+-- for any value of @n@, where the context provides
+--
+-- > (Coercible a₁, ... , Coercible aₙ)
+--
+type Variadic f r = (ReturnType f ~ r, Variadic_ f)
+
 -- | Creates a new instance of the class whose name is resolved from the return
 -- type. For instance,
 --
 -- @
--- do x :: 'J' (''Class' "java.lang.Integer") <- new ['coerce' 42]
+-- do x :: 'J' (''Class' "java.lang.Integer") <- new (42 :: Int32) End
 --    return x
 -- @
 new
-  :: forall a sym m.
-     (Ty a ~ 'Class sym, Coercible a, MonadIO m)
-  => [JValue]
-  ->. m a
+  :: forall a sym m f.
+     (Ty a ~ 'Class sym, Coercible a, MonadIO m, Variadic f (m a))
+  => f
 {-# INLINE new #-}
-new = Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$ do
-    let jargs = toJNIJValues args
-    JObject . J <$> Java.newJ @sym (map Java.jtypeOf jargs) jargs
+new = apply $
+    Unsafe.toLinear $ \args -> fmap unsafeUncoerce $ liftIO Prelude.$ do
+    JObject . J <$> Java.newJ @sym (sings @f Proxy) (toJNIJValues args)
       Prelude.<* deleteLinearJObjects args
 
 -- | Creates a new Java array of the given size. The type of the elements
@@ -265,7 +331,7 @@ toArray = Unsafe.toLinear $ \xs ->
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
 call
-  :: forall a b ty1 ty2 m.
+  :: forall a b ty1 ty2 m f.
      ( ty1 ~ Ty a
      , ty2 ~ Ty b
      , IsReferenceType ty1
@@ -273,14 +339,13 @@ call
      , Coercible b
      , Coerce.Coercible a (J ty1)
      , MonadIO m
+     , Variadic f (m b)
      )
   => a -- ^ Any object or value 'Coercible' to one
   ->. JNI.String -- ^ Method name
-  -> [JValue] -- ^ Arguments
-  ->. m b
+  -> f
 {-# INLINE call #-}
-call = Unsafe.toLinear $ \obj mname -> Unsafe.toLinear $ \args -> do
-    let jargs = toJNIJValues args
+call = Unsafe.toLinear $ \obj mname -> apply $ Unsafe.toLinear $ \args -> do
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$ do
       fromJNIJValue <$>
         Java.callToJValue
@@ -288,8 +353,8 @@ call = Unsafe.toLinear $ \obj mname -> Unsafe.toLinear $ \args -> do
           (sing :: Sing ty1)
           (Coerce.coerce obj)
           mname
-          (map Java.jtypeOf jargs)
-          jargs
+          (sings @f Proxy)
+          (toJNIJValues args)
         Prelude.<* deleteLinearJObjects args
 
 strictUnsafeUncoerce :: Coercible a => IO JValue -> IO a
@@ -302,21 +367,19 @@ fromJNIJValue = \case
 
 -- | Same as 'call', but for static methods.
 callStatic
-  :: forall a ty m. (ty ~ Ty a, Coercible a, MonadIO m)
+  :: forall a ty m f. (ty ~ Ty a, Coercible a, MonadIO m, Variadic f (m a))
   => JNI.String -- ^ Class name
   -> JNI.String -- ^ Method name
-  -> [JValue] -- ^ Arguments
-  ->. m a
+  -> f
 {-# INLINE callStatic #-}
-callStatic cname mname = Unsafe.toLinear $ \args -> do
-    let jargs = toJNIJValues args
+callStatic cname mname = apply $ Unsafe.toLinear $ \args -> do
     liftIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
       Java.callStaticToJValue
         (sing :: Sing ty)
         cname mname
-        (map Java.jtypeOf jargs)
-        jargs
+        (sings @f Proxy)
+        (toJNIJValues args)
         Prelude.<* deleteLinearJObjects args
 
 -- | Get a static field.

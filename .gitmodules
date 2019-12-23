@@ -1,6 +1,0 @@
-[submodule "vendor/th-desugar"]
-	path = vendor/th-desugar
-	url = https://github.com/mboes/th-desugar
-[submodule "vendor/constraints"]
-	path = vendor/constraints
-	url = https://github.com/mboes/constraints

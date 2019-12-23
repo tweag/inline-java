@@ -52,6 +52,7 @@ import Language.Haskell.TH.Quote
 import qualified Language.Java.Inline.Internal as Java
 import qualified Language.Java.Inline.Internal.QQMarker.Safe as Safe
 import qualified Language.Java.Safe as Safe
+import qualified Prelude.Linear as Linear
 
 -- | Java code quasiquoter. Example:
 --
@@ -78,10 +79,16 @@ java = Java.javaWithConfig Java.QQConfig
     { Java.qqMarker = 'Safe.qqMarker
     , Java.qqCallStatic = \qargs ->
         let (args, tolist) = splitAt 2 qargs
-         in TH.appsE $
-              TH.varE 'Safe.callStatic :
-              args ++
-              [TH.listE $ map (TH.appE $ TH.varE 'Safe.coerce) tolist]
+         in -- XXX: We need to explicitly use the linear ($) so GHC is satisfied
+            -- that the argument is going to be used linearly in the variadic
+            -- function.
+            TH.appE
+              (foldl
+                (flip TH.appE)
+                (TH.appsE (TH.varE 'Safe.callStatic : args))
+                (map (\q -> [| (Linear.$ $q) |]) tolist)
+              )
+              [| Safe.End |]
     , Java.qqWrapMarker = \qExp ->
         [| Linear.liftIO loadJavaWrappers Linear.>> $qExp |]
     }
