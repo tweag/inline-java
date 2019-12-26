@@ -51,11 +51,12 @@ import Language.Java.Inline
 import Streaming (Bifunctor(first), Stream, Of)
 import qualified Streaming as Streaming
 import qualified Streaming.Prelude as Streaming
+import System.IO.Unsafe (unsafePerformIO)
 
 imports "io.tweag.jvm.batching.*"
 imports "java.util.Iterator"
 
-type JNIFun a = JNIEnv -> Ptr JObject -> IO a
+type JNIFun a = JNIEnv -> Ptr JObject -> Int64 -> IO a
 
 foreign import ccall "wrapper" wrapObjectFun
   :: JNIFun (Ptr (J ty)) -> IO (FunPtr (JNIFun (Ptr (J ty))))
@@ -68,6 +69,7 @@ foreign import ccall "&jvm_streaming_freeIterator" freeIteratorPtr
 
 data FunPtrTable = forall ty. FunPtrTable
   { nextPtr :: FunPtr (JNIFun (Ptr (J ty)))
+  , refPtr :: Int64
   }
 
 freeIterator :: JNIEnv -> Ptr JObject -> Int64 -> IO ()
@@ -75,6 +77,7 @@ freeIterator _ _ ptr = do
     let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
     FunPtrTable{..} <- deRefStablePtr sptr
     freeHaskellFunPtr nextPtr
+    freeStablePtr $ castPtrToStablePtr $ intPtrToPtr $ fromIntegral refPtr
     freeStablePtr sptr
 
 -- | Reflects a stream with no batching.
@@ -82,21 +85,23 @@ newIterator
   :: forall ty. Stream (Of (J ty)) IO ()
   -> IO (J ('Iface "java.util.Iterator" <> '[ty]))
 newIterator stream0 = mdo
-    ref <- newIORef stream0
-    nextPtr <- wrapObjectFun $ \_ jthis ->
-      -- Conversion is safe, because result is always a reflected object.
-      unsafeForeignPtrToPtr <$> Coerce.coerce <$> popStream jthis
+    ioStreamRef <- newIORef stream0
+    refPtr :: Int64 <- fromIntegral . ptrToIntPtr . castStablePtrToPtr <$>
+      newStablePtr ioStreamRef
     -- Keep FunPtr's in a table that can be referenced from the Java side, so
     -- that they can be freed.
     tblPtr :: Int64 <- fromIntegral . ptrToIntPtr . castStablePtrToPtr <$> newStablePtr FunPtrTable{..}
     iterator <-
       [java| new Iterator() {
+
           /// A field that the Haskell side sets to true when it reaches the end.
           private boolean end = false;
+
           /// Lookahead element - it always points to a valid element unless
           /// end is true. There is no constructor, so in order to initialize
           // it, next() must be invoked once.
           private Object lookahead;
+
           @Override
           public boolean hasNext() { return !end; }
 
@@ -104,7 +109,7 @@ newIterator stream0 = mdo
           public Object next() {
             if (hasNext()) {
               final Object temp = lookahead;
-              lookahead = hsNext();
+              lookahead = hsNext($refPtr);
               return temp;
             } else
               throw new java.util.NoSuchElementException();
@@ -115,41 +120,77 @@ newIterator stream0 = mdo
 
           private native void hsFinalize(long tblPtr);
 
-          private native Object hsNext();
+          private native Object hsNext(long refPtr);
 
           @Override
           public void finalize() { hsFinalize($tblPtr); }
         } |]
-    klass <- JNI.getObjectClass iterator
+    nextPtr <- runOnce $ do
+      klass <- JNI.getObjectClass iterator
+      registerNativesForIterator klass
+       <* JNI.deleteLocalRef klass
+    -- Call next once to initialize the iterator.
+    () <- [java| { $iterator.next(); } |]
+    return $ generic iterator
+  where
+    -- Given that we always register natives on the same class,
+    -- there is no point in registering natives more than once.
+    runOnce :: IO a -> IO a
+    runOnce action = do
+      let {-# NOINLINE ref #-}
+          ref = unsafePerformIO $ newIORef Nothing
+      readIORef ref >>= \case
+        Nothing -> do
+          a <- action
+          writeIORef ref (Just a)
+          return a
+        Just a ->
+          return a
+
+-- | Registers functions for the native methods of the inner class created in
+-- 'newIterator'.
+--
+-- We keep this helper as a top-level function to ensure that no state tied
+-- to a particular iterator leaks in the registered functions. The methods
+-- registered here affect all the instances of the inner class.
+registerNativesForIterator :: JClass -> IO (FunPtr (JNIFun (Ptr (J ty))))
+registerNativesForIterator klass = do
     fieldEndId <- JNI.getFieldID klass "end"
                     (JNI.signature (sing :: Sing ('Prim "boolean")))
-    let popStream :: Ptr JObject -> IO (J ty)
-        popStream ptrThis = do
-          stream <- readIORef ref
-          Streaming.uncons stream >>= \case
-            Nothing -> do
-              jthis <- JNI.objectFromPtr ptrThis
-              -- When the stream ends, set the end field to True
-              -- so the Iterator knows not to call hsNext again.
-              JNI.setBooleanField jthis fieldEndId 1
-              return jnull
-            Just (x, stream') -> do
-              writeIORef ref stream'
-              return x
+    nextPtr <- wrapObjectFun $ \_ jthis streamRef ->
+      -- Conversion is safe, because result is always a reflected object.
+      unsafeForeignPtrToPtr . Coerce.coerce <$>
+        popStream fieldEndId jthis streamRef
     JNI.registerNatives klass
       [ JNI.JNINativeMethod
           "hsNext"
-          (methodSignature [] (sing :: Sing ('Class "java.lang.Object")))
+          (methodSignature
+            [SomeSing (sing :: Sing ('Prim "long"))]
+            (sing :: Sing ('Class "java.lang.Object"))
+          )
           nextPtr
       , JNI.JNINativeMethod
           "hsFinalize"
           (methodSignature [SomeSing (sing :: Sing ('Prim "long"))] (sing :: Sing 'Void))
           freeIteratorPtr
       ]
-    JNI.deleteLocalRef klass
-    -- Call next once to initialize the iterator.
-    () <- [java| { $iterator.next(); } |]
-    return $ generic iterator
+    return nextPtr
+  where
+    popStream :: JFieldID -> Ptr JObject -> Int64 -> IO (J ty)
+    popStream fieldEndId ptrThis streamRef = do
+      let stableRef = castPtrToStablePtr $ intPtrToPtr $ fromIntegral streamRef
+      ref <- deRefStablePtr stableRef
+      stream <- readIORef ref
+      Streaming.uncons stream >>= \case
+        Nothing -> do
+          jthis <- JNI.objectFromPtr ptrThis
+          -- When the stream ends, set the end field to True
+          -- so the Iterator knows not to call hsNext again.
+          JNI.setBooleanField jthis fieldEndId 1
+          return jnull
+        Just (x, stream') -> do
+          writeIORef ref stream'
+          return x
 
 -- | Reifies streams from iterators in batches of the given size.
 reifyStreamWithBatching
