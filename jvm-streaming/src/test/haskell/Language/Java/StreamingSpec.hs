@@ -8,7 +8,7 @@ import Data.Int
 import Data.IORef
 import Language.Java
 import Language.Java.Inline
-import Language.Java.Streaming ()
+import Language.Java.Streaming
 import Test.Hspec
 import Streaming (Stream, Of)
 import qualified Streaming.Prelude as Streaming
@@ -44,12 +44,12 @@ spec = do
         Streaming.toList_ stream `shouldReturn` [1..10 :: Int32]
       it "are independent one from another" $ do
         ref <- newIORef (1 :: Int32)
-        iterator <- reflect $
+        iterator <- reflectStreamWithBatching 1 $
           Streaming.replicateM 10 $ atomicModifyIORef ref (\i -> (i + 1, i))
         ref2 <- newIORef (21 :: Int32)
-        iterator2 <- reflect $
+        iterator2 <- reflectStreamWithBatching 1 $
           Streaming.replicateM 10 $ atomicModifyIORef ref2 (\i -> (i + 1, i))
-        stream :: Stream (Of Int32) IO () <- reify iterator
-        stream2 :: Stream (Of Int32) IO () <- reify iterator2
+        stream :: Stream (Of Int32) IO () <- reifyStreamWithBatching 1 iterator
+        stream2 :: Stream (Of Int32) IO () <- reifyStreamWithBatching 1 iterator2
         Streaming.toList_ stream `shouldReturn` [1..10 :: Int32]
         Streaming.toList_ stream2 `shouldReturn` [21..30 :: Int32]
