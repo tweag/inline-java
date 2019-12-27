@@ -120,6 +120,12 @@ createHandler handle =
     Linear.liftIO (JNI.deleteLocalRef klass)
     return jHandler2
 
+-- | Register functions for the native methods of the inner class
+-- created by 'createHandler'.
+--
+-- We keep it at the top level to avoid handler-specific state from
+-- leaking into the registered functions. These functions are used
+-- for all the instances of the inner class.
 registerNativesForHttpHandler :: NonLinear.JClass -> IO ()
 registerNativesForHttpHandler klass = do
     let {-# NOINLINE applyPtr #-}
