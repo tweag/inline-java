@@ -33,7 +33,7 @@ import Data.Int (Int32, Int64)
 import Data.Proxy
 import qualified Data.Vector as V
 import Data.Singletons (SomeSing(..))
-import Foreign.Ptr (FunPtr, Ptr, freeHaskellFunPtr, intPtrToPtr, ptrToIntPtr)
+import Foreign.Ptr (FunPtr, Ptr, intPtrToPtr, ptrToIntPtr)
 import Foreign.ForeignPtr.Unsafe (unsafeForeignPtrToPtr)
 import qualified Foreign.JNI as JNI
 import qualified Foreign.JNI.Types as JNI
@@ -67,16 +67,14 @@ foreign export ccall "jvm_streaming_freeIterator" freeIterator
 foreign import ccall "&jvm_streaming_freeIterator" freeIteratorPtr
   :: FunPtr (JNIEnv -> Ptr JObject -> Int64 -> IO ())
 
-data FunPtrTable = forall ty. FunPtrTable
-  { nextPtr :: FunPtr (JNIFun (Ptr (J ty)))
-  , refPtr :: Int64
+data FunPtrTable = FunPtrTable
+  { refPtr :: Int64
   }
 
 freeIterator :: JNIEnv -> Ptr JObject -> Int64 -> IO ()
 freeIterator _ _ ptr = do
     let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
     FunPtrTable{..} <- deRefStablePtr sptr
-    freeHaskellFunPtr nextPtr
     freeStablePtr $ castPtrToStablePtr $ intPtrToPtr $ fromIntegral refPtr
     freeStablePtr sptr
 
@@ -84,7 +82,7 @@ freeIterator _ _ ptr = do
 newIterator
   :: forall ty. Stream (Of (J ty)) IO ()
   -> IO (J ('Iface "java.util.Iterator" <> '[ty]))
-newIterator stream0 = mdo
+newIterator stream0 = do
     ioStreamRef <- newIORef stream0
     refPtr :: Int64 <- fromIntegral . ptrToIntPtr . castStablePtrToPtr <$>
       newStablePtr ioStreamRef
@@ -125,7 +123,7 @@ newIterator stream0 = mdo
           @Override
           public void finalize() { hsFinalize($tblPtr); }
         } |]
-    nextPtr <- runOnce $ do
+    runOnce $ do
       klass <- JNI.getObjectClass iterator
       registerNativesForIterator klass
        <* JNI.deleteLocalRef klass
@@ -153,7 +151,7 @@ newIterator stream0 = mdo
 -- We keep this helper as a top-level function to ensure that no state tied
 -- to a particular iterator leaks in the registered functions. The methods
 -- registered here affect all the instances of the inner class.
-registerNativesForIterator :: JClass -> IO (FunPtr (JNIFun (Ptr (J ty))))
+registerNativesForIterator :: JClass -> IO ()
 registerNativesForIterator klass = do
     fieldEndId <- JNI.getFieldID klass "end"
                     (JNI.signature (sing :: Sing ('Prim "boolean")))
@@ -174,7 +172,6 @@ registerNativesForIterator klass = do
           (methodSignature [SomeSing (sing :: Sing ('Prim "long"))] (sing :: Sing 'Void))
           freeIteratorPtr
       ]
-    return nextPtr
   where
     popStream :: JFieldID -> Ptr JObject -> Int64 -> IO (J ty)
     popStream fieldEndId ptrThis streamRef = do
