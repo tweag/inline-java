@@ -13,6 +13,7 @@ packages:
 - jvm-batching
 - jvm-streaming
 - examples/classpath
+- examples/directory-server
 
 flags:
   jni:
