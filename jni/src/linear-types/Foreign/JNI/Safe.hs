@@ -73,7 +73,6 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class.Linear (MonadIO, liftIO, liftIOU)
 import qualified Control.Monad.Linear as Linear
-import Data.Coerce
 import Data.Functor
 import Data.Int
 import Data.Word
@@ -91,7 +90,7 @@ import Prelude.Linear hiding ((<$), (<*), (.))
 import qualified Prelude.Linear as Linear ((<$))
 
 
-throw :: (MonadIO m, Coercible o (J a)) => o ->. m o
+throw :: MonadIO m => J a ->. m (J a)
 throw = Unsafe.toLinear $ \x -> liftIO (x Prelude.<$ JNI.throw x)
 
 throwNew :: MonadIO m => JNI.JClass -> JNI.String ->. m ()
