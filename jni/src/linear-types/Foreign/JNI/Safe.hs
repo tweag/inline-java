@@ -69,7 +69,7 @@ module Foreign.JNI.Safe
   , JNI.withJVM
   ) where
 
-import Control.Exception
+import Control.Exception hiding (throw)
 import Control.Monad
 import Control.Monad.IO.Class.Linear (MonadIO, liftIO, liftIOU)
 import qualified Control.Monad.Linear as Linear
@@ -92,6 +92,9 @@ import qualified Prelude.Linear as Linear ((<$))
 
 throw :: MonadIO m => J a ->. m (J a)
 throw = Unsafe.toLinear $ \x -> liftIO (x Prelude.<$ JNI.throw x)
+
+throw_ :: MonadIO m => J a ->. m ()
+throw_ x = throw x Linear.>>= deleteLocalRef
 
 throwNew :: MonadIO m => JNI.JClass -> JNI.String ->. m ()
 throwNew jclass = Unsafe.toLinear $ \msg ->
