@@ -15,6 +15,7 @@ import qualified Data.ByteString.Char8 as ByteString.Char8
 import Data.ByteString.Lazy (toStrict)
 import Data.String (fromString)
 import qualified Data.Text as Text
+import DbHandler (createDbHandler)
 import Foreign.JNI.Safe (newGlobalRef_, withJVM, withLocalFrame_)
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Safe
@@ -47,6 +48,7 @@ main = getArgs Control.Monad.>>= \args -> do
       let Linear.Builder{..} = Linear.monadBuilder in do
       jsonHandler <- createJsonHandler
       jPlainTextHandler <- createPlainTextHandler
+      jDbHandler <- createDbHandler
       jargs <- reflect (map Text.pack args)
       [java| {
         WebApplication application = new WebApplication($jargs) {
@@ -63,7 +65,8 @@ main = getArgs Control.Monad.>>= \args -> do
         application.onSetup(app -> {
           app.getUrlMapping()
              .append("/json", $jsonHandler)
-             .append( "/plaintext", $jPlainTextHandler);
+             .append("/plaintext", $jPlainTextHandler)
+             .append("/db", $jDbHandler);
         });
         application.start();
        } |]

@@ -13,4 +13,5 @@ targetCompatibility = 1.8
 
 dependencies {
     compile 'com.wizzardo:http:0.3'
+    compile 'com.wizzardo:reactive-pg-client:0.10.2.1'
 }

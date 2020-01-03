@@ -14,6 +14,7 @@ executable wizzardo-http-benchmark
   main-is:             Main.hs
   ghc-options: -threaded -rtsopts
   other-modules:
+    DbHandler
     Language.Java.Function
     Wizzardo.Http.Handler
   hs-source-dirs:      src
