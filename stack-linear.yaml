@@ -14,6 +14,7 @@ packages:
 - jvm-streaming
 - examples/classpath
 - examples/directory-server
+- benchmarks/wizzardo-http
 
 flags:
   jni:
