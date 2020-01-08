@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -10,6 +11,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 module Language.Java.Function
   ( createBiFunction
@@ -38,22 +40,25 @@ import System.IO.Unsafe (unsafePerformIO)
 type JNIApplyFun
     = NonLinear.JNIEnv
     -> Ptr NonLinear.JObject
-    -> Int64
+    -> StablePtrHandle
     -> Ptr NonLinear.JObject
     -> Ptr NonLinear.JObject
     -> IO (Ptr NonLinear.JObject)
+
+newtype StablePtrHandle = StablePtrHandle Int64
+  deriving Coercible
 
 foreign import ccall "wrapper" wrapObjectFun
   :: JNIApplyFun -> IO (FunPtr JNIApplyFun)
 
 -- Export only to get a FunPtr.
 foreign export ccall "wizzardo_http_handler_freeIterator" freeIterator
-  :: NonLinear.JNIEnv -> Ptr JObject -> Int64 -> IO ()
+  :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle -> IO ()
 foreign import ccall "&wizzardo_http_handler_freeIterator" freeIteratorPtr
-  :: FunPtr (NonLinear.JNIEnv -> Ptr JObject -> Int64 -> IO ())
+  :: FunPtr (NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle -> IO ())
 
-freeIterator :: NonLinear.JNIEnv -> Ptr JObject -> Int64 -> IO ()
-freeIterator _ _ ptr = do
+freeIterator :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle -> IO ()
+freeIterator _ _ (StablePtrHandle ptr) = do
     let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
     handlePtr <- deRefStablePtr sptr
     freeHaskellFunPtr handlePtr
@@ -124,7 +129,7 @@ registerNativesForBiFunction = do
           )
           applyPtr
 
-withJNICallbackHandle :: Int64 -> a -> (f -> IO a) -> IO a
+withJNICallbackHandle :: StablePtrHandle -> a -> (f -> IO a) -> IO a
 withJNICallbackHandle h valueOnException m =
     (withStablePtr h >>= m) `catch` \(e :: SomeException) ->
     fmap (const valueOnException) $ withLocalFrame_ $
@@ -133,14 +138,15 @@ withJNICallbackHandle h valueOnException m =
     e <- [java| new RuntimeException($jmsg) |]
     throw_ (e :: J ('Class "java.lang.RuntimeException"))
   where
-    withStablePtr :: Int64 -> IO a
-    withStablePtr h = do
+    withStablePtr :: StablePtrHandle -> IO a
+    withStablePtr (StablePtrHandle h) = do
       let hPtr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral h
       deRefStablePtr hPtr
 
-createStablePtrHandle :: a -> IO Int64
+createStablePtrHandle :: a -> IO StablePtrHandle
 createStablePtrHandle a =
-    fromIntegral . ptrToIntPtr . castStablePtrToPtr <$> newStablePtr a
+    StablePtrHandle . fromIntegral . ptrToIntPtr . castStablePtrToPtr <$>
+    newStablePtr a
 
 registerNativesForCallback :: JNI.JNINativeMethod -> NonLinear.JClass -> IO ()
 registerNativesForCallback jniNativeMethod klass = do
