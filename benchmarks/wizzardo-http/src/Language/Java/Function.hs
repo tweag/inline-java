@@ -56,7 +56,7 @@ freeIterator :: NonLinear.JNIEnv -> Ptr JObject -> Int64 -> IO ()
 freeIterator _ _ ptr = do
     let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
     handlePtr <- deRefStablePtr sptr
-    freeHaskellFunPtr (handlePtr :: FunPtr JNIApplyFun)
+    freeHaskellFunPtr handlePtr
     freeStablePtr sptr
 
 -- | Creates a BiFunction from a Haskell function.
@@ -77,8 +77,7 @@ createBiFunction
   -> m (J ('Class "java.util.function.BiFunction" <> [a, b, c]))
 createBiFunction f =
     let Linear.Builder{..} = Linear.monadBuilder in do
-    Unrestricted (longFunctionPtr :: Int64) <- Linear.liftIOU $
-      fromIntegral . ptrToIntPtr . castStablePtrToPtr <$> newStablePtr f
+    Unrestricted longFunctionPtr <- Linear.liftIOU (createStablePtrHandle f)
     jFunction <-
       [java| new java.util.function.BiFunction() {
           @Override
@@ -101,13 +100,12 @@ createBiFunction f =
 -- leaks into the functions to register as native methods for all the instances
 -- of the inner class.
 registerNativesForBiFunction :: NonLinear.JClass -> IO ()
-registerNativesForBiFunction klass = do
+registerNativesForBiFunction = do
     let {-# NOINLINE applyPtr #-}
         applyPtr :: FunPtr JNIApplyFun
-        applyPtr = unsafePerformIO $ wrapObjectFun $ \_jenv _jthis h reqPtr respPtr -> do
-          let hPtr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral h
-          handleFun <- deRefStablePtr hPtr
-          (NonLinear.unsafeObjectToPtr <$> Control.Monad.join
+        applyPtr = unsafePerformIO $ wrapObjectFun $ \_jenv _jthis h reqPtr respPtr ->
+          withJNICallbackHandle h nullPtr $ \handleFun -> do
+            NonLinear.unsafeObjectToPtr <$> Control.Monad.join
               ((handleFun
                 :: NonLinear.JObject
                 -> NonLinear.JObject
@@ -115,14 +113,7 @@ registerNativesForBiFunction klass = do
                 <$> NonLinear.objectFromPtr reqPtr
                 <*> NonLinear.objectFromPtr respPtr
               )
-           ) `catch` \(e :: SomeException) ->
-            fmap (const nullPtr) $ withLocalFrame_ $
-            let Linear.Builder{..} = Linear.monadBuilder in do
-            jmsg <- reflect (Text.pack $ show e)
-            e <- [java| new RuntimeException($jmsg) |]
-            throw_ (e :: J ('Class "java.lang.RuntimeException"))
-    JNI.registerNatives klass
-      [ JNI.JNINativeMethod
+    registerNativesForCallback $ JNI.JNINativeMethod
           "hsApply"
           (methodSignature
             [ SomeSing (sing :: Sing ('Prim "long"))
@@ -132,6 +123,29 @@ registerNativesForBiFunction klass = do
             (sing :: Sing ('Class "java.lang.Object"))
           )
           applyPtr
+
+withJNICallbackHandle :: Int64 -> a -> (f -> IO a) -> IO a
+withJNICallbackHandle h valueOnException m =
+    (withStablePtr h >>= m) `catch` \(e :: SomeException) ->
+    fmap (const valueOnException) $ withLocalFrame_ $
+    let Linear.Builder{..} = Linear.monadBuilder in do
+    jmsg <- reflect (Text.pack $ show e)
+    e <- [java| new RuntimeException($jmsg) |]
+    throw_ (e :: J ('Class "java.lang.RuntimeException"))
+  where
+    withStablePtr :: Int64 -> IO a
+    withStablePtr h = do
+      let hPtr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral h
+      deRefStablePtr hPtr
+
+createStablePtrHandle :: a -> IO Int64
+createStablePtrHandle a =
+    fromIntegral . ptrToIntPtr . castStablePtrToPtr <$> newStablePtr a
+
+registerNativesForCallback :: JNI.JNINativeMethod -> NonLinear.JClass -> IO ()
+registerNativesForCallback jniNativeMethod klass = do
+    JNI.registerNatives klass
+      [ jniNativeMethod
       , JNI.JNINativeMethod
           "hsFinalize"
           (methodSignature [SomeSing (sing :: Sing ('Prim "long"))] (sing :: Sing 'Void))
