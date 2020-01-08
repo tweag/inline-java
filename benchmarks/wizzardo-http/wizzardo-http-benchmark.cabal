@@ -8,7 +8,7 @@ build-type:          Custom
 cabal-version:       >=1.18
 
 custom-setup
-  setup-depends: Cabal>=1.18, base<5, inline-java
+  setup-depends: Cabal>=1.18, base<5, directory, filepath, inline-java
 
 executable wizzardo-http-benchmark
   main-is:             Main.hs
@@ -16,6 +16,7 @@ executable wizzardo-http-benchmark
   other-modules:
     DbHandler
     Language.Java.Function
+    Paths_wizzardo_http_benchmark
     Wizzardo.Http.Handler
   hs-source-dirs:      src
   build-depends:

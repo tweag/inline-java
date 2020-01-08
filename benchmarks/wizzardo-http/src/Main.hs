@@ -11,6 +11,7 @@ import qualified Control.Monad
 import Control.Monad.IO.Class.Linear (MonadIO)
 import qualified Control.Monad.Linear.Builder as Linear
 import Data.Aeson
+import qualified Data.Maybe as Maybe
 import qualified Data.ByteString.Char8 as ByteString.Char8
 import Data.ByteString.Lazy (toStrict)
 import Data.String (fromString)
@@ -23,19 +24,22 @@ import Language.Java.Safe (reflect)
 import System.Environment (getArgs, lookupEnv)
 import qualified System.IO.Linear as Linear
 import Wizzardo.Http.Handler (JHandler, createHandler)
-import Prelude (IO, (=<<), Maybe(..), fromInteger, map, ($), (++))
+import Prelude (IO, (=<<), concat, fromInteger, map, ($), (++))
 import Prelude.Linear (Unrestricted(..))
+import Paths_wizzardo_http_benchmark (getDataFileName)
 
 imports "com.wizzardo.http.*"
 imports "com.wizzardo.http.framework.*"
 imports "com.wizzardo.http.request.*"
 
 main :: IO ()
-main = getArgs Control.Monad.>>= \args -> do
+main =
+    getDataFileName "build/libs/wizzardo-http-benchmark.jar" Control.Monad.>>= \jar ->
+    getArgs Control.Monad.>>= \args -> do
     let -- We use the classpath provided at build time.
-        jvmArgs = case $(TH.lift =<< TH.runIO (lookupEnv "CLASSPATH")) of
-          Nothing -> []
-          Just cp -> [ fromString ("-Djava.class.path=" ++ cp) ]
+        cp = concat $ jar : ":" :
+               Maybe.maybeToList $(TH.lift =<< TH.runIO (lookupEnv "CLASSPATH"))
+        jvmArgs = [ fromString ("-Djava.class.path=" ++ cp) ]
         otherJVMArgs =
           [ "-Xmx2G"
           , "-Xms2G"

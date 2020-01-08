@@ -13,7 +13,6 @@
 module DbHandler (createDbHandler) where
 
 import Control.Monad.IO.Class.Linear (MonadIO)
-import qualified Control.Monad.Builder as Prelude
 import qualified Control.Monad.Linear.Builder as Linear
 import Data.Aeson (ToJSON(..), encode, object, (.=))
 import Data.ByteString.Lazy (toStrict)
@@ -22,7 +21,7 @@ import Data.String (fromString)
 import Foreign.JNI.Safe (newGlobalRef_)
 import qualified Language.Java as NonLinear
 import Language.Java.Inline.Safe
-import Language.Java.Function (createBiFunction)
+import Language.Java.Function (createIntIntToObjFunction)
 import Language.Java.Safe (J, JType(..), type (<>))
 import Wizzardo.Http.Handler (JHandler, createHandler)
 import Prelude (IO, Show, fromInteger, ($))
@@ -42,7 +41,7 @@ imports "io.reactiverse.pgclient.impl.*"
 createDbHandler :: MonadIO m => m JHandler
 createDbHandler =
     let Linear.Builder{..} = Linear.monadBuilder in do
-    encodeDbResponse <- createBiFunction encodeDbResponseAsJSON
+    encodeDbResponse <- createIntIntToObjFunction encodeDbResponseAsJSON
     Unrestricted jGlobalEncodeDbResponse <- newGlobalRef_ encodeDbResponse
     byteBufferProviderThreadLocal <- createThreadLocalByteBufferProvider
     Unrestricted jGlobalByteBufferProviderThreadLocal <-
@@ -123,11 +122,6 @@ createPgPoolRef =
    |]
 
 encodeDbResponseAsJSON
-  :: NonLinear.J ('Class "java.lang.Integer")
-  -> NonLinear.J ('Class "java.lang.Integer")
-  -> IO (NonLinear.J ('Array ('Prim "byte")))
+  :: Int32 -> Int32 -> IO (NonLinear.J ('Array ('Prim "byte")))
 encodeDbResponseAsJSON rowId rowRandomInt =
-  let Prelude.Builder{..} = Prelude.monadBuilder in do
-  rId <- NonLinear.reify rowId
-  rRandomNumber <- NonLinear.reify rowRandomInt
-  NonLinear.reflect $ toStrict $ encode $ World rId rRandomNumber
+  NonLinear.reflect $ toStrict $ encode $ World rowId rowRandomInt

@@ -15,6 +15,7 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 module Language.Java.Function
   ( createBiFunction
+  , createIntIntToObjFunction
   ) where
 
 import Control.Exception (SomeException, catch)
@@ -36,20 +37,29 @@ import Prelude
 import Prelude.Linear (Unrestricted(..))
 import System.IO.Unsafe (unsafePerformIO)
 
+imports "io.tweag.inline_java.wizzardo_http_benchmark.*"
+
+type JNIFun a
+    = NonLinear.JNIEnv -> Ptr NonLinear.JObject -> StablePtrHandle -> a
 
 type JNIApplyFun
-    = NonLinear.JNIEnv
-    -> Ptr NonLinear.JObject
-    -> StablePtrHandle
-    -> Ptr NonLinear.JObject
-    -> Ptr NonLinear.JObject
-    -> IO (Ptr NonLinear.JObject)
+    = JNIFun
+    ( Ptr NonLinear.JObject
+      -> Ptr NonLinear.JObject
+      -> IO (Ptr NonLinear.JObject)
+    )
+
+type JNIIntIntToObjFun
+    = JNIFun (Int32 -> Int32 -> IO (Ptr NonLinear.JObject))
 
 newtype StablePtrHandle = StablePtrHandle Int64
   deriving Coercible
 
 foreign import ccall "wrapper" wrapObjectFun
   :: JNIApplyFun -> IO (FunPtr JNIApplyFun)
+
+foreign import ccall "wrapper" wrapIntIntToObjFun
+  :: JNIIntIntToObjFun -> IO (FunPtr JNIIntIntToObjFun)
 
 -- Export only to get a FunPtr.
 foreign export ccall "wizzardo_http_handler_freeIterator" freeIterator
@@ -124,6 +134,61 @@ registerNativesForBiFunction = do
             [ SomeSing (sing :: Sing ('Prim "long"))
             , SomeSing (sing :: Sing ('Class "java.lang.Object"))
             , SomeSing (sing :: Sing ('Class "java.lang.Object"))
+            ]
+            (sing :: Sing ('Class "java.lang.Object"))
+          )
+          applyPtr
+
+
+-- | Creates an object with a method @Object apply(int, int)@ that
+-- invokes the given callback.
+--
+-- The Haskell callback must return jnull or a local reference.
+--
+createIntIntToObjFunction
+  :: ( IsReferenceType a
+     , SingI a
+     , Linear.MonadIO m
+     )
+  => (Int32 -> Int32 -> IO (NonLinear.J a))
+  -> m (J ('Iface "io.tweag.inline_java.wizzardo_http_benchmark.IntIntToObjFunction" <> '[a]))
+createIntIntToObjFunction f =
+    let Linear.Builder{..} = Linear.monadBuilder in do
+    Unrestricted longFunctionPtr <- Linear.liftIOU (createStablePtrHandle f)
+    jFunction <-
+      [java| new IntIntToObjFunction() {
+          @Override
+          public Object apply(int t, int u) {
+            return hsApply($longFunctionPtr, t, u);
+          }
+
+          private native void hsFinalize(long functionPtr);
+          private native Object hsApply(long functionPtr, int t, int u);
+
+          @Override
+          public void finalize() { hsFinalize($longFunctionPtr); }
+        } |]
+    (jFunction, Unrestricted klass) <- getObjectClass jFunction
+    Linear.liftIO  (registerNativesForIntIntToObjFunction klass)
+    Linear.liftIO (JNI.deleteLocalRef klass)
+    return (unsafeGeneric jFunction)
+
+-- Keep this function at the top level to ensure that no callback-specific state
+-- leaks into the functions to register as native methods for all the instances
+-- of the inner class.
+registerNativesForIntIntToObjFunction :: NonLinear.JClass -> IO ()
+registerNativesForIntIntToObjFunction = do
+    let {-# NOINLINE applyPtr #-}
+        applyPtr :: FunPtr JNIIntIntToObjFun
+        applyPtr = unsafePerformIO $ wrapIntIntToObjFun $ \_jenv _jthis h t u ->
+          withJNICallbackHandle h nullPtr $ \handleFun ->
+            NonLinear.unsafeObjectToPtr <$> handleFun t u
+    registerNativesForCallback $ JNI.JNINativeMethod
+          "hsApply"
+          (methodSignature
+            [ SomeSing (sing :: Sing ('Prim "long"))
+            , SomeSing (sing :: Sing ('Prim "int"))
+            , SomeSing (sing :: Sing ('Prim "int"))
             ]
             (sing :: Sing ('Class "java.lang.Object"))
           )
