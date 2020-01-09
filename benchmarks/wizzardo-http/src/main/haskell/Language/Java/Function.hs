@@ -67,13 +67,13 @@ foreign import ccall "wrapper" wrapIntIntToObjFun
   :: JNIIntIntToObjFun -> IO (FunPtr JNIIntIntToObjFun)
 
 -- Export only to get a FunPtr.
-foreign export ccall "wizzardo_http_handler_freeIterator" freeIterator
+foreign export ccall "wizzardo_http_handler_freeCallbackHandle" freeCallbackHandle
   :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ()
-foreign import ccall "&wizzardo_http_handler_freeIterator" freeIteratorPtr
+foreign import ccall "&wizzardo_http_handler_freeCallbackHandle" freeCallbackHandlePtr
   :: FunPtr (NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ())
 
-freeIterator :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ()
-freeIterator _ _ = freeStablePtr . handleToStablePtr
+freeCallbackHandle :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ()
+freeCallbackHandle _ _ = freeStablePtr . handleToStablePtr
 
 -- | Creates a BiFunction from a Haskell function.
 --
@@ -233,5 +233,5 @@ registerNativesForCallback jniNativeMethod klass = do
       , JNI.JNINativeMethod
           "hsFinalize"
           (methodSignature [SomeSing (sing :: Sing ('Prim "long"))] (sing :: Sing 'Void))
-          freeIteratorPtr
+          freeCallbackHandlePtr
       ]
