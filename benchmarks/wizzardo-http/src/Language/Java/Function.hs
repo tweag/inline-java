@@ -39,20 +39,24 @@ import System.IO.Unsafe (unsafePerformIO)
 
 imports "io.tweag.inline_java.wizzardo_http_benchmark.*"
 
-type JNIFun a
-    = NonLinear.JNIEnv -> Ptr NonLinear.JObject -> StablePtrHandle -> a
+type JNIFun f a
+    = NonLinear.JNIEnv -> Ptr NonLinear.JObject -> StablePtrHandle f -> a
 
 type JNIApplyFun
     = JNIFun
+    (NonLinear.JObject -> NonLinear.JObject -> IO NonLinear.JObject)
     ( Ptr NonLinear.JObject
       -> Ptr NonLinear.JObject
       -> IO (Ptr NonLinear.JObject)
     )
 
 type JNIIntIntToObjFun
-    = JNIFun (Int32 -> Int32 -> IO (Ptr NonLinear.JObject))
+    = JNIFun
+        (Int32 -> Int32 -> IO NonLinear.JObject)
+        (Int32 -> Int32 -> IO (Ptr NonLinear.JObject))
 
-newtype StablePtrHandle = StablePtrHandle Int64
+-- | A representation of a StablePtr that we can pass to Java
+newtype StablePtrHandle a = StablePtrHandle Int64
   deriving Coercible
 
 foreign import ccall "wrapper" wrapObjectFun
@@ -63,11 +67,11 @@ foreign import ccall "wrapper" wrapIntIntToObjFun
 
 -- Export only to get a FunPtr.
 foreign export ccall "wizzardo_http_handler_freeIterator" freeIterator
-  :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle -> IO ()
+  :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ()
 foreign import ccall "&wizzardo_http_handler_freeIterator" freeIteratorPtr
-  :: FunPtr (NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle -> IO ())
+  :: FunPtr (NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ())
 
-freeIterator :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle -> IO ()
+freeIterator :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ()
 freeIterator _ _ (StablePtrHandle ptr) = do
     let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
     handlePtr <- deRefStablePtr sptr
@@ -119,12 +123,9 @@ registerNativesForBiFunction = do
     let {-# NOINLINE applyPtr #-}
         applyPtr :: FunPtr JNIApplyFun
         applyPtr = unsafePerformIO $ wrapObjectFun $ \_jenv _jthis h reqPtr respPtr ->
-          withJNICallbackHandle h nullPtr $ \handleFun -> do
+          withJNICallbackHandle h nullPtr $ \handleFun ->
             NonLinear.unsafeObjectToPtr <$> Control.Monad.join
-              ((handleFun
-                :: NonLinear.JObject
-                -> NonLinear.JObject
-                -> IO NonLinear.JObject)
+              (handleFun
                 <$> NonLinear.objectFromPtr reqPtr
                 <*> NonLinear.objectFromPtr respPtr
               )
@@ -194,21 +195,21 @@ registerNativesForIntIntToObjFunction = do
           )
           applyPtr
 
-withJNICallbackHandle :: StablePtrHandle -> a -> (f -> IO a) -> IO a
+withJNICallbackHandle :: StablePtrHandle f -> a -> (f -> IO a) -> IO a
 withJNICallbackHandle h valueOnException m =
-    (withStablePtr h >>= m) `catch` \(e :: SomeException) ->
+    (derefStablePtrHandle h >>= m) `catch` \(e :: SomeException) ->
     fmap (const valueOnException) $ withLocalFrame_ $
     let Linear.Builder{..} = Linear.monadBuilder in do
     jmsg <- reflect (Text.pack $ show e)
     e <- [java| new RuntimeException($jmsg) |]
     throw_ (e :: J ('Class "java.lang.RuntimeException"))
   where
-    withStablePtr :: StablePtrHandle -> IO a
-    withStablePtr (StablePtrHandle h) = do
+    derefStablePtrHandle :: StablePtrHandle a -> IO a
+    derefStablePtrHandle (StablePtrHandle h) = do
       let hPtr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral h
       deRefStablePtr hPtr
 
-createStablePtrHandle :: a -> IO StablePtrHandle
+createStablePtrHandle :: a -> IO (StablePtrHandle a)
 createStablePtrHandle a =
     StablePtrHandle . fromIntegral . ptrToIntPtr . castStablePtrToPtr <$>
     newStablePtr a
