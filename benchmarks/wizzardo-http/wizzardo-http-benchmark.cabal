@@ -18,7 +18,7 @@ executable wizzardo-http-benchmark
     Language.Java.Function
     Paths_wizzardo_http_benchmark
     Wizzardo.Http.Handler
-  hs-source-dirs:      src
+  hs-source-dirs:      src/main/haskell
   build-depends:
     aeson,
     base<5,
