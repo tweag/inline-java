@@ -72,11 +72,7 @@ foreign import ccall "&wizzardo_http_handler_freeIterator" freeIteratorPtr
   :: FunPtr (NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ())
 
 freeIterator :: NonLinear.JNIEnv -> Ptr JObject -> StablePtrHandle a -> IO ()
-freeIterator _ _ (StablePtrHandle ptr) = do
-    let sptr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral ptr
-    handlePtr <- deRefStablePtr sptr
-    freeHaskellFunPtr handlePtr
-    freeStablePtr sptr
+freeIterator _ _ = freeStablePtr . handleToStablePtr
 
 -- | Creates a BiFunction from a Haskell function.
 --
@@ -205,14 +201,16 @@ withJNICallbackHandle h valueOnException m =
     throw_ (e :: J ('Class "java.lang.RuntimeException"))
   where
     derefStablePtrHandle :: StablePtrHandle a -> IO a
-    derefStablePtrHandle (StablePtrHandle h) = do
-      let hPtr = castPtrToStablePtr $ intPtrToPtr $ fromIntegral h
-      deRefStablePtr hPtr
+    derefStablePtrHandle = deRefStablePtr . handleToStablePtr
 
 createStablePtrHandle :: a -> IO (StablePtrHandle a)
 createStablePtrHandle a =
     StablePtrHandle . fromIntegral . ptrToIntPtr . castStablePtrToPtr <$>
     newStablePtr a
+
+handleToStablePtr :: StablePtrHandle a -> StablePtr a
+handleToStablePtr (StablePtrHandle h) =
+    castPtrToStablePtr $ intPtrToPtr $ fromIntegral h
 
 registerNativesForCallback :: JNI.JNINativeMethod -> NonLinear.JClass -> IO ()
 registerNativesForCallback jniNativeMethod klass = do
