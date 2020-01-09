@@ -22,6 +22,7 @@ import Control.Exception (SomeException, catch)
 import qualified Control.Monad
 import qualified Control.Monad.IO.Class.Linear as Linear
 import qualified Control.Monad.Linear.Builder as Linear
+import qualified Control.Monad.Linear as Linear
 import Data.Int
 import Data.Singletons
 import Data.String (fromString)
@@ -91,9 +92,8 @@ createBiFunction
   => (NonLinear.J a -> NonLinear.J b -> IO (NonLinear.J c))
   -> m (J ('Class "java.util.function.BiFunction" <> [a, b, c]))
 createBiFunction f =
-    let Linear.Builder{..} = Linear.monadBuilder in do
-    Unrestricted longFunctionPtr <- Linear.liftIOU (createStablePtrHandle f)
-    jFunction <-
+    createCallback f registerNativesForBiFunction $ \longFunctionPtr ->
+      unsafeGeneric Linear.<$>
       [java| new java.util.function.BiFunction() {
           @Override
           public Object apply(Object t, Object u) {
@@ -106,10 +106,6 @@ createBiFunction f =
           @Override
           public void finalize() { hsFinalize($longFunctionPtr); }
         } |]
-    (jFunction, Unrestricted klass) <- getObjectClass jFunction
-    Linear.liftIO  (registerNativesForBiFunction klass)
-    Linear.liftIO (JNI.deleteLocalRef klass)
-    return (unsafeGeneric jFunction)
 
 -- Keep this function at the top level to ensure that no callback-specific state
 -- leaks into the functions to register as native methods for all the instances
@@ -150,9 +146,8 @@ createIntIntToObjFunction
   => (Int32 -> Int32 -> IO (NonLinear.J a))
   -> m (J ('Iface "io.tweag.inline_java.wizzardo_http_benchmark.IntIntToObjFunction" <> '[a]))
 createIntIntToObjFunction f =
-    let Linear.Builder{..} = Linear.monadBuilder in do
-    Unrestricted longFunctionPtr <- Linear.liftIOU (createStablePtrHandle f)
-    jFunction <-
+    createCallback f registerNativesForIntIntToObjFunction $ \longFunctionPtr ->
+      unsafeGeneric Linear.<$>
       [java| new IntIntToObjFunction() {
           @Override
           public Object apply(int t, int u) {
@@ -165,10 +160,6 @@ createIntIntToObjFunction f =
           @Override
           public void finalize() { hsFinalize($longFunctionPtr); }
         } |]
-    (jFunction, Unrestricted klass) <- getObjectClass jFunction
-    Linear.liftIO  (registerNativesForIntIntToObjFunction klass)
-    Linear.liftIO (JNI.deleteLocalRef klass)
-    return (unsafeGeneric jFunction)
 
 -- Keep this function at the top level to ensure that no callback-specific state
 -- leaks into the functions to register as native methods for all the instances
@@ -191,6 +182,29 @@ registerNativesForIntIntToObjFunction = do
           )
           applyPtr
 
+-- | Creates a Java function object that invokes the given Haskell
+-- callback.
+createCallback
+  :: Linear.MonadIO m
+  => f                                -- ^ Haskell callback
+  -> (NonLinear.JClass -> IO ())      -- ^ Registers native methods for the Java
+                                      -- class of the callback
+  -> (StablePtrHandle f -> m (J ty))  -- ^ Instantiates the java callback which
+                                      -- may have unregistered native methods
+  -> m (J ty)
+createCallback f registerNativesForCallback createJFunction =
+    let Linear.Builder{..} = Linear.monadBuilder in do
+    Unrestricted longFunctionPtr <- Linear.liftIOU (createStablePtrHandle f)
+    jFunction <- createJFunction longFunctionPtr
+    (jFunction, Unrestricted klass) <- getObjectClass jFunction
+    Linear.liftIO (registerNativesForCallback klass)
+    Linear.liftIO (JNI.deleteLocalRef klass)
+    return jFunction
+
+-- | Runs the Haskell callback referred by a 'StablePtrHandle' in the
+-- context of a Java function.
+--
+-- It forwards Haskell exceptions to Java if any occur.
 withJNICallbackHandle :: StablePtrHandle f -> a -> (f -> IO a) -> IO a
 withJNICallbackHandle h valueOnException m =
     (derefStablePtrHandle h >>= m) `catch` \(e :: SomeException) ->
