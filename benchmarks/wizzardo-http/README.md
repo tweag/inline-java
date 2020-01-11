@@ -8,3 +8,6 @@ handled correctly on the Haskell side.
 
 Running the benchmark requires the framework from
 https://github.com/TechEmpower/FrameworkBenchmarks/compare/master...facundominguez:fd/wizzardo-http-inline-java
+
+[inline-java]: https://github.com/tweag/inline-java
+[linear-types]: https://github.com/tweag/ghc-proposals/blob/linear-types/proposals/0000-linear-types.rst
