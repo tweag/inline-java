@@ -88,9 +88,16 @@ fork and the safe interface can be built with:
 $ stack --nix --stack-yaml stack-linear.yaml build inline-java
 ```
 
+For examples of how to use the safe interface you can check
+the [directory server][directory-server] or the
+[wizzardo-http benchmark][wizzardo-http-benchmark].
+
+
+[directory-server]: examples/directory-server
 [linear-types-ghc]: https://github.com/tweag/ghc/tree/linear-types#ghc-branch-with-linear-types
 [linear-types-proposal]: https://github.com/tweag/ghc-proposals/blob/linear-types2/proposals/0000-linear-types.rst
 [safe-inline-java]: https://github.com/tweag/inline-java/blob/master/src/linear-types/Language/Java/Inline/Safe.hs
+[wizzardo-http-benchmark]: benchmarks/wizzardo-http
 
 ## Debugging
 
