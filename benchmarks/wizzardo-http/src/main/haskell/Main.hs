@@ -20,7 +20,7 @@ import DbHandler (createDbHandler)
 import Foreign.JNI.Safe (newGlobalRef_, withJVM, withLocalFrame_)
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Safe
-import Language.Java.Safe (reflect)
+import Language.Java.Safe (UnsafeUnrestrictedReference(..), reflect)
 import System.Environment (getArgs, lookupEnv)
 import qualified System.IO.Linear as Linear
 import Wizzardo.Http.Handler (JHandler, createHandler)
@@ -93,9 +93,9 @@ createPlainTextHandler :: MonadIO m => m JHandler
 createPlainTextHandler =
     let Linear.Builder{..} = Linear.monadBuilder in do
     jmsg <- reflect (ByteString.Char8.pack "Hello, World!")
-    Unrestricted jGlobalMsg <- newGlobalRef_ jmsg
+    UnsafeUnrestrictedReference jGlobalMsg <- newGlobalRef_ jmsg
     createHandler $ \_req resp -> Linear.withLinearIO $ do
-      let ujmsg = Unrestricted jGlobalMsg
+      let ujmsg = UnsafeUnrestrictedReference jGlobalMsg
       [java| { $resp
                .setBody($ujmsg)
                .appendHeader(Header.KV_CONTENT_TYPE_TEXT_PLAIN);

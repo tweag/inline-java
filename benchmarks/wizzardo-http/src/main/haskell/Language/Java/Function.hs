@@ -196,7 +196,7 @@ createCallback f registerNativesForCallback createJFunction =
     let Linear.Builder{..} = Linear.monadBuilder in do
     Unrestricted longFunctionPtr <- Linear.liftIOU (createStablePtrHandle f)
     jFunction <- createJFunction longFunctionPtr
-    (jFunction, Unrestricted klass) <- getObjectClass jFunction
+    (jFunction, UnsafeUnrestrictedReference klass) <- getObjectClass jFunction
     Linear.liftIO (registerNativesForCallback klass)
     Linear.liftIO (JNI.deleteLocalRef klass)
     return jFunction

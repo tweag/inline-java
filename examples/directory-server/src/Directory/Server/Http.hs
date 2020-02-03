@@ -52,7 +52,7 @@ startHttpServer
   :: Linear.MonadIO m
   => Int32
   -> (JHttpExchange -> IO ())
-  -> m (Unrestricted JHttpServer)
+  -> m (UnsafeUnrestrictedReference JHttpServer)
 startHttpServer port handler =
     let Linear.Builder{..} = Linear.monadBuilder in do
     jHandler <- createHandler handler
@@ -115,7 +115,7 @@ createHandler handle =
           @Override
           public void finalize() { hsFinalize($longTablePtr); }
         } |]
-    (jHandler2, Unrestricted klass) <- getObjectClass jHandler
+    (jHandler2, UnsafeUnrestrictedReference klass) <- getObjectClass jHandler
     Linear.liftIO (registerNativesForHttpHandler klass)
     Linear.liftIO (JNI.deleteLocalRef klass)
     return jHandler2

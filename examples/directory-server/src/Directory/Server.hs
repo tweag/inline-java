@@ -41,7 +41,7 @@ server port =
     let Linear.Builder{..} = Linear.monadBuilder in do
     Unrestricted mvStop <- Linear.liftIOU newEmptyMVar
     Unrestricted env <- liftU ask
-    Unrestricted httpServer <-
+    UnsafeUnrestrictedReference httpServer <-
       startHttpServer (fromIntegral port) (runHandler env)
     lift
       (logInfoN $ Text.pack $

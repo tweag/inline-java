@@ -204,12 +204,25 @@ instance Coercible (Choice.Choice a) where
   coerce c = coerce (Unsafe.toLinear Choice.toBool c)
   unsafeUncoerce v = Unsafe.toLinear Choice.fromBool (unsafeUncoerce v)
 
-instance (Java.Coercible a, Typeable a) => Coercible (Unrestricted a) where
+instance (IsPrimitiveType (Ty a), Java.Coercible a, Typeable a)
+         => Coercible (Unrestricted a) where
   type Ty (Unrestricted a) = Java.Ty a
   coerce (Unrestricted a) = JValue (Java.coerce a)
+  unsafeUncoerce = Unsafe.toLinear $ \v ->
+    Unsafe.toLinear (Unrestricted $!) (unsafeUncoercePrim v)
+
+instance (IsReferenceType (Java.Ty a), Java.Coercible a, Typeable a)
+         => Coercible (UnsafeUnrestrictedReference a) where
+  type Ty (UnsafeUnrestrictedReference a) = Java.Ty a
+  coerce (UnsafeUnrestrictedReference a) = JValue (Java.coerce a)
   unsafeUncoerce = Unsafe.toLinear $ \case
-    JObject j -> unsafeUncoerce (JValue (Java.JObject (unJ j)))
-    v -> Unsafe.toLinear (Unrestricted $!) (unsafeUncoercePrim v)
+    JObject j ->
+      UnsafeUnrestrictedReference (Java.unsafeUncoerce (Java.JObject (unJ j)))
+    v -> withTypeRep
+      (\r -> error ("unsafeUncoerce: unexpected primitive type for: "
+                      ++ show (v, r)
+                   )
+      )
 
 -- | Get the Java class of an object or anything 'Coercible' to one.
 classOf
