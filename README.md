@@ -76,6 +76,22 @@ nix:
 [nix]: http://nixos.org/nix
 [osx-java-se]: https://support.apple.com/kb/dl1572?locale=fr_FR
 
+## Building the safe interface
+
+There is [an experimental interface][safe-interface] which catches
+common memory management mistakes at compile time. This interface
+currently needs a [fork][linear-types-ghc] of GHC which supports the
+[LinearTypes][linear-types-proposal] language extension. Both the GHC
+fork and the safe interface can be built with:
+
+```
+$ stack --nix --stack-yaml stack-linear.yaml build inline-java
+```
+
+[linear-types-ghc]: https://github.com/tweag/ghc/tree/linear-types#ghc-branch-with-linear-types
+[linear-types-proposal]: https://github.com/tweag/ghc-proposals/blob/linear-types2/proposals/0000-linear-types.rst
+[safe-inline-java]: https://github.com/tweag/inline-java/blob/master/src/linear-types/Language/Java/Inline/Safe.hs
+
 ## Debugging
 
 The generated java output can be dumped to stderr by passing to GHC
