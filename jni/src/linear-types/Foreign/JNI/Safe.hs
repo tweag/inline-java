@@ -100,8 +100,11 @@ throwNew :: MonadIO m => JNI.JClass -> JNI.String ->. m ()
 throwNew jclass = Unsafe.toLinear $ \msg ->
     liftIO (JNI.throwNew jclass msg)
 
-findClass :: MonadIO m => ReferenceTypeName -> m (Unrestricted JNI.JClass)
-findClass name = liftIO (Unrestricted <$> JNI.findClass name)
+findClass
+  :: MonadIO m
+  => ReferenceTypeName
+  -> m (UnsafeUnrestrictedReference JNI.JClass)
+findClass name = liftIO (UnsafeUnrestrictedReference <$> JNI.findClass name)
 
 newObject
   :: MonadIO m
@@ -252,21 +255,24 @@ getStaticMethodID
 getStaticMethodID jclass = Unsafe.toLinear2 $ \methodname sig ->
   liftIOU (JNI.getStaticMethodID jclass methodname sig)
 
-getObjectClass :: MonadIO m => J ty ->. m (J ty, Unrestricted JNI.JClass)
+getObjectClass
+  :: MonadIO m => J ty ->. m (J ty, UnsafeUnrestrictedReference JNI.JClass)
 getObjectClass = Unsafe.toLinear $ \o ->
-    liftIO ((,) o . Unrestricted <$> JNI.getObjectClass (unJ o))
+    liftIO ((,) o . UnsafeUnrestrictedReference <$> JNI.getObjectClass (unJ o))
 
 -- | Creates a global reference to the object referred to by
 -- the given reference.
 --
 -- Arranges for a finalizer to call 'deleteGlobalRef' when the
 -- global reference is no longer reachable on the Haskell side.
-newGlobalRef :: MonadIO m => J ty ->. m (J ty, Unrestricted (JNI.J ty))
+newGlobalRef
+  :: MonadIO m => J ty ->. m (J ty, UnsafeUnrestrictedReference (JNI.J ty))
 newGlobalRef = Unsafe.toLinear $ \o -> liftIO
-    ((,) o . Unrestricted <$> JNI.newGlobalRef (unJ o))
+    ((,) o . UnsafeUnrestrictedReference <$> JNI.newGlobalRef (unJ o))
 
 -- | Like 'newGlobalRef' but it deletes the input instead of returning it.
-newGlobalRef_ :: MonadIO m => J ty ->. m (Unrestricted (JNI.J ty))
+newGlobalRef_
+  :: MonadIO m => J ty ->. m (UnsafeUnrestrictedReference (JNI.J ty))
 newGlobalRef_ j =
     newGlobalRef j Linear.>>= \(j1, g) -> g Linear.<$ deleteLocalRef j1
 
@@ -277,9 +283,11 @@ deleteGlobalRef o = liftIO (JNI.deleteGlobalRef o)
 -- the reference when it is not longer reachable. Use
 -- 'deleteGlobalRefNonFinalized' to destroy this reference.
 newGlobalRefNonFinalized
-  :: MonadIO m => J ty ->. m (J ty, Unrestricted (JNI.J ty))
+  :: MonadIO m => J ty ->. m (J ty, UnsafeUnrestrictedReference (JNI.J ty))
 newGlobalRefNonFinalized = Unsafe.toLinear $ \o ->
-    liftIO ((,) o . Unrestricted <$> JNI.newGlobalRefNonFinalized (unJ o))
+    liftIO ((,) o . UnsafeUnrestrictedReference <$>
+             JNI.newGlobalRefNonFinalized (unJ o)
+           )
 
 -- | Like 'deleteGlobalRef' but it can be used only on references created with
 -- 'newGlobalRefNonFinalized'.

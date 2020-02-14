@@ -2,6 +2,7 @@
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
@@ -83,6 +84,14 @@ toJNIJValues :: [JValue] -> [JNI.JValue]
 toJNIJValues = map $ \case
     JValue jvalue -> jvalue
     JObject (J j) -> JNI.JObject j
+
+-- | A type to wrap unrestricted references
+--
+-- Unlike with linear references, the programmer is reponsible
+-- for ensuring that the unrestricted references are destroyed
+-- in timely fashion.
+data UnsafeUnrestrictedReference a where
+  UnsafeUnrestrictedReference :: a -> UnsafeUnrestrictedReference a
 
 type JObject = J ('Class "java.lang.Object")
 type JString = J ('Class "java.lang.String")
