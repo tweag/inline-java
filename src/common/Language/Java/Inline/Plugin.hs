@@ -1,5 +1,5 @@
 -- | This plugin generates Java bytecode from modules using the java
--- QuasiQuoter and inserts it in a global bytecode table from where the
+-- QuasiQuoter and inserts it in a global bytecode table from where
 -- it is loaded at runtime.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
@@ -43,10 +43,14 @@ import Prelude hiding ((<>))
 --
 -- This plugin first makes a pass to collect the 'qqMarker' calls in the module
 -- (collectQQMarkers).
--- Then it generates the java stubs from the information in the found
--- occurrences (buildJava).
+--
+-- Then it translates the Core Types to Java types (unliftJTypes).
+--
+-- Then it generates the java stubs from the information extracted from the
+-- occurrences of 'qqMarker' (buildJava).
+--
 -- Finally, it calls the java compiler to produce the bytecode and
--- arranges it to be inserted it in the bytecode table in constructor functions
+-- arranges to have it inserted in the bytecode table in constructor functions
 -- (cConstructors).
 
 plugin :: Plugin
@@ -301,7 +305,7 @@ toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
          in BS.map subst xs
       | otherwise = xs
 
--- | An occurrence of 'qqMarker'
+-- | An occurrence of a java quasiquotation
 data QQOcc = QQOcc
     { -- | The type of the result
       qqOccResTy :: Type
@@ -335,7 +339,7 @@ type QQJavaM a = WriterT (Endo [QQOcc]) CoreM a
 -- > g = ...
 -- > ...
 --
--- 'collectQQMarkers' yields one 'QQOcc' value for every occurrences of
+-- 'collectQQMarkers' yields one 'QQOcc' value for every occurrence of
 -- 'qqMarker', and the program resulting from removing the markers.
 --
 -- > module A where
