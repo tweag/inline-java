@@ -99,6 +99,15 @@ the [directory server][directory-server] or the
 [safe-inline-java]: https://github.com/tweag/inline-java/blob/master/src/linear-types/Language/Java/Inline/Safe.hs
 [wizzardo-http-benchmark]: benchmarks/wizzardo-http
 
+## Further reading
+
+Check the [tutorial][inline-java-tutorial] on how to use `inline-java`.
+If you want to know more about how it is implemented, look at
+[our post][inline-java-plugin] on the plugin implementation.
+
+[inline-java-tutorial]: https://www.tweag.io/posts/2017-09-15-inline-java-tutorial.html
+[inline-java-plugin]: https://www.tweag.io/posts/2017-09-22-inline-java-ghc-plugin.html
+
 ## Debugging
 
 The generated java output can be dumped to stderr by passing to GHC
