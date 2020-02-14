@@ -210,7 +210,6 @@ import Data.IORef (IORef, newIORef, atomicModifyIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Typeable (Typeable)
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
   ( finalizeForeignPtr
@@ -248,7 +247,7 @@ $(C.verbatim "static __thread JNIEnv* jniEnv; ")
 -- | A JNI call may cause a (Java) exception to be raised. This module raises it
 -- as a Haskell exception wrapping the Java exception.
 newtype JVMException = JVMException JThrowable
-  deriving (Show, Typeable)
+  deriving Show
 
 instance Exception JVMException
 
@@ -256,28 +255,28 @@ instance Exception JVMException
 -- because it wanted to copy the array contents but couldn't. In this case the
 -- JVM doesn't throw OutOfMemory according to the JNI spec.
 data ArrayCopyFailed = ArrayCopyFailed
-  deriving (Exception, Show, Typeable)
+  deriving (Exception, Show)
 
 -- Thrown when @NewDirectByteBuffer@ or @GetDirectBufferAddress@ returns NULL,
 -- and when @GetDirectBufferCapacity@ return @-1@.
 data DirectBufferFailed = DirectBufferFailed
-  deriving (Exception, Show, Typeable)
+  deriving (Exception, Show)
 
 -- | A null reference is found where a non-null reference was expected.
 data NullPointerException = NullPointerException
-  deriving (Exception, Show, Typeable)
+  deriving (Exception, Show)
 
 -- | A JNI call is made from a thread not attached to the JVM.
 data ThreadNotAttached = ThreadNotAttached
-  deriving (Exception, Show, Typeable)
+  deriving (Exception, Show)
 
 -- | A JNI call is made from an unbound thread.
 data ThreadNotBound = ThreadNotBound
-  deriving (Exception, Show, Typeable)
+  deriving (Exception, Show)
 
 -- | Thrown when an JNI call is made from an unbound thread.
 data JNIError = JNIError Prelude.String Int32
-  deriving (Show, Typeable)
+  deriving Show
 
 instance Exception JNIError
 

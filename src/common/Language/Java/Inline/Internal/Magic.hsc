@@ -44,7 +44,7 @@ data DotClass = DotClass
   }
 
 data JavaImport = JavaImport String Integer
-  deriving (Typeable, Data, TH.Lift)
+  deriving (Data, TH.Lift)
 
 -- | Produces a Java class name from a package and a module name.
 mangleClassName :: String -> String -> String
