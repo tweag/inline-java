@@ -455,13 +455,21 @@ sortUserEvents events f =
            splitEvents dir (IM.insert capId h m) evs
          -- Send the events to the capability file.
          Just h ->
-           let (capEvents, rest) = span (\ev -> capId == evCapId ev) evs
-            in do mapM_ (hPutStrLn h)
-                    [ show (evTime ev) ++ " " ++ msg
-                    | ev <- capEvents
-                    , UserMessage msg <- [evSpec ev]
-                    ]
-                  splitEvents dir m rest
+           doWhile (\ev -> capId == evCapId ev)
+                   (\ev -> case evSpec ev of
+                      UserMessage msg ->
+                        hPutStrLn h (show (evTime ev) ++ " " ++ msg)
+                      _ -> return ()
+                   )
+                   evs
+            >>=
+              splitEvents dir m
+
+    doWhile :: (a -> Bool) -> (a -> IO ()) -> [a] -> IO [a]
+    doWhile _ _ [] = return []
+    doWhile p fn xs@(x : xs')
+         | p x = fn x >> doWhile p fn xs'
+         | otherwise = return xs
 
     mergeEvents :: FilePath -> [Int] -> IO [Event]
     mergeEvents dir ids = do
