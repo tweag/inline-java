@@ -2,7 +2,7 @@ version: 2
 jobs:
   build-darwin-brew:
     macos:
-      xcode: "9.0"
+      xcode: '10.2.1'
     steps:
       - checkout
       - run:
@@ -14,7 +14,7 @@ jobs:
           name: Install software
           command: |
             brew update
-            brew cask install adoptopenjdk8
+            brew cask install adoptopenjdk/openjdk/adoptopenjdk8
             brew install gradle
       - run:
           name: Compute cache key
