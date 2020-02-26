@@ -27,7 +27,7 @@
 -- primitive values can be as slow as marshalling a single value.
 --
 -- Because of this, reifying an iterator or a container is best done by
--- accumulates multiple elements on the java side before passing them to the
+-- accumulating multiple elements on the java side before passing them to the
 -- Haskell side. And conversely, when reflecting an iterator or container,
 -- multiple Haskell values are put together before marshalling to the Java
 -- side.
@@ -70,7 +70,7 @@
 -- >           )
 -- >   reifyBatch :: J (Batch a) -> Int32 -> IO (V.Vector a)
 --
--- @newReifyBatched@ produces a java object implementing the @BatchWriter@
+-- @newBatchWriter@ produces a java object implementing the @BatchWriter@
 -- interface, and @reifyBatch@ allows to read a batch created in this fashion.
 --
 -- Conversely, batches can be read on the Java side using the interface
@@ -95,7 +95,7 @@
 -- advantage of batching requires defining the methods explicitly. The default
 -- implementations are useful for cases where speed is not important, for
 -- instance when the iterators to reflect or reify contain a single element or
--- just a very few.
+-- just very few.
 --
 -- 'Vector's and 'ByteString's are batched with the follow scheme.
 --
@@ -199,9 +199,15 @@ reifyPrimitiveBatch getArrayElements releaseArrayElements jxs size = do
 
 -- | Batches of arrays of variable length
 --
--- The first component is an array or batch containing the actual elements,
--- and the second component is an @int[]@ where the ith position has the
--- offset of the first position after the ith array.
+-- The first component is an array or batch B containing the elements
+-- of all the arrays in the batch. The second component is an array of
+-- offsets F. The ith position in the offset array is the first position
+-- in B after the ith array of the batch.
+--
+-- Thus, the first array of the batch can be found in B between the
+-- indices 0 and F[0], the second array of the batch is between the
+-- indices F[0] and F[1], and so on.
+--
 type ArrayBatch ty =
     'Class "io.tweag.jvm.batching.Tuple2" <>
        '[ ty
