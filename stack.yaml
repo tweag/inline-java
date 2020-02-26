@@ -10,6 +10,11 @@ packages:
 - jvm-streaming
 - examples/classpath
 
+extra-deps:
+- Cabal-2.4.0.1 # Pinning Cabal here prevents stack from
+                # building a newer cabal than the one delivered
+                # with ghc.
+
 nix:
   shell-file: shell-stack.nix
   path: ["nixpkgs=./nixpkgs.nix"]
