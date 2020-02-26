@@ -1,6 +1,6 @@
 require-stack-version: ">= 1.6"
 
-resolver: lts-13.20
+resolver: lts-14.27
 
 packages:
 - .
@@ -11,9 +11,10 @@ packages:
 - examples/classpath
 
 extra-deps:
-- Cabal-2.4.0.1 # Pinning Cabal here prevents stack from
-                # building a newer cabal than the one delivered
-                # with ghc.
+# Pinning Cabal and parsec here prevents stack from building a newer
+# cabal than the one delivered with ghc.
+- Cabal-2.4.0.1
+- parsec-3.1.13.0
 
 nix:
   shell-file: shell-stack.nix
