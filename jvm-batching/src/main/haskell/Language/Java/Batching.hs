@@ -224,29 +224,47 @@ reifyArrayBatch
   :: forall a b ty.
      (Int32 -> J ty -> IO a) -- ^ reify the array/batch of values
                              -- (takes the amount of elements in the array)
-  -> (Int -> Int -> a -> IO b) -- ^ slice at a given offset of given length of some value
+  -> (Int -> Int -> a -> IO b) -- ^ slice at a given offset of given length of some array a
   -> J (ArrayBatch ty)
   -> Int32
   -> IO (V.Vector b)
 reifyArrayBatch reifyB slice batch0 batchSize = do
-    result <- VM.new (fromIntegral batchSize)
     let batch = unsafeUngeneric batch0
-    vecEnds <- [java| (int[])$batch._2 |] >>= reify
-    let count = if VS.null vecEnds then 0 else VS.last vecEnds
-    vecValues <- [java| $batch._1 |] >>= reifyB count . fromObject
-    _ <- foldM (writeVector result vecEnds vecValues) 0 [0 .. batchSize - 1]
-    V.unsafeFreeze result
+    arrayEnds <- reifyArrayOffsets batch
+    arrayValues <- reifyArrayValues arrayEnds batch
+    reifySlices arrayEnds arrayValues
   where
     fromObject :: JObject -> J x
     fromObject = unsafeCast
 
-    writeVector :: VM.IOVector b -> VS.Vector Int32 -> a -> Int32 -> Int32 -> IO Int32
-    writeVector mv ends values offset i32 = do
-        let i = fromIntegral i32
+    reifyArrayOffsets
+      :: J ('Class "io.tweag.jvm.batching.Tuple2") -> IO (VS.Vector Int32)
+    reifyArrayOffsets batch = [java| (int[])$batch._2 |] >>= reify
+
+    reifyArrayValues arrayEnds batch = do
+      let count = if VS.null arrayEnds then 0 else VS.last arrayEnds
+      [java| $batch._1 |] >>= reifyB count . fromObject
+
+    reifySlices arrayEnds arrayValues = do
+      result <- VM.new (fromIntegral batchSize)
+      _ <- foldM
+           (writeSliceToVector result arrayEnds arrayValues)
+           0
+           [0 .. fromIntegral batchSize - 1]
+      V.unsafeFreeze result
+
+    writeSliceToVector
+      :: VM.IOVector b   -- ^ output vector to write to
+      -> VS.Vector Int32 -- ^ ends[i] holds the offset of the (i+1)th slice
+      -> a               -- ^ input vector to read slices from
+      -> Int32           -- ^ offset of the slice to read from the input vector
+      -> Int             -- ^ index of the position to write in the output vector
+      -> IO Int32        -- ^ offset of the next slice to read
+    writeSliceToVector output arrayEnds arrayValues offset i = do
         slice (fromIntegral offset)
-              (fromIntegral $ ends VS.! i - offset) values
-          >>= VM.unsafeWrite mv i
-        return $ ends VS.! i
+              (fromIntegral $ arrayEnds VS.! i - offset) arrayValues
+          >>= VM.unsafeWrite output i
+        return $ arrayEnds VS.! i
 
 -- | A class for batching reflection of values.
 --
