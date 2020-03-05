@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# OPTIONS_GHC -fplugin=Language.Java.Inline.Plugin #-}
 
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
