@@ -175,27 +175,37 @@ class Batchable a => BatchReify a where
   newBatchWriter _ = generic <$> [java| new BatchWriters.ObjectBatchWriter() |]
 
   -- | Reifies the values in a batch of type @Batch a@.
-  -- Gets the batch and the amount of elements it contains.
-  reifyBatch :: J (Batch a) -> Int32 -> IO (V.Vector a)
+  -- Gets the batch, the amount of elements it contains and a predicate that
+  -- indicates which positions of the batch to reify. The value at position i
+  -- in the returned vector holds bottom if @p i@ is False.
+  reifyBatch :: J (Batch a) -> Int32 -> (Int -> Bool) -> IO (V.Vector a)
 
   -- The default implementation makes calls to the JVM for each element in the
   -- batch.
   default reifyBatch
     :: (Reify a, Batch a ~ 'Array (Interp a))
-    => J (Batch a) -> Int32 -> IO (V.Vector a)
-  reifyBatch jxs size =
-      V.generateM (fromIntegral size) $ \i ->
-      getObjectArrayElement jxs (fromIntegral i) >>= reify . unsafeCast
+    => J (Batch a) -> Int32 -> (Int -> Bool) -> IO (V.Vector a)
+  reifyBatch jxs size p =
+    V.generateM (fromIntegral size) $ \i ->
+      if p i then
+        getObjectArrayElement jxs (fromIntegral i) >>= reify . unsafeCast
+      else
+        return $ error "default reifyBatch: reification skipped."
 
 -- | Helper for reifying batches of primitive types
 reifyPrimitiveBatch
   :: Storable a
   => (J ('Array ty) -> IO (Ptr a))
   -> (J ('Array ty) -> Ptr a -> IO ())
-  -> J ('Array ty) -> Int32 -> IO (V.Vector a)
-reifyPrimitiveBatch getArrayElements releaseArrayElements jxs size = do
-    bracket (getArrayElements jxs) (releaseArrayElements jxs)
-      $ V.generateM (fromIntegral size) . peekElemOff
+  -> J ('Array ty)
+  -> Int32
+  -> (Int -> Bool)
+  -> IO (V.Vector a)
+reifyPrimitiveBatch getArrayElements releaseArrayElements jxs size p = do
+    bracket (getArrayElements jxs) (releaseArrayElements jxs) $ \arr ->
+      V.generateM (fromIntegral size) $ \i ->
+        if p i then peekElemOff arr i
+        else return $ error "default reifyBatch: reification skipped."
 
 -- | Batches of arrays of variable length
 --
@@ -227,8 +237,9 @@ reifyArrayBatch
   -> (Int -> Int -> a -> IO b) -- ^ slice at a given offset of given length of some array a
   -> J (ArrayBatch ty)
   -> Int32
+  -> (Int -> Bool)
   -> IO (V.Vector b)
-reifyArrayBatch reifyB slice batch0 batchSize = do
+reifyArrayBatch reifyB slice batch0 batchSize p = do
     let batch = unsafeUngeneric batch0
     arrayEnds <- reifyArrayOffsets batch
     arrayValues <- reifyArrayValues arrayEnds batch
@@ -261,10 +272,18 @@ reifyArrayBatch reifyB slice batch0 batchSize = do
       -> Int             -- ^ index of the position to write in the output vector
       -> IO Int32        -- ^ offset of the next slice to read
     writeSliceToVector output arrayEnds arrayValues offset i = do
-        slice (fromIntegral offset)
-              (fromIntegral $ arrayEnds VS.! i - offset) arrayValues
-          >>= VM.unsafeWrite output i
-        return $ arrayEnds VS.! i
+        -- Account for the posibility of @arrayEnds ! i@ to be 0
+        -- in case the position in the batch has been left uninitialized.
+        let nextOffset = max (arrayEnds VS.! i) offset
+        if p i then do
+          slice (fromIntegral offset)
+                (fromIntegral $ nextOffset - offset) arrayValues
+            >>= VM.unsafeWrite output i
+          return nextOffset
+        else do
+          VM.unsafeWrite output i $
+            error "reifyPrimitiveArrayBatch: reification skipped."
+          return offset
 
 -- | A class for batching reflection of values.
 --
@@ -354,12 +373,15 @@ withStatic [d|
 
   instance BatchReify Bool where
     newBatchWriter _ = [java| new BatchWriters.BooleanBatchWriter() |]
-    reifyBatch jxs size = do
+    reifyBatch jxs size p = do
         let toBool w = if w == 0 then False else True
         bracket (getBooleanArrayElements jxs)
                 (releaseBooleanArrayElements jxs) $
-          \arr -> V.generateM (fromIntegral size)
-                              ((toBool <$>) . peekElemOff arr)
+          \arr -> V.generateM (fromIntegral size) $ \i ->
+            if p i then
+              toBool <$> peekElemOff arr i
+            else
+              return $ error "reifyBatch Bool: reification skipped."
 
   instance Batchable CChar where
     type Batch CChar = 'Array ('Prim "byte")
@@ -606,7 +628,7 @@ withStatic [d|
              $_batcher.set(i, $_jvo[i]);
           return $_batcher.getBatch();
           } |]
-        reifyBatch (fromObject batch) n
+        reifyBatch (fromObject batch) n (const True)
       where
         fromObject :: JObject -> J x
         fromObject = unsafeCast
@@ -636,7 +658,11 @@ withStatic [d|
         _b <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
         generic <$> [java| new BatchWriters.ObjectArrayBatchWriter($_b) |]
     reifyBatch =
-        reifyArrayBatch (flip reifyBatch) (fmap (fmap return) . V.unsafeSlice)
+        reifyArrayBatch
+          -- skipped values do not leave holes in a batch of arrays, so it
+          -- is safe to reify all of the values
+          (\sz j -> reifyBatch j sz (const True))
+          (fmap (fmap return) . V.unsafeSlice)
 
   instance BatchReflect a => BatchReflect (V.Vector a) where
     newBatchReader _ = do
@@ -644,4 +670,31 @@ withStatic [d|
         generic <$> [java| new BatchReaders.ObjectArrayBatchReader($_b) |]
     reflectBatch =
         reflectArrayBatch reflectBatch V.length (return . V.concat)
+
+  instance Batchable a => Batchable (Nullable a) where
+    type Batch (Nullable a) =
+      'Class "io.tweag.jvm.batching.Tuple2" <>
+        '[ 'Array ('Prim "boolean")
+         , ArrayBatch (Batch a)
+         ]
+
+  instance BatchReify a => BatchReify (Nullable a) where
+    newBatchWriter _ =
+      withLocalRef
+        (unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a))
+        $ \_baseBatcher ->
+          generic <$> [java| new BatchWriters.NullableBatchWriter($_baseBatcher) |]
+
+    reifyBatch jxs n p = do
+      let _batch = unsafeUngeneric jxs
+      isnull <- withLocalRef [java| $_batch._1 |] $ \j ->
+        V.convert <$> (reify (unsafeCast (j :: JObject)) :: IO (VS.Vector W8Bool))
+      let p' i = p i && isnull V.! i == 0
+      b <- withLocalRef [java| $_batch._2 |] $ \j0 ->
+         (\j -> reifyBatch j n p') (unsafeCast (j0 :: JObject) :: J (Batch a))
+      return $ V.zipWith toNullable isnull b
+      where
+        toNullable :: W8Bool -> a -> Nullable a
+        toNullable 0 a = NotNull a
+        toNullable _ _ = Null
  |]

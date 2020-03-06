@@ -47,10 +47,12 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -96,6 +98,10 @@ module Language.Java.Unsafe
   , Interpretation(..)
   , Reify(..)
   , Reflect(..)
+  , Nullable(..)
+  , pattern Null
+  , pattern NotNull
+  , W8Bool(..)
   -- * Re-exports
   , sing
   ) where
@@ -525,6 +531,18 @@ class Interpretation a => Reflect a where
   default reflect :: (Coercible a, Interp a ~ Ty a) => a -> IO (J (Interp a))
   reflect x = newLocalRef (jobject x)
 
+-- | A newtype wrapper for representing Java values that can be null
+newtype Nullable a = Nullable (Maybe a)
+  deriving (Eq, Ord, Show)
+
+pattern Null :: Nullable a
+pattern Null <- Nullable Nothing where
+  Null = Nullable Nothing
+
+pattern NotNull :: a -> Nullable a
+pattern NotNull a <- Nullable (Just a) where
+  NotNull a = Nullable (Just a)
+
 reifyMVector
   :: Storable a
   => (JArray ty -> IO (Ptr a))
@@ -713,6 +731,16 @@ withStatic [d|
   instance Reflect Float where
     reflect = new
 
+  instance Interpretation a => Interpretation (Nullable a) where
+    type Interp (Nullable a) = Interp a
+
+  instance Reify a => Reify (Nullable a) where
+    reify jobj = if jobj == jnull then return Null else NotNull <$> reify jobj
+
+  instance Reflect a => Reflect (Nullable a) where
+    reflect Null = return jnull
+    reflect (NotNull a) = reflect a
+
   instance Interpretation Text where
     type Interp Text = 'Class "java.lang.String"
 
@@ -728,6 +756,20 @@ withStatic [d|
     reflect x =
         Text.useAsPtr x $ \ptr len ->
           newString ptr (fromIntegral len)
+
+  newtype W8Bool = W8Bool { fromW8Bool :: Word8 }
+    deriving (Enum, Eq, Integral, Num, Ord, Real, Show, Storable)
+
+  instance Interpretation (IOVector W8Bool) where
+    type Interp (IOVector W8Bool) = 'Array ('Prim "boolean")
+
+  instance Reify (IOVector W8Bool) where
+    reify = fmap (Coerce.coerce :: IOVector Word8 -> IOVector W8Bool) .
+            reifyMVector getBooleanArrayElements releaseBooleanArrayElements
+
+  instance Reflect (IOVector W8Bool) where
+    reflect = reflectMVector newBooleanArray setBooleanArrayRegion .
+              (Coerce.coerce :: IOVector W8Bool -> IOVector Word8)
 
   instance Interpretation (IOVector Word16) where
     type Interp (IOVector Word16) = 'Array ('Prim "char")

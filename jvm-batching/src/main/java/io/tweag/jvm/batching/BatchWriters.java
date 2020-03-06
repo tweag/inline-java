@@ -406,4 +406,26 @@ public final class BatchWriters {
             return new Tuple2<char[], int[]>(batch, end);
         }
     }
+
+    public static final class NullableBatchWriter<A, B>
+            implements BatchWriter<A, Tuple2<boolean[], B>> {
+        private boolean isnull[];
+        final BatchWriter<A, B> b;
+        public NullableBatchWriter(BatchWriter<A, B> b) {
+            this.b = b;
+        }
+        public void start(int size) {
+            b.start(size);
+            isnull = new boolean[size];
+        }
+        public void set(int i, A a) {
+            if (null == a)
+                isnull[i] = true;
+            else
+                b.set(i, a);
+        }
+        public Tuple2<boolean[], B> getBatch() {
+            return new Tuple2(isnull, b.getBatch());
+        }
+    }
 }
