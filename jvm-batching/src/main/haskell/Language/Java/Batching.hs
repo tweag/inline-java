@@ -119,6 +119,33 @@
 -- the 'ByteString's in the batch. The other array contains the offset of each
 -- vector in the resulting array. See 'ArrayBatch'.
 --
+-- === null values in batches
+--
+-- Suppose we have an array of pairs in Java:
+--
+-- > new Tuple2<Integer,Integer>[] { null, new Tuple2(1, 2), new Tuple2(3, 4) }
+--
+-- In Haskell we can represent it using the 'Nullable' type
+--
+-- > [ Null, NotNull (1, 2), NotNull (3, 4) ]
+--
+-- However, we can't use the batch type we defined above for @Tuple2@,
+-- because there is no way to store a null value in a pair of primitive arrays.
+--
+-- For this reason we define a special batch type for values that can be null.
+-- We place a boolean array together with the regular batch of values.
+--
+-- > type Batch (Nullable a) =
+-- >   'Class "io.tweag.jvm.batching.Tuple2" <>
+-- >     '[ 'Array ('Prim "boolean")
+-- >      , ArrayBatch (Batch a)
+-- >      ]
+--
+-- The positions in the batch for type @a@ are only meaningful if the boolean
+-- array holds @True@ in the corresponding positions, the remaining positions
+-- are regarded to hold null values.
+--
+
 module Language.Java.Batching
   ( Batchable(..)
   , BatchReify(..)
