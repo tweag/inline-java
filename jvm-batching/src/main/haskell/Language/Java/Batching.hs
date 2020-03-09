@@ -21,6 +21,16 @@
 
 -- | This module provides composable batched marshalling.
 --
+-- It provides reify and reflect instances for vectors, which marshal
+-- values in batches, which is more efficient than marshalling values
+-- one at a time.
+--
+-- > instance (Interpretation a, BatchReify a) => Reify (V.Vector a) where
+-- > ...
+--
+-- > instance (Interpretation a, BatchReflect a) => Reflect (V.Vector a) where
+-- > ...
+--
 -- === Batching
 --
 -- Calls to Java methods via JNI are slow in general. Marshalling an array of
@@ -175,9 +185,14 @@ class Batchable a => BatchReify a where
   newBatchWriter _ = generic <$> [java| new BatchWriters.ObjectBatchWriter() |]
 
   -- | Reifies the values in a batch of type @Batch a@.
+  --
   -- Gets the batch, the amount of elements it contains and a predicate that
   -- indicates which positions of the batch to reify. The value at position i
   -- in the returned vector holds bottom if @p i@ is False.
+  --
+  -- The predicate is used by instances of BatchReify to control which
+  -- positions are to be reified in the batches of the components of a
+  -- composite type whose values are allowed to be null.
   reifyBatch :: J (Batch a) -> Int32 -> (Int -> Bool) -> IO (V.Vector a)
 
   -- The default implementation makes calls to the JVM for each element in the

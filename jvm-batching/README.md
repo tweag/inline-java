@@ -2,6 +2,22 @@
 
 Provides batched marshalling of values between Java and Haskell.
 
+It provides reify and reflect instances for vectors, which marshal
+values in batches, which is more efficient than marshalling values
+one at a time.
+
+```Haskell
+instance (Interpretation a, BatchReify a) => Reify (V.Vector a) where
+  ...
+
+instance (Interpretation a, BatchReflect a) => Reflect (V.Vector a) where
+  ...
+```
+
+See the documentation in
+[Language.Hava.Batching](src/main/haskell/Language/Java/Batching.hs)
+for an overview on how the implementation works.
+
 ## Using it as a dependency
 
 Add `jvm-batching` to the list of dependencies in your .cabal file.
