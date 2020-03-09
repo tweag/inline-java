@@ -239,7 +239,10 @@ reifyStreamWithBatching batchSize jiterator0 = do
               v' <- liftIO $
                 [java| $jiterator.next() |] `withLocalRef` \jbatch ->
                   JNI.getIntField jiterator fieldId
-                  >>= reifyBatch (unsafeCast (jbatch :: JObject) :: J (Batch a))
+                  >>= \sz -> reifyBatch
+                        (unsafeCast (jbatch :: JObject) :: J (Batch a))
+                        sz
+                        (const True)
               go 0 v'
             else
               liftIO $ do
