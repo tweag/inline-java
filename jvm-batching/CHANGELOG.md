@@ -7,8 +7,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Next release
 
 ### Added
+
+* Ability to reify batches containing nulls (#144).
+
 ### Removed
+
 ### Changed
+
+* Fixed some leaks of references (#144)
 
 ## [0.1.2] - 2020-07-16
 

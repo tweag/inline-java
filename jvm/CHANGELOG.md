@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Next release
 
 ### Added
+
+* A newtype Nullable coercible to Maybe, which can reify null references. (#144)
+
 ### Removed
 ### Changed
 
