@@ -618,45 +618,49 @@ withStatic [d|
 
   instance (Interpretation a, BatchReify a)
            => Reify (V.Vector a) where
-    reify jv = do
-        _batcher <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
-        n <- getArrayLength jv
-        let _jvo = arrayUpcast jv
-        batch <- [java| {
-          $_batcher.start($n);
-          for(int i=0;i<$_jvo.length;i++)
-             $_batcher.set(i, $_jvo[i]);
-          return $_batcher.getBatch();
-          } |]
-        reifyBatch (fromObject batch) n (const True)
+    reify jv =
+        withLocalRef (unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a))
+        $ \_batcher -> do
+          n <- getArrayLength jv
+          let _jvo = arrayUpcast jv
+          withLocalRef [java| {
+            $_batcher.start($n);
+            for(int i=0;i<$_jvo.length;i++)
+               $_batcher.set(i, $_jvo[i]);
+            return $_batcher.getBatch();
+            } |]
+            $ \batch ->
+              reifyBatch (fromObject batch) n (const True)
       where
         fromObject :: JObject -> J x
         fromObject = unsafeCast
 
   instance (Interpretation a, BatchReflect a)
            => Reflect (V.Vector a) where
-    reflect v = do
-        _batch <- upcast <$> reflectBatch v
-        _batchReader <-
-          unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
-        jv <- [java| {
-          $_batchReader.setBatch($_batch);
-          return $_batchReader.getSize();
-          } |] >>= newArray :: IO (J ('Array (Interp a)))
-        let _jvo = arrayUpcast jv
-        () <- [java| {
-          for(int i=0;i<$_jvo.length;i++)
-            $_jvo[i] = $_batchReader.get(i);
-          } |]
-        return jv
+    reflect v =
+        withLocalRef (upcast <$> reflectBatch v) $ \_batch ->
+        withLocalRef (unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a))
+        $ \_batchReader -> do
+          jv <- [java| {
+            $_batchReader.setBatch($_batch);
+            return $_batchReader.getSize();
+            } |] >>= newArray :: IO (J ('Array (Interp a)))
+          let _jvo = arrayUpcast jv
+          () <- [java| {
+            for(int i=0;i<$_jvo.length;i++)
+              $_jvo[i] = $_batchReader.get(i);
+            } |]
+          return jv
 
   instance Batchable a => Batchable (V.Vector a) where
     type Batch (V.Vector a) = ArrayBatch (Batch a)
 
   instance BatchReify a => BatchReify (V.Vector a) where
-    newBatchWriter _ = do
-        _b <- unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a)
-        generic <$> [java| new BatchWriters.ObjectArrayBatchWriter($_b) |]
+    newBatchWriter _ =
+        withLocalRef
+          (unsafeUngeneric <$> newBatchWriter (Proxy :: Proxy a))
+          $ \_b ->
+            generic <$> [java| new BatchWriters.ObjectArrayBatchWriter($_b) |]
     reifyBatch =
         reifyArrayBatch
           -- skipped values do not leave holes in a batch of arrays, so it
@@ -665,9 +669,11 @@ withStatic [d|
           (fmap (fmap return) . V.unsafeSlice)
 
   instance BatchReflect a => BatchReflect (V.Vector a) where
-    newBatchReader _ = do
-        _b <- unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a)
-        generic <$> [java| new BatchReaders.ObjectArrayBatchReader($_b) |]
+    newBatchReader _ =
+        withLocalRef
+          (unsafeUngeneric <$> newBatchReader (Proxy :: Proxy a))
+          $ \_b ->
+            generic <$> [java| new BatchReaders.ObjectArrayBatchReader($_b) |]
     reflectBatch =
         reflectArrayBatch reflectBatch V.length (return . V.concat)
 
