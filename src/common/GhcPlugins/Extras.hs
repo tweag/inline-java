@@ -3,11 +3,11 @@
 module GhcPlugins.Extras where
 
 import Control.Monad.Writer hiding ((<>))
-import Convert (thRdrNameGuesses)
 import Data.Data (Data)
 import Data.Maybe (mapMaybe)
 import Data.IORef (readIORef)
 import ErrUtils (ghcExit)
+import GHC.ThToHs (thRdrNameGuesses)
 import GhcPlugins
 import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH

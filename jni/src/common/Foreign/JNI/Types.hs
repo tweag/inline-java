@@ -20,6 +20,7 @@ module Foreign.JNI.Types
   , IsPrimitiveType
   , IsReferenceType
   , Sing(..)
+  , SSing(..)
   , type (<>)
     -- * JNI types
   , J(..)
@@ -142,23 +143,24 @@ singToIsReferenceType tysing = case tysing of
     SGeneric tysing' _ -> (\Dict -> Dict) <$> singToIsReferenceType tysing'
     SVoid -> Nothing
 
-data instance Sing (a :: JType) where
+type instance Sing = SSing
+data SSing (a :: JType) where
   -- Using String instead of JNI.String for the singleton data constructors
   -- is an optimization. Otherwise, the comparisons in Language.Java.call
   -- and callStatic would involve allocations and cannot be cached.
   --
   -- See commit 3da51a4 and https://github.com/tweag/inline-java/issues/11
-  SClass :: String -> Sing ('Class sym)
-  SIface :: String -> Sing ('Iface sym)
-  SPrim :: String -> Sing ('Prim sym)
-  SArray :: Sing ty -> Sing ('Array ty)
-  SGeneric :: Sing ty -> Sing tys -> Sing ('Generic ty tys)
-  SVoid :: Sing 'Void
+  SClass :: String -> SSing ('Class sym)
+  SIface :: String -> SSing ('Iface sym)
+  SPrim :: String -> SSing ('Prim sym)
+  SArray :: SSing ty -> SSing ('Array ty)
+  SGeneric :: SSing ty -> Sing tys -> SSing ('Generic ty tys)
+  SVoid :: SSing 'Void
 
 realShowsPrec :: Show a => Int -> a -> ShowS
 realShowsPrec = showsPrec
 
-instance Show (Sing (a :: JType)) where
+instance Show (SSing a) where
   showsPrec d (SClass s) = showParen (d > 10) $
       showString "SClass " . realShowsPrec 11 s
   showsPrec d (SIface s) = showParen (d > 10) $
