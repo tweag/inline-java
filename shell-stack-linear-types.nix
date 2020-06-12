@@ -1,5 +1,5 @@
 { pkgs ?  import ./nixpkgs.nix {}
-, ghc ? pkgs.haskell.compiler.ghcLinearTypes20190613
+, ghc ? pkgs.haskell.compiler.ghcLinearTypes20200612
 }:
 
 with pkgs;
@@ -20,7 +20,7 @@ in
 haskell.lib.buildStackProject ({
   name = "inline-java";
   buildInputs = [ git openjdk gradle zlib ];
-  ghc = pkgs.haskell.compiler.ghcLinearTypes20190613;
+  ghc = pkgs.haskell.compiler.ghcLinearTypes20200612;
   # XXX Workaround https://ghc.haskell.org/trac/ghc/ticket/11042.
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   LANG = "en_US.utf8";

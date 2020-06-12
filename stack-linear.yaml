@@ -1,7 +1,7 @@
 require-stack-version: ">= 1.6"
 
 resolver: lts-14.6
-compiler: ghc-8.9
+compiler: ghc-8.11
 skip-ghc-check: true
 system-ghc: true
 allow-newer: true
