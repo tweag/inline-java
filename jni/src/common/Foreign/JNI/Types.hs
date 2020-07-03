@@ -143,7 +143,7 @@ singToIsReferenceType tysing = case tysing of
     SGeneric tysing' _ -> (\Dict -> Dict) <$> singToIsReferenceType tysing'
     SVoid -> Nothing
 
-type instance Sing = SSing
+type instance Sing (a :: JType) = SSing a
 data SSing (a :: JType) where
   -- Using String instead of JNI.String for the singleton data constructors
   -- is an optimization. Otherwise, the comparisons in Language.Java.call

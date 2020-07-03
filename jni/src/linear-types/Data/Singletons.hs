@@ -1,12 +1,15 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Data.Singletons where
 
@@ -19,8 +22,8 @@ class SingI (ty :: k)  where
 
 instance SingI ('[] :: [k]) where
   sing = SNil
-instance (SingI x, SingI xs) => SingI (x ': xs) where
-  sing = SCons sing sing
+instance (SingI (x :: k), SingI xs) => SingI (x ': xs) where
+  sing = SCons (sing @k @x) (sing @[k] @xs)
 
 type instance Sing (n :: Symbol) = SSymbol n
 
@@ -31,14 +34,23 @@ instance KnownSymbol n => SingI n where
 
 type instance Sing (a :: [b]) = SList a
 
-data SList xs where
+data SList (xs :: [k]) where
   SNil :: SList '[]
   SCons :: Sing x -> SList xs -> SList (x ': xs)
 
 data SomeSing k where
   SomeSing :: Sing (a :: k) -> SomeSing k
 
-instance (forall x. Show (Sing (x :: k))) => Show (SList (a :: [k])) where
+instance ShowSing k => Show (SList(a :: [k])) where
   showsPrec _ SNil = showString "SNil"
-  showsPrec d (SCons ty tys) = showParen (d > 10) $
-      showString "SCons " . showsPrec 11 ty . showChar ' ' . showsPrec 11 tys
+  showsPrec d sxs@(SCons ty tys) =
+    case sxs of
+      (ss :: SList (x : ys)) -> showParen (d > 10) $
+        showString "SCons " . showsPrec 11 ty . showChar ' ' . showsPrec 11 tys
+        :: (ShowSing' x, ShowSing' ys) => ShowS
+
+class    (forall (z :: k). ShowSing' z) => ShowSing k
+instance (forall (z :: k). ShowSing' z) => ShowSing k
+
+class    Show (Sing z) => ShowSing' (z :: k)
+instance Show (Sing z) => ShowSing' z
