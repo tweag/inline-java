@@ -44,6 +44,8 @@ extra-deps:
   commit: b92e75ec81e646703c7bde4f578a7352ee34f1ad
 - git: https://github.com/tweag/linear-base
   commit: b3cd9de6d057d3a667972f6386f9f33b50b678e2
+- git: https://github.com/facundominguez/quickcheck.git
+  commit: a498e7b41131cf7955b9e154ab26d37d1be10304
 
 nix:
   shell-file: shell-stack-linear-types.nix
