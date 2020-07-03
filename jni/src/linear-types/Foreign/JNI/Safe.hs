@@ -87,7 +87,6 @@ import qualified Unsafe.Linear as Unsafe
 import Prelude ((.))
 import qualified Prelude
 import Prelude.Linear hiding ((<$), (<*), (.))
-import qualified Prelude.Linear as Linear ((<$))
 
 
 throw :: MonadIO m => J a ->. m (J a)

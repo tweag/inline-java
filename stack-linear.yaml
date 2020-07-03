@@ -43,7 +43,7 @@ extra-deps:
 - git: https://github.com/tweag/distributed-closure
   commit: b92e75ec81e646703c7bde4f578a7352ee34f1ad
 - git: https://github.com/tweag/linear-base
-  commit: 705522f0bad3f1083bb3447b9f476f6f84d21410
+  commit: b3cd9de6d057d3a667972f6386f9f33b50b678e2
 
 nix:
   shell-file: shell-stack-linear-types.nix
