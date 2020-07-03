@@ -25,10 +25,6 @@ flags:
     linear-types: true
 
 extra-deps:
-- git: https://github.com/facundominguez/malcolm-wallace-universe
-  commit: 2d02e4e2bcb5840152a1daa05a0ecfff089c6426
-  subdirs:
-  - polyparse-1.12
 # TODO: remove those dependencies once the fixed version is available
 # In particular: syb, conduit, and alex have been forked and manually patched,
 # not to be maintained.
