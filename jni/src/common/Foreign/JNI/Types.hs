@@ -9,6 +9,7 @@
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -182,9 +183,9 @@ instance (KnownSymbol sym, SingI sym) => SingI ('Iface (sym :: Symbol)) where
 instance (KnownSymbol sym, SingI sym) => SingI ('Prim (sym :: Symbol)) where
   sing = SPrim $ symbolVal (undefined :: proxy sym)
 instance SingI ty => SingI ('Array ty) where
-  sing = SArray sing
+  sing = SArray (sing @JType @ty)
 instance (SingI ty, SingI tys) => SingI ('Generic ty tys) where
-  sing = SGeneric sing sing
+  sing = SGeneric (sing @JType @ty) (sing @[JType] @tys)
 instance SingI 'Void where
   sing = SVoid
 
@@ -291,15 +292,15 @@ withJValueOff p n jvalue io = case jvalue of
 
 -- | Get the Java type of a value.
 jtypeOf :: JValue -> SomeSing JType
-jtypeOf (JBoolean _) = SomeSing (sing :: Sing ('Prim "boolean"))
-jtypeOf (JByte _) = SomeSing (sing :: Sing ('Prim "byte"))
-jtypeOf (JChar _) = SomeSing (sing :: Sing ('Prim "char"))
-jtypeOf (JShort _) = SomeSing (sing :: Sing ('Prim "short"))
-jtypeOf (JInt _) = SomeSing (sing :: Sing ('Prim "int"))
-jtypeOf (JLong _) = SomeSing (sing :: Sing ('Prim "long"))
-jtypeOf (JFloat _) = SomeSing (sing :: Sing ('Prim "float"))
-jtypeOf (JDouble _) = SomeSing (sing :: Sing ('Prim "double"))
-jtypeOf (JObject (_ :: J ty)) = SomeSing (sing :: Sing ty)
+jtypeOf (JBoolean _) = SomeSing (sing @JType :: Sing ('Prim "boolean"))
+jtypeOf (JByte _) = SomeSing (sing @JType :: Sing ('Prim "byte"))
+jtypeOf (JChar _) = SomeSing (sing @JType :: Sing ('Prim "char"))
+jtypeOf (JShort _) = SomeSing (sing @JType :: Sing ('Prim "short"))
+jtypeOf (JInt _) = SomeSing (sing @JType :: Sing ('Prim "int"))
+jtypeOf (JLong _) = SomeSing (sing @JType :: Sing ('Prim "long"))
+jtypeOf (JFloat _) = SomeSing (sing @JType :: Sing ('Prim "float"))
+jtypeOf (JDouble _) = SomeSing (sing @JType :: Sing ('Prim "double"))
+jtypeOf (JObject (_ :: J ty)) = SomeSing (sing @JType :: Sing ty)
 
 -- | Create a null-terminated string.
 build :: Builder -> JNI.String
