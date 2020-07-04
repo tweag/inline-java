@@ -354,7 +354,7 @@ instance VariadicIO_ (IO a) where
 type instance ReturnTypeIO (a -> f) = ReturnTypeIO f
 
 instance (Coercible a, VariadicIO_ f) => VariadicIO_ (a -> f) where
-  sings _ = SomeSing (sing :: Sing (Ty a)) : sings @f Proxy
+  sings _ = SomeSing (sing @JType @(Ty a)) : sings @f Proxy
   apply f x = apply (\xs -> f (coerce x : xs))
 
 -- All errors of the form "Could not deduce (VariadicIO_ x) from ..."
@@ -399,7 +399,7 @@ new = apply $ \args -> Coerce.coerce <$> newJ @sym (sings @f Proxy) args
 newArray :: forall ty. SingI ty => Int32 -> IO (J ('Array ty))
 {-# INLINE newArray #-}
 newArray sz = do
-    let tysing = sing :: Sing ty
+    let tysing = sing @JType @ty
     case tysing of
       SPrim "boolean" -> unsafeCast <$> newBooleanArray sz
       SPrim "byte" -> unsafeCast <$> newByteArray sz
@@ -461,7 +461,7 @@ call
 call obj mname = apply $ \args ->
     unsafeUncoerce <$>
     callToJValue
-      (sing :: Sing (Ty b))
+      (sing @JType @(Ty b))
       (Coerce.coerce obj :: J ty)
       mname
       (sings @f Proxy)
@@ -483,7 +483,7 @@ callStatic
 {-# INLINE callStatic #-}
 callStatic cname mname = apply $ \args ->
    unsafeUncoerce <$>
-     callStaticToJValue (sing :: Sing ty) cname mname (sings @f Proxy) args
+     callStaticToJValue (sing @JType @ty) cname mname (sings @f Proxy) args
 
 -- | Get a static field.
 getStaticField
@@ -493,7 +493,7 @@ getStaticField
   -> IO a
 {-# INLINE getStaticField #-}
 getStaticField cname fname =
-    unsafeUncoerce <$> getStaticFieldAsJValue (sing :: Sing ty) cname fname
+    unsafeUncoerce <$> getStaticFieldAsJValue (sing @JType @ty) cname fname
 
 -- | The 'Interp' type family is used by both 'Reify' and 'Reflect'. In order to
 -- benefit from @-XGeneralizedNewtypeDeriving@ of new instances, we make this an

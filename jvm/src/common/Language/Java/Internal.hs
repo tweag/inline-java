@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Language.Java.Internal
   ( newJ
@@ -60,9 +61,9 @@ newJ
   -> IO (J ty)
 {-# INLINE newJ #-}
 newJ argsings args = do
-    let voidsing = sing :: Sing 'Void
+    let voidsing = sing @JType :: Sing 'Void
         klass = unsafeDupablePerformIO $ do
-          lk <- getClass (sing :: Sing ('Class sym))
+          lk <- getClass (sing @JType :: Sing ('Class sym))
           gk <- newGlobalRef lk
           deleteLocalRef lk
           return gk
@@ -79,7 +80,7 @@ callToJValue
 {-# INLINE callToJValue #-}
 callToJValue retsing obj mname argsings args = do
     let klass = unsafeDupablePerformIO $ do
-                  lk <- getClass (sing :: Sing ty1)
+                  lk <- getClass (sing @JType :: Sing ty1)
                   gk <- newGlobalRef lk
                   deleteLocalRef lk
                   return gk
