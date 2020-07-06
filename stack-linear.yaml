@@ -42,6 +42,8 @@ extra-deps:
   commit: b3cd9de6d057d3a667972f6386f9f33b50b678e2
 - git: https://github.com/facundominguez/quickcheck.git
   commit: a498e7b41131cf7955b9e154ab26d37d1be10304
+- git: https://github.com/facundominguez/language-java.git
+  commit: f454458b0b8b1bdba8f8155d5e6ba9655d6a072c
 
 nix:
   shell-file: shell-stack-linear-types.nix
