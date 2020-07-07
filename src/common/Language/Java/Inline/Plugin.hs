@@ -18,16 +18,16 @@ import Data.Char (chr, ord)
 import Data.List (find, intersperse, isSuffixOf)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import FamInstEnv (normaliseType)
 import qualified FastString.Extras
 import Foreign.JNI.Types (JType(..))
-import GhcPlugins
+import GHC.Core.FamInstEnv (normaliseType)
+import GHC.Plugins
 import qualified GhcPlugins.Extras
+import GHC.Core.TyCo.Rep
 import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline.Internal.Magic
 import Language.Java.Inline.Internal.QQMarker.Names (getQQMarkers)
-import TyCoRep
 import System.Directory (listDirectory)
 import System.FilePath ((</>), (<.>), takeDirectory)
 import System.IO (withFile, IOMode(WriteMode), hPutStrLn, stderr)
@@ -221,7 +221,7 @@ buildJava guts qqOccs jimports = do
 
 -- | Produces a class name from a Module.
 mangle :: Module -> String
-mangle m = mangleClassName (unitIdString (moduleUnitId m))
+mangle m = mangleClassName (unitIdString $ toUnitId $ moduleUnit m)
                            (moduleNameString (moduleName m))
 
 -- Call the java compiler and feeds it the given Java code in Builder form.

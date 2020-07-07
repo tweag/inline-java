@@ -6,12 +6,12 @@ import Control.Monad.Writer hiding ((<>))
 import Data.Data (Data)
 import Data.Maybe (mapMaybe)
 import Data.IORef (readIORef)
-import ErrUtils (ghcExit)
+import GHC.Plugins
 import GHC.ThToHs (thRdrNameGuesses)
-import GhcPlugins
-import IfaceEnv (lookupOrigNameCache)
+import GHC.Types.Name.Cache (lookupOrigNameCache, nsNames)
+import GHC.Utils.Error (ghcExit)
 import qualified Language.Haskell.TH as TH
-import NameCache (nsNames)
+
 
 -- | Produces a name in GHC Core from a Template Haskell name.
 --
