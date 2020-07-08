@@ -39,7 +39,7 @@ import System.Posix.Signals (Handler(Catch), Signal, installHandler, sigINT, sig
 server :: Int -> LServer ()
 server port =
     let Linear.Builder{..} = Linear.monadBuilder in do
-    Unrestricted mvStop <- Linear.liftIOU newEmptyMVar
+    Unrestricted mvStop <- liftPreludeIOU newEmptyMVar
     Unrestricted env <- liftU ask
     UnsafeUnrestrictedReference httpServer <-
       startHttpServer (fromIntegral port) (runHandler env)
@@ -47,7 +47,7 @@ server port =
       (logInfoN $ Text.pack $
          "Started server on port " ++ show port ++ "."
       )
-    Linear.liftIO
+    liftPreludeIO
       (withSignalHandlers
         (stopServer mvStop httpServer)
         (takeMVar mvStop)

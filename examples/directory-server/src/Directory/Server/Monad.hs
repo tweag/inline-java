@@ -47,7 +47,7 @@ newtype LServer a = LServer { unLServer :: Server a }
 
 runLServer :: Environment -> LServer () -> IO ()
 runLServer env (LServer (Server m)) =
-  withLocalFrame_ (Linear.liftIO $ runReaderT (runStdoutLoggingT m) env)
+  withLocalFrame_ (liftPreludeIO $ runReaderT (runStdoutLoggingT m) env)
 
 instance Data.Functor LServer where
   fmap f = Unsafe.toLinear Linear.$ \(LServer m) ->

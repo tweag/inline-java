@@ -98,10 +98,10 @@ data FunPtrTable = FunPtrTable
 createHandler :: Linear.MonadIO m => (JHttpExchange -> IO ()) -> m JHttpHandler
 createHandler handle =
     let Linear.Builder{..} = Linear.monadBuilder in do
-    Unrestricted handlePtr <- Linear.liftIOU (newStablePtr handle)
+    Unrestricted handlePtr <- liftPreludeIOU (newStablePtr handle)
     let longHandlePtr :: Int64
         longHandlePtr = fromIntegral $ ptrToIntPtr $ castStablePtrToPtr handlePtr
-    Unrestricted (longTablePtr :: Int64) <- Linear.liftIOU $
+    Unrestricted (longTablePtr :: Int64) <- liftPreludeIOU $
       fromIntegral . ptrToIntPtr . castStablePtrToPtr <$>
         newStablePtr FunPtrTable {..}
     jHandler <-
@@ -116,8 +116,8 @@ createHandler handle =
           public void finalize() { hsFinalize($longTablePtr); }
         } |]
     (jHandler2, UnsafeUnrestrictedReference klass) <- getObjectClass jHandler
-    Linear.liftIO (registerNativesForHttpHandler klass)
-    Linear.liftIO (JNI.deleteLocalRef klass)
+    liftPreludeIO (registerNativesForHttpHandler klass)
+    liftPreludeIO (JNI.deleteLocalRef klass)
     return jHandler2
 
 -- | Register functions for the native methods of the inner class
