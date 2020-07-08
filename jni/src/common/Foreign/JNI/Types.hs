@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -144,7 +145,7 @@ singToIsReferenceType tysing = case tysing of
     SGeneric tysing' _ -> (\Dict -> Dict) <$> singToIsReferenceType tysing'
     SVoid -> Nothing
 
-type instance Sing (a :: JType) = SJType a
+type instance Sing = SJType
 data SJType (a :: JType) where
   -- Using String instead of JNI.String for the singleton data constructors
   -- is an optimization. Otherwise, the comparisons in Language.Java.call
@@ -183,9 +184,9 @@ instance (KnownSymbol sym, SingI sym) => SingI ('Iface (sym :: Symbol)) where
 instance (KnownSymbol sym, SingI sym) => SingI ('Prim (sym :: Symbol)) where
   sing = SPrim $ symbolVal (undefined :: proxy sym)
 instance SingI ty => SingI ('Array ty) where
-  sing = SArray (sing @JType @ty)
+  sing = SArray (sing @ty)
 instance (SingI ty, SingI tys) => SingI ('Generic ty tys) where
-  sing = SGeneric (sing @JType @ty) (sing @[JType] @tys)
+  sing = SGeneric (sing @ty) (sing @tys)
 instance SingI 'Void where
   sing = SVoid
 
@@ -292,15 +293,15 @@ withJValueOff p n jvalue io = case jvalue of
 
 -- | Get the Java type of a value.
 jtypeOf :: JValue -> SomeSing JType
-jtypeOf (JBoolean _) = SomeSing (sing @JType :: Sing ('Prim "boolean"))
-jtypeOf (JByte _) = SomeSing (sing @JType :: Sing ('Prim "byte"))
-jtypeOf (JChar _) = SomeSing (sing @JType :: Sing ('Prim "char"))
-jtypeOf (JShort _) = SomeSing (sing @JType :: Sing ('Prim "short"))
-jtypeOf (JInt _) = SomeSing (sing @JType :: Sing ('Prim "int"))
-jtypeOf (JLong _) = SomeSing (sing @JType :: Sing ('Prim "long"))
-jtypeOf (JFloat _) = SomeSing (sing @JType :: Sing ('Prim "float"))
-jtypeOf (JDouble _) = SomeSing (sing @JType :: Sing ('Prim "double"))
-jtypeOf (JObject (_ :: J ty)) = SomeSing (sing @JType :: Sing ty)
+jtypeOf (JBoolean _) = SomeSing (sing :: Sing ('Prim "boolean"))
+jtypeOf (JByte _) = SomeSing (sing :: Sing ('Prim "byte"))
+jtypeOf (JChar _) = SomeSing (sing :: Sing ('Prim "char"))
+jtypeOf (JShort _) = SomeSing (sing :: Sing ('Prim "short"))
+jtypeOf (JInt _) = SomeSing (sing :: Sing ('Prim "int"))
+jtypeOf (JLong _) = SomeSing (sing :: Sing ('Prim "long"))
+jtypeOf (JFloat _) = SomeSing (sing :: Sing ('Prim "float"))
+jtypeOf (JDouble _) = SomeSing (sing :: Sing ('Prim "double"))
+jtypeOf (JObject (_ :: J ty)) = SomeSing (sing :: Sing ty)
 
 -- | Create a null-terminated string.
 build :: Builder -> JNI.String

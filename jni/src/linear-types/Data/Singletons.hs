@@ -15,24 +15,24 @@ module Data.Singletons where
 
 import GHC.TypeLits (KnownSymbol, Symbol)
 
-type family Sing (ty :: k) :: *
+type family Sing :: k -> *
 
-class SingI (ty :: k)  where
+class SingI ty  where
   sing :: Sing ty
 
 instance SingI ('[] :: [k]) where
   sing = SNil
-instance (SingI (x :: k), SingI xs) => SingI (x ': xs) where
-  sing = SCons (sing @k @x) (sing @[k] @xs)
+instance (SingI x, SingI xs) => SingI (x ': xs) where
+  sing = SCons (sing @x) (sing @xs)
 
-type instance Sing (n :: Symbol) = SSymbol n
+type instance Sing = SSymbol
 
 data SSymbol n = KnownSymbol n => SSym
 
 instance KnownSymbol n => SingI n where
   sing = SSym
 
-type instance Sing (a :: [b]) = SList a
+type instance Sing = SList
 
 data SList (xs :: [k]) where
   SNil :: SList '[]

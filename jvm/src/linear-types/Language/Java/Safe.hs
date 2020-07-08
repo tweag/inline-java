@@ -260,7 +260,7 @@ instance Variadic_ (End -> r) where
   apply f End = f []
 
 instance (Coercible a, Variadic_ f) => Variadic_ (a #-> f) where
-  sings _ = SomeSing (sing @JType @(Ty a)) : sings @f Proxy
+  sings _ = SomeSing (sing @(Ty a)) : sings @f Proxy
   apply f x = apply (\xs -> f (coerce x : xs))
 
 -- All errors of the form "Could not deduce (Variadic_ x) from ..."
@@ -363,7 +363,7 @@ call = Unsafe.toLinear $ \obj mname -> apply $ Unsafe.toLinear $ \args -> do
       fromJNIJValue <$>
         Java.callToJValue
           @ty1
-          (sing @JType @ty1)
+          (sing @ty1)
           (Coerce.coerce obj)
           mname
           (sings @f Proxy)
@@ -389,7 +389,7 @@ callStatic cname mname = apply $ Unsafe.toLinear $ \args -> do
     liftPreludeIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
       Java.callStaticToJValue
-        (sing @JType @ty)
+        (sing @ty)
         cname mname
         (sings @f Proxy)
         (toJNIJValues args)
@@ -404,7 +404,7 @@ getStaticField
 getStaticField cname fname =
     liftPreludeIO Prelude.$ strictUnsafeUncoerce Prelude.$
       fromJNIJValue <$>
-        Java.getStaticFieldAsJValue (sing @JType @ty) cname fname
+        Java.getStaticFieldAsJValue (sing @ty) cname fname
 
 -- | Inject a value (of primitive or reference type) to a 'JValue'. This
 -- datatype is useful for e.g. passing arguments as a list of homogeneous type.
