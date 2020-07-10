@@ -17,10 +17,10 @@ spec = do
       it "can run jni calls in another thread" $
         runInBoundThread $ runInAttachedThread $ do
           jclass <- findClass $
-            referenceTypeName (sing @JType :: Sing ('Class "java.lang.Long"))
+            referenceTypeName (sing :: Sing ('Class "java.lang.Long"))
           deleteLocalRef jclass
 
       it "is needed to run jni calls in another thread" $
         runInBoundThread $ do
-          findClass (referenceTypeName (sing @JType :: Sing ('Class "java.lang.Long")))
+          findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
             `shouldThrow` \ThreadNotAttached -> True
