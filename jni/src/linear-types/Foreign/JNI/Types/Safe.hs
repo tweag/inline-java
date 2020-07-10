@@ -22,7 +22,7 @@ module Foreign.JNI.Types.Safe
   , JNI.MethodSignature
   , JNI.ReferenceTypeName
   , JNI.Signature
-  , JNI.Sing(..)
+  , JNI.Sing
   , JNI.methodSignature
   , JNI.referenceTypeName
   ) where

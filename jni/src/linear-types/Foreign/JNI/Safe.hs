@@ -86,7 +86,7 @@ import qualified System.IO.Linear as Linear
 import qualified Unsafe.Linear as Unsafe
 import Prelude ((.))
 import qualified Prelude
-import Prelude.Linear hiding ((<$), (<*), (.))
+import Prelude.Linear hiding ((<*), (.))
 
 
 liftPreludeIO :: MonadIO m => Prelude.IO a -> m a

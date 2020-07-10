@@ -13,9 +13,10 @@
 
 module Data.Singletons where
 
-import GHC.TypeLits (KnownSymbol, Symbol)
+import Data.Kind (Type)
+import GHC.TypeLits (KnownSymbol)
 
-type family Sing :: k -> *
+type family Sing :: k -> Data.Kind.Type
 
 class SingI ty  where
   sing :: Sing ty
@@ -45,7 +46,7 @@ instance ShowSing k => Show (SList(a :: [k])) where
   showsPrec _ SNil = showString "SNil"
   showsPrec d sxs@(SCons ty tys) =
     case sxs of
-      (ss :: SList (x : ys)) -> showParen (d > 10) $
+      (_ :: SList (x : ys)) -> showParen (d > 10) $
         showString "SCons " . showsPrec 11 ty . showChar ' ' . showsPrec 11 tys
         :: (ShowSing' x, ShowSing' ys) => ShowS
 
