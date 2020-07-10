@@ -21,7 +21,7 @@ module Foreign.JNI.Types
   ( JType(..)
   , IsPrimitiveType
   , IsReferenceType
-  , Sing(..)
+  , Sing
   , SJType(..)
   , type (<>)
     -- * JNI types

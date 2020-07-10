@@ -45,7 +45,6 @@ module Language.Java.Inline.Safe
   , Java.loadJavaWrappers
   ) where
 
-import qualified Control.Monad.IO.Class.Linear as Linear
 import qualified Control.Monad.Linear as Linear
 import Foreign.JNI.Safe (liftPreludeIO)
 import qualified Language.Haskell.TH as TH
