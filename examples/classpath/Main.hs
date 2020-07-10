@@ -13,7 +13,6 @@ main :: IO ()
 main = do
     let -- We use the classpath provided at build time.
         jvmArgs = case $(TH.lift =<< TH.runIO (lookupEnv "CLASSPATH")) of
-          Nothing -> []
           Just cp -> [ fromString ("-Djava.class.path=" ++ cp) ]
     withJVM jvmArgs [java| {
       org.apache.commons.collections4.OrderedMap map =
