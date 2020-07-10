@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 module Directory.Server.Monad where
 
 import qualified Control.Monad.Catch as Catch
@@ -54,20 +55,20 @@ instance Data.Functor LServer where
     LServer (fmap (\x -> f x) m)
 
 instance Linear.Functor LServer where
-  fmap = Unsafe.toLinear2 Linear.$ \(f :: a ->. b) (LServer m) ->
+  fmap = Unsafe.toLinear2 Linear.$ \(f :: a #-> b) (LServer m) ->
     LServer (fmap (\x -> f x) m)
 
 instance Data.Applicative LServer where
   pure = LServer . pure
   (<*>) = Unsafe.toLinear2 Linear.$ \(LServer f) (LServer a) ->
-    LServer (fmap (\(g :: a ->. b) -> (\x -> g x)) f <*> a)
+    LServer (fmap (\(g :: a #-> b) -> (\x -> g x)) f <*> a)
 
 instance Linear.Applicative LServer where
   pure = Unsafe.toLinear (LServer . pure)
   (<*>) = (Data.<*>)
 
 instance Linear.Monad LServer where
-  (>>=) = Unsafe.toLinear2 Linear.$ \(LServer m) (f :: a ->. LServer b) ->
+  (>>=) = Unsafe.toLinear2 Linear.$ \(LServer m) (f :: a #-> LServer b) ->
     LServer $ m >>= \x -> case f x of
       LServer n -> n
   (>>) = Unsafe.toLinear2 Linear.$ \(LServer m0) (LServer m1) ->

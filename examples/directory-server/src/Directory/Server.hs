@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 module Directory.Server where
 
@@ -72,7 +73,7 @@ data Response = Response
   , responseMsg :: Text
   }
 
-handleRequest :: JHttpExchange ->. LServer ()
+handleRequest :: JHttpExchange #-> LServer ()
 handleRequest httpExchange =
     let Linear.Builder{..} = Linear.monadBuilder in do
     Unrestricted root <- liftU $ asks envRootDirectory
