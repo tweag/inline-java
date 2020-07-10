@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -17,8 +18,9 @@ import Directory.Server.Monad.Classes
 import Foreign.JNI.Safe
 import Prelude
 import Prelude.Linear (Unrestricted(..))
-import qualified Prelude.Linear as Linear
+import qualified Prelude.Linear as Linear hiding (IO)
 import qualified System.Directory as Directory
+import qualified System.IO.Linear as Linear
 import qualified Unsafe.Linear as Unsafe
 
 
@@ -45,6 +47,13 @@ instance MonadFileSystem Server where
   canonicalizePath = liftIO . Directory.canonicalizePath
 
 newtype LServer a = LServer { unLServer :: Server a }
+
+instance Linear.MonadIO LServer where
+  liftIO :: Linear.IO a #-> LServer a
+  liftIO = Unsafe.toLinear (\a -> LServer (liftIO (Linear.withLinearIO (unsafeUnrestrict a)))) where
+    unsafeUnrestrict :: Linear.IO a -> Linear.IO (Unrestricted a)
+    unsafeUnrestrict action = action Linear.>>= Unsafe.toLinear (\a -> Linear.return (Unrestricted a))
+
 
 runLServer :: Environment -> LServer () -> IO ()
 runLServer env (LServer (Server m)) =
