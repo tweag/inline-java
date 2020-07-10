@@ -15,6 +15,6 @@ steps:
     key: "install-linear-ghc"
   - label: "Run tests (linear-types + Stack)"
     command: |
-        nix-shell --pure --run 'stack --nix --stack-yaml stack-linear.yaml build --pedantic --test jni jvm inline-java wizzardo-http-benchmark'
+        nix-shell --pure --run 'stack --nix --stack-yaml stack-linear.yaml build --pedantic --test jni jvm inline-java'
     timeout: 60
     depends_on: "install-linear-ghc"
