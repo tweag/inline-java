@@ -92,6 +92,7 @@ import Control.Monad.Linear hiding ((<$>))
 import Data.ByteString (ByteString)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
+import Data.Kind (Type)
 import Data.Int
 import Data.Singletons (SingI(..), SomeSing(..))
 import Data.Text (Text)
@@ -281,7 +282,7 @@ instance
 --
 -- We keep it as a standalone type family to enable
 -- the definition of the catch-all @Variadic_ x@ instance.
-type family ReturnType f :: * where
+type family ReturnType f :: Data.Kind.Type where
   ReturnType (End -> r) = r
   ReturnType (a #-> f) = ReturnType f
 

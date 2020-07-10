@@ -116,6 +116,7 @@ import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Unsafe as BS
+import Data.Kind (Type)
 import Data.Singletons (SingI(..), SomeSing(..))
 import qualified Data.Text.Foreign as Text
 import Data.Text (Text)
@@ -331,7 +332,7 @@ class VariadicIO_ f where
 --
 -- We keep it as a standalone type family to enable
 -- the definition of the catch-all @VariadicIO_ x@ instance.
-type family ReturnTypeIO f :: *
+type family ReturnTypeIO f :: Data.Kind.Type
 
 -- | Document that a function is variadic
 --
