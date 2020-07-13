@@ -29,7 +29,9 @@ library
     -- XXX pgmP directive should be redundant. But necessary to workaround
     -- https://github.com/haskell/cabal/issues/4278.
     -- Needed for Foreign.JNI.
-    ghc-options: -pgmPcpphs -optP--cpp
+    -- XXX we use an auxiliary script here that passes --cpp to cpphs.
+    -- Otherwise we hit https://gitlab.haskell.org/ghc/ghc/-/issues/17185
+    ghc-options: -pgmP./cpphs-cpp
   extra-libraries: jvm
   exposed-modules:
     Foreign.JNI
