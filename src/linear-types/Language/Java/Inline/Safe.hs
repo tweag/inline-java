@@ -45,8 +45,8 @@ module Language.Java.Inline.Safe
   , Java.loadJavaWrappers
   ) where
 
-import qualified Control.Monad.IO.Class.Linear as Linear
 import qualified Control.Monad.Linear as Linear
+import Foreign.JNI.Safe (liftPreludeIO)
 import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote
 import qualified Language.Java.Inline.Internal as Java
@@ -90,5 +90,5 @@ java = Java.javaWithConfig Java.QQConfig
               )
               [| Safe.End |]
     , Java.qqWrapMarker = \qExp ->
-        [| Linear.liftIO loadJavaWrappers Linear.>> $qExp |]
+        [| liftPreludeIO loadJavaWrappers Linear.>> $qExp |]
     }

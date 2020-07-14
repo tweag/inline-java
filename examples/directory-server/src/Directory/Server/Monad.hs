@@ -16,8 +16,9 @@ import Directory.Server.Monad.Classes
 import Foreign.JNI.Safe
 import Prelude
 import Prelude.Linear (Unrestricted(..))
-import qualified Prelude.Linear as Linear
+import qualified Prelude.Linear as Linear hiding (IO)
 import qualified System.Directory as Directory
+import qualified System.IO.Linear as Linear
 import qualified Unsafe.Linear as Unsafe
 
 
@@ -45,29 +46,35 @@ instance MonadFileSystem Server where
 
 newtype LServer a = LServer { unLServer :: Server a }
 
+instance Linear.MonadIO LServer where
+  liftIO = Unsafe.toLinear (\a -> LServer (liftIO (Linear.withLinearIO (unsafeUnrestrict a)))) where
+    unsafeUnrestrict :: Linear.IO a -> Linear.IO (Unrestricted a)
+    unsafeUnrestrict action = action Linear.>>= Unsafe.toLinear (\a -> Linear.return (Unrestricted a))
+
+
 runLServer :: Environment -> LServer () -> IO ()
 runLServer env (LServer (Server m)) =
-  withLocalFrame_ (Linear.liftIO $ runReaderT (runStdoutLoggingT m) env)
+  withLocalFrame_ (liftPreludeIO $ runReaderT (runStdoutLoggingT m) env)
 
 instance Data.Functor LServer where
   fmap f = Unsafe.toLinear Linear.$ \(LServer m) ->
     LServer (fmap (\x -> f x) m)
 
 instance Linear.Functor LServer where
-  fmap = Unsafe.toLinear2 Linear.$ \(f :: a ->. b) (LServer m) ->
+  fmap = Unsafe.toLinear2 Linear.$ \(f :: a #-> b) (LServer m) ->
     LServer (fmap (\x -> f x) m)
 
 instance Data.Applicative LServer where
   pure = LServer . pure
   (<*>) = Unsafe.toLinear2 Linear.$ \(LServer f) (LServer a) ->
-    LServer (fmap (\(g :: a ->. b) -> (\x -> g x)) f <*> a)
+    LServer (fmap (\(g :: a #-> b) -> (\x -> g x)) f <*> a)
 
 instance Linear.Applicative LServer where
   pure = Unsafe.toLinear (LServer . pure)
   (<*>) = (Data.<*>)
 
 instance Linear.Monad LServer where
-  (>>=) = Unsafe.toLinear2 Linear.$ \(LServer m) (f :: a ->. LServer b) ->
+  (>>=) = Unsafe.toLinear2 Linear.$ \(LServer m) (f :: a #-> LServer b) ->
     LServer $ m >>= \x -> case f x of
       LServer n -> n
   (>>) = Unsafe.toLinear2 Linear.$ \(LServer m0) (LServer m1) ->

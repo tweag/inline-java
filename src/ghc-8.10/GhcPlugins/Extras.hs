@@ -1,17 +1,25 @@
 -- | Candidates for addition to GhcPlugins
 
-module GhcPlugins.Extras where
+module GhcPlugins.Extras
+  ( module FamInstEnv
+  , module GhcPlugins
+  , module GhcPlugins.Extras
+  , module TyCoRep
+  ) where
 
 import Control.Monad.Writer hiding ((<>))
-import Convert (thRdrNameGuesses)
 import Data.Data (Data)
 import Data.Maybe (mapMaybe)
 import Data.IORef (readIORef)
 import ErrUtils (ghcExit)
+import FamInstEnv (normaliseType)
 import GhcPlugins
+import GHC.ThToHs (thRdrNameGuesses)
 import IfaceEnv (lookupOrigNameCache)
 import qualified Language.Haskell.TH as TH
 import NameCache (nsNames)
+import TyCoRep
+
 
 -- | Produces a name in GHC Core from a Template Haskell name.
 --

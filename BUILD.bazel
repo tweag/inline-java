@@ -21,7 +21,7 @@ haskell_library(
                  'src/common/**/*.hsc',
                  'src/no-linear-types/**/*.hs',
                  'cbits/bctable.h',
-                 'src/ghc-8.6/**/*.hs',
+                 'src/ghc-8.10/**/*.hs',
                  ]),
     visibility = ["//visibility:public"],
     deps = [
@@ -49,7 +49,7 @@ ghc_plugin(
     args = ["$(JAVABASE)/bin/javac"],
     module = "Language.Java.Inline.Plugin",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk:javac"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
     visibility = ["//visibility:public"],
     deps = [":inline-java"],
 )

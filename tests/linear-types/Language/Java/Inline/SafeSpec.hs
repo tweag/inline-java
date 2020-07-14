@@ -2,8 +2,8 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -16,13 +16,12 @@
 
 module Language.Java.Inline.SafeSpec(spec) where
 
-import qualified Control.Monad.Linear.Builder as Linear
+import qualified Control.Monad.Linear as Linear
 import Data.Int
 import Foreign.JNI (JVMException)
 import Foreign.JNI.Safe
 import Language.Java.Safe
 import Language.Java.Inline.Safe
-import qualified Control.Monad.Builder as Prelude
 import Prelude hiding ((>>=), (>>))
 import Test.Hspec
 
@@ -35,8 +34,7 @@ type List a = J (ListClass <> '[a])
 imports "java.util.*"
 
 spec :: Spec
-spec =
-    let Prelude.Builder{..} = Prelude.monadBuilder in do
+spec = do
     describe "Linear Java quasiquoter" $ do
       it "Can return ()" $
         withLocalFrame_ [java| { } |]
@@ -57,29 +55,25 @@ spec =
 
       describe "Type synonyms" $ do
         it "Supports top-level type synonym'ed antiquotation variables" $
-          withLocalFrame_ $
-            let Linear.Builder{..} = Linear.monadBuilder in do
+          withLocalFrame_ $ Linear.do
             obj :: JObject <- [java| new Object() {} |]
             jobj1 <- [java| $obj |]
             deleteLocalRef (jobj1 :: JObject)
 
         it "Supports inner type synonym'ed antiquotation variables" $
-          withLocalFrame_ $
-            let Linear.Builder{..} = Linear.monadBuilder in do
+          withLocalFrame_ $ Linear.do
             obj :: J ObjectClass <- [java| new Object() {} |]
             obj1 :: J ObjectClass <- [java| $obj |]
             deleteLocalRef obj1
 
         it "Supports chained type synonym'ed antiquotation variables" $
-          withLocalFrame_ $
-            let Linear.Builder{..} = Linear.monadBuilder in do
+          withLocalFrame_ $ Linear.do
             obj :: JJObject <- [java| new Object() {} |]
             obj1 :: JJObject <- [java| $obj |]
             deleteLocalRef obj1
 
         it "Supports parameterized type synonyms" $
-          withLocalFrame_ $
-            let Linear.Builder{..} = Linear.monadBuilder in do
+          withLocalFrame_ $ Linear.do
             obj :: List ObjectClass <- [java| new ArrayList() |]
             obj1 :: List ObjectClass <- [java| $obj |]
             deleteLocalRef obj1
@@ -90,10 +84,9 @@ spec =
         withLocalFrame [java| $foo + $bar |] `shouldReturn` (3 :: Int32)
 
       it "Supports repeated antiquotation variables" $
-        withLocalFrame (
-          let Linear.Builder{..} = Linear.monadBuilder in do
+        withLocalFrame (Linear.do
           obj :: JObject <- [java| new Object() {} |]
-          [java| $obj.equals($obj) |] >>= reify_
+          [java| $obj.equals($obj) |] Linear.>>= reify_
          ) `shouldReturn` True
 
       it "Supports antiquotation variables in blocks" $ do
@@ -102,8 +95,7 @@ spec =
           `shouldReturn` (2 :: Int32)
 
       it "Supports anonymous classes" $
-        withLocalFrame_ $
-          let Linear.Builder{..} = Linear.monadBuilder in do
+        withLocalFrame_ $ Linear.do
           obj :: JObject <- [java| new Object() {} |]
           deleteLocalRef obj
 
@@ -118,8 +110,7 @@ spec =
 
       it "Supports import declarations" $
         -- Arrays comes from the java.util package.
-        withLocalFrame_ $
-          let Linear.Builder{..} = Linear.monadBuilder in do
+        withLocalFrame_ $ Linear.do
           obj :: JObjectArray <- [java| Arrays.asList().toArray() |]
           deleteLocalRef obj
 
@@ -140,15 +131,13 @@ spec =
           `shouldThrow` \(_ :: JVMException) -> True
 
       it "Type-checks generics" $
-          withLocalFrame_ $
-            let Linear.Builder{..} = Linear.monadBuilder in do
+          withLocalFrame_ $ Linear.do
             obj :: List ('Class "java.lang.String") <- [java| new ArrayList<String>() |]
             obj1 :: List ('Class "java.lang.String") <- [java| $obj |]
             deleteLocalRef obj1
 
       it "Can access inner classes" $
-          (withLocalFrame $
-            let Linear.Builder{..} = Linear.monadBuilder in do
+          (withLocalFrame $ Linear.do
             st :: J ('Class "java.lang.Thread$State") <- [java| Thread.State.NEW |]
             [java| $st == Thread.State.NEW |]
            ) `shouldReturn` True

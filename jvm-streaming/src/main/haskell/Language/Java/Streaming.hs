@@ -37,7 +37,6 @@ import Foreign.Ptr (FunPtr, Ptr, intPtrToPtr, ptrToIntPtr)
 import Foreign.ForeignPtr.Unsafe (unsafeForeignPtrToPtr)
 import qualified Foreign.JNI as JNI
 import qualified Foreign.JNI.Types as JNI
-import Foreign.JNI.Types (jnull)
 import GHC.Stable
   ( castPtrToStablePtr
   , castStablePtrToPtr

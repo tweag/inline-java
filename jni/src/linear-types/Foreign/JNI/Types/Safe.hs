@@ -22,7 +22,7 @@ module Foreign.JNI.Types.Safe
   , JNI.MethodSignature
   , JNI.ReferenceTypeName
   , JNI.Signature
-  , JNI.Sing(..)
+  , JNI.Sing
   , JNI.methodSignature
   , JNI.referenceTypeName
   ) where
@@ -46,23 +46,23 @@ jnull :: J a
 jnull = J JNI.jnull
 
 -- | Any object can be cast to @Object@.
-upcast :: J a ->. JObject
+upcast :: J a #-> JObject
 upcast = Unsafe.toLinear (J . JNI.upcast . unJ)
 
 -- | Any array of a reference type can be casted to an array of @Object@s.
-arrayUpcast :: IsReferenceType ty => J ('Array ty) ->. JObjectArray
+arrayUpcast :: IsReferenceType ty => J ('Array ty) #-> JObjectArray
 arrayUpcast = Unsafe.toLinear (J . JNI.arrayUpcast . unJ)
 
 -- | Unsafe type cast. Should only be used to downcast.
-unsafeCast :: J a ->. J b
+unsafeCast :: J a #-> J b
 unsafeCast = Unsafe.toLinear (J . JNI.unsafeCast . unJ)
 
 -- | Parameterize the type of an object, making its type a /generic type/.
-unsafeGeneric :: J a ->. J (a <> g)
+unsafeGeneric :: J a #-> J (a <> g)
 unsafeGeneric = Unsafe.toLinear (J . JNI.generic . unJ)
 
 -- | Get the base type of a generic type.
-ungeneric :: J (a <> g) ->. J a
+ungeneric :: J (a <> g) #-> J a
 ungeneric = Unsafe.toLinear (J . JNI.unsafeUngeneric . unJ)
 
 -- | A union type for uniformly passing arguments to methods.

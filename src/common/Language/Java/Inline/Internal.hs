@@ -194,7 +194,7 @@ blockQQ config input = do
              (Proxy :: Proxy $(TH.litT $ TH.strTyLit mname))
              (Proxy :: Proxy $(TH.litT $ TH.strTyLit $ intercalate "," vnames))
              (Proxy :: Proxy $(TH.litT $ TH.numTyLit $ lineNumber))
-             $(return $ foldr (\a b -> TH.TupE [TH.VarE a, b]) (TH.TupE []) thnames)
+             $(return $ foldr (\a b -> TH.TupE [Just $ TH.VarE a, Just b]) (TH.TupE []) thnames)
              Proxy
              (\ $(return $ foldr (\a b -> TH.TupP [TH.VarP a, b]) (TH.TupP []) thnames') ->
                 $(qqCallStatic config $

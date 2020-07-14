@@ -4,9 +4,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_haskell",
-    sha256 = "d5d8361a1a5a67cf24f7f44035e8120a7993089bc8c05b2415cc0ecf16884a73",
-    strip_prefix = "rules_haskell-c53f7cc0fa11eb8f8107cf7cd977a6835b9f9ad6",
-    urls = ["https://github.com/tweag/rules_haskell/archive/c53f7cc0fa11eb8f8107cf7cd977a6835b9f9ad6.tar.gz"],
+    sha256 = "7abcf5cd631d553ad7f4568b012e96941c77e2aacf79c66c172ab4a90e461a8a",
+    strip_prefix = "rules_haskell-5073048c9e307295ea1102459e214750d6a118ad",
+    urls = ["https://github.com/tweag/rules_haskell/archive/5073048c9e307295ea1102459e214750d6a118ad.tar.gz"],
 )
 
 load("@rules_haskell//haskell:repositories.bzl", "haskell_repositories")
@@ -32,6 +32,42 @@ nixpkgs_package(
     repository = "@nixpkgs",
 )
 
+http_archive(
+    name = "th-desugar",
+    build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "th-desugar",
+    version = packages["th-desugar"].version,
+    srcs = glob(["**"]),
+    deps = packages["th-desugar"].deps,
+    visibility = ["//visibility:public"],
+)
+    """,
+    sha256 = "14e29e035b96d7c35bb1503426736e610465f75939bd89df1386f2a0c26ce82a",
+    strip_prefix = "th-desugar-1.11",
+    urls = ["http://hackage.haskell.org/package/th-desugar-1.11/th-desugar-1.11.tar.gz"],
+)
+
+http_archive(
+    name = "singletons",
+    build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "singletons",
+    version = packages["singletons"].version,
+    srcs = glob(["**"]),
+    deps = packages["singletons"].deps,
+    visibility = ["//visibility:public"],
+)
+    """,
+    sha256 = "e12bd6e695eaf444eb6b1fd07372818aaff8703aa71265f677f3af3cb412e22b",
+    strip_prefix = "singletons-2.7",
+    urls = ["http://hackage.haskell.org/package/singletons-2.7/singletons-2.7.tar.gz"],
+)
+
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
 stack_snapshot(
@@ -55,16 +91,32 @@ stack_snapshot(
         "language-java",
         "mtl",
         "process",
-        "singletons",
         "streaming",
         "template-haskell",
         "temporary",
         "text",
         "vector",
         "unix",
+        # dependencies of th-desugar
+        "fail",
+        "ghc-prim",
+        "ordered-containers",
+        "semigroups",
+        "syb",
+        "th-abstraction",
+        "th-lift",
+        "th-orphans",
+        "transformers-compat",
+        # dependencies of singletons
+        "ghc-boot-th",
+        "pretty",
+        "transformers",
     ],
-    snapshot = "lts-13.21",
-    tools = ["@alex//:bin/alex"],
+    vendored_packages =
+      { "singletons": "@singletons//:singletons"
+      , "th-desugar": "@th-desugar//:th-desugar"
+      },
+    snapshot = "lts-16.5",
 )
 
 load("@rules_haskell//haskell:nixpkgs.bzl", "haskell_register_ghc_nixpkgs")
@@ -84,10 +136,10 @@ filegroup(
 )
 
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghc",
+    attribute_path = "haskell.compiler.ghc8101",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = "8.6.5",
+    version = "8.10.1",
     compiler_flags = [
         "-Werror",
         "-Wall",

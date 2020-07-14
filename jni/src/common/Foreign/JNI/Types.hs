@@ -5,10 +5,12 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -19,7 +21,8 @@ module Foreign.JNI.Types
   ( JType(..)
   , IsPrimitiveType
   , IsReferenceType
-  , Sing(..)
+  , Sing
+  , SJType(..)
   , type (<>)
     -- * JNI types
   , J(..)
@@ -142,23 +145,24 @@ singToIsReferenceType tysing = case tysing of
     SGeneric tysing' _ -> (\Dict -> Dict) <$> singToIsReferenceType tysing'
     SVoid -> Nothing
 
-data instance Sing (a :: JType) where
+type instance Sing = SJType
+data SJType (a :: JType) where
   -- Using String instead of JNI.String for the singleton data constructors
   -- is an optimization. Otherwise, the comparisons in Language.Java.call
   -- and callStatic would involve allocations and cannot be cached.
   --
   -- See commit 3da51a4 and https://github.com/tweag/inline-java/issues/11
-  SClass :: String -> Sing ('Class sym)
-  SIface :: String -> Sing ('Iface sym)
-  SPrim :: String -> Sing ('Prim sym)
-  SArray :: Sing ty -> Sing ('Array ty)
-  SGeneric :: Sing ty -> Sing tys -> Sing ('Generic ty tys)
-  SVoid :: Sing 'Void
+  SClass :: String -> SJType ('Class sym)
+  SIface :: String -> SJType ('Iface sym)
+  SPrim :: String -> SJType ('Prim sym)
+  SArray :: SJType ty -> SJType ('Array ty)
+  SGeneric :: SJType ty -> Sing tys -> SJType ('Generic ty tys)
+  SVoid :: SJType 'Void
 
 realShowsPrec :: Show a => Int -> a -> ShowS
 realShowsPrec = showsPrec
 
-instance Show (Sing (a :: JType)) where
+instance Show (SJType a) where
   showsPrec d (SClass s) = showParen (d > 10) $
       showString "SClass " . realShowsPrec 11 s
   showsPrec d (SIface s) = showParen (d > 10) $
@@ -180,9 +184,9 @@ instance (KnownSymbol sym, SingI sym) => SingI ('Iface (sym :: Symbol)) where
 instance (KnownSymbol sym, SingI sym) => SingI ('Prim (sym :: Symbol)) where
   sing = SPrim $ symbolVal (undefined :: proxy sym)
 instance SingI ty => SingI ('Array ty) where
-  sing = SArray sing
+  sing = SArray (sing @ty)
 instance (SingI ty, SingI tys) => SingI ('Generic ty tys) where
-  sing = SGeneric sing sing
+  sing = SGeneric (sing @ty) (sing @tys)
 instance SingI 'Void where
   sing = SVoid
 

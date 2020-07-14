@@ -3,9 +3,9 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -21,10 +21,9 @@ module Directory.Server.Http
 import Control.Exception (SomeException, catch)
 import qualified Control.Monad
 import qualified Control.Monad.IO.Class.Linear as Linear
-import qualified Control.Monad.Linear.Builder as Linear
+import qualified Control.Monad.Linear as Linear
 import Data.Int
 import Data.Singletons
-import Data.String (fromString)
 import qualified Foreign.JNI as JNI
 import Foreign.JNI.Safe
 import qualified Foreign.JNI.Types as NonLinear
@@ -53,8 +52,7 @@ startHttpServer
   => Int32
   -> (JHttpExchange -> IO ())
   -> m (UnsafeUnrestrictedReference JHttpServer)
-startHttpServer port handler =
-    let Linear.Builder{..} = Linear.monadBuilder in do
+startHttpServer port handler = Linear.do
     jHandler <- createHandler handler
     httpServer <- [java| {
       HttpServer server = HttpServer.create(new InetSocketAddress($port), 0);
@@ -96,12 +94,11 @@ data FunPtrTable = FunPtrTable
   }
 
 createHandler :: Linear.MonadIO m => (JHttpExchange -> IO ()) -> m JHttpHandler
-createHandler handle =
-    let Linear.Builder{..} = Linear.monadBuilder in do
-    Unrestricted handlePtr <- Linear.liftIOU (newStablePtr handle)
+createHandler handle = Linear.do
+    Unrestricted handlePtr <- liftPreludeIOU (newStablePtr handle)
     let longHandlePtr :: Int64
         longHandlePtr = fromIntegral $ ptrToIntPtr $ castStablePtrToPtr handlePtr
-    Unrestricted (longTablePtr :: Int64) <- Linear.liftIOU $
+    Unrestricted (longTablePtr :: Int64) <- liftPreludeIOU $
       fromIntegral . ptrToIntPtr . castStablePtrToPtr <$>
         newStablePtr FunPtrTable {..}
     jHandler <-
@@ -116,9 +113,9 @@ createHandler handle =
           public void finalize() { hsFinalize($longTablePtr); }
         } |]
     (jHandler2, UnsafeUnrestrictedReference klass) <- getObjectClass jHandler
-    Linear.liftIO (registerNativesForHttpHandler klass)
-    Linear.liftIO (JNI.deleteLocalRef klass)
-    return jHandler2
+    liftPreludeIO (registerNativesForHttpHandler klass)
+    liftPreludeIO (JNI.deleteLocalRef klass)
+    Linear.return jHandler2
 
 -- | Register functions for the native methods of the inner class
 -- created by 'createHandler'.

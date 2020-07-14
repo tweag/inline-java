@@ -1,5 +1,5 @@
 { pkgs ?  import ./nixpkgs.nix {}
-, ghc ? pkgs.haskell.compiler.ghcLinearTypes20190613
+, ghc ? pkgs.haskell.compiler.ghcHEAD
 }:
 
 with pkgs;
@@ -19,8 +19,8 @@ let
 in
 haskell.lib.buildStackProject ({
   name = "inline-java";
-  buildInputs = [ git openjdk gradle zlib ];
-  ghc = pkgs.haskell.compiler.ghcLinearTypes20190613;
+  buildInputs = [ git openjdk gradle zlib haskellPackages.happy haskellPackages.alex ];
+  ghc = pkgs.haskell.compiler.ghcHEAD;
   # XXX Workaround https://ghc.haskell.org/trac/ghc/ticket/11042.
   extraArgs = ["--extra-lib-dirs=${jvmlibdir}"];
   LANG = "en_US.utf8";
