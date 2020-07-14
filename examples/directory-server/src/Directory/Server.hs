@@ -1,20 +1,17 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LinearTypes #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE RebindableSyntax #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
 module Directory.Server where
 
 import Control.Concurrent
 import Control.Monad (guard, join)
-import qualified Control.Monad.IO.Class.Linear as Linear
 import qualified Control.Monad.Catch as Catch
 import Control.Monad.Reader (ask, asks)
 import Control.Monad.Lift.Linear
-import qualified Control.Monad.Linear.Builder as Linear
+import qualified Control.Monad.Linear as Linear
 import Control.Monad.Logger
 import Data.Int
 import Data.IORef
@@ -36,8 +33,7 @@ import System.Posix.Signals (Handler(Catch), Signal, installHandler, sigINT, sig
 
 
 server :: Int -> LServer ()
-server port =
-    let Linear.Builder{..} = Linear.monadBuilder in do
+server port = Linear.do
     Unrestricted mvStop <- liftPreludeIOU newEmptyMVar
     Unrestricted env <- liftU ask
     UnsafeUnrestrictedReference httpServer <-
@@ -72,12 +68,11 @@ data Response = Response
   }
 
 handleRequest :: JHttpExchange #-> LServer ()
-handleRequest httpExchange =
-    let Linear.Builder{..} = Linear.monadBuilder in do
+handleRequest _httpExchange = Linear.do
     Unrestricted root <- liftU $ asks envRootDirectory
-    (httpExchange, httpExchange2) <- newLocalRef httpExchange
+    (httpExchange, httpExchange2) <- newLocalRef _httpExchange
     Unrestricted tpath <-
-      [java| $httpExchange2.getRequestURI().getPath() |] >>= reify_
+      [java| $httpExchange2.getRequestURI().getPath() |] Linear.>>= reify_
     Unrestricted (Response code msg) <-
       liftU $ listContents root (Text.unpack tpath)
     jmsg <- reflect msg
@@ -111,8 +106,8 @@ listContents root rawPath = do
         return (Response 403 $ Text.pack "403: Illegal path.")
   where
     makePath :: String -> String -> m (Maybe String)
-    makePath root reqPath = do
-      path <- canonicalizePath (root </> makeRelative "/" reqPath)
+    makePath rootDir reqPath = do
+      path <- canonicalizePath (rootDir </> makeRelative "/" reqPath)
       return $ do
         guard (root `isPrefixOf` path)
         return path
