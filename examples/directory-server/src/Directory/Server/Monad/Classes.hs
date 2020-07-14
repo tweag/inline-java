@@ -1,9 +1,5 @@
 {-# LANGUAGE LinearTypes #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-
 module Directory.Server.Monad.Classes where
 
 import qualified Control.Monad.Linear as Linear

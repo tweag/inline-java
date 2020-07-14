@@ -1,10 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 module Directory.Server.Monad where
 
 import qualified Control.Monad.Catch as Catch
@@ -49,7 +47,6 @@ instance MonadFileSystem Server where
 newtype LServer a = LServer { unLServer :: Server a }
 
 instance Linear.MonadIO LServer where
-  liftIO :: Linear.IO a #-> LServer a
   liftIO = Unsafe.toLinear (\a -> LServer (liftIO (Linear.withLinearIO (unsafeUnrestrict a)))) where
     unsafeUnrestrict :: Linear.IO a -> Linear.IO (Unrestricted a)
     unsafeUnrestrict action = action Linear.>>= Unsafe.toLinear (\a -> Linear.return (Unrestricted a))
