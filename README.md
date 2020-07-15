@@ -42,12 +42,9 @@ main = withJVM [] $ do
 ## Building it
 
 **Requirements:**
-* the [Stack][stack] build tool (version 1.2 or above);
+* the [Stack][stack] build tool;
 * either, the [Nix][nix] package manager,
-* or, OpenJDK and Gradle installed from your distro.
-
-On OS X, you'll need to install the [Legacy Java SE 6][osx-java-se]
-runtime when prompted, even when using Nix.
+* or, OpenJDK installed from your distro.
 
 To build:
 
@@ -74,7 +71,6 @@ nix:
 [stack]: https://github.com/commercialhaskell/stack
 [stack-nix]: https://docs.haskellstack.org/en/stable/nix_integration/#configuration
 [nix]: http://nixos.org/nix
-[osx-java-se]: https://support.apple.com/kb/dl1572?locale=fr_FR
 
 ## Building the safe interface
 
