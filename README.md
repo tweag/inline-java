@@ -126,7 +126,7 @@ specified in the [LICENSE](LICENSE) file.
 ## Sponsors
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-[<img src="http://i.imgur.com/0HK8X4y.png" height="65">](http://tweag.io)
+[![Tweag I/O](http://i.imgur.com/0HK8X4y.png)](http://tweag.io)
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 [![LeapYear](http://i.imgur.com/t9VxRHn.png)](http://leapyear.io)
 
