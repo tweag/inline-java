@@ -50,12 +50,12 @@ library
     FastString.Extras
   build-depends:
     -- Can't build at all with GHC < 8.0.2.
-    base >4.9.0.0 && <5,
+    base >=4.14.0.0 && <5,
     bytestring >=0.10,
     Cabal >=1.24.2,
     directory >=1.2,
     filepath >=1,
-    ghc >=8.4 && <=8.9,
+    ghc >=8.10.1 && <=8.11,
     jni >=0.4 && <0.7,
     jvm >=0.4 && <0.5,
     language-java >=0.2,

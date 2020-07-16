@@ -2,7 +2,6 @@ require-stack-version: ">= 1.6"
 
 resolver: lts-16.5
 compiler: ghc-8.10
-allow-newer: true
 
 packages:
 - .
