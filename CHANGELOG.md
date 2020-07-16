@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Removed
 ### Changed
 
+## [0.9.1] - 2020-07-16
+
+### Changed
+
+* Fix Tweag logo image in readme
+
 ## [0.9.0] - 2020-07-16
 
 ### Added
