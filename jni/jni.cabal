@@ -80,4 +80,5 @@ test-suite spec
       singletons
   default-language: Haskell2010
   extra-libraries: pthread
-  ghc-options: -DHSPEC_DISCOVER=hspec-discover -threaded
+  ghc-options: -threaded
+  cpp-options: -DHSPEC_DISCOVER=hspec-discover
