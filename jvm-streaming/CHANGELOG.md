@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+### Added
+### Removed
+### Changed
+
+## [0.3.2] - 2020-07-16
+
 ### Changed
 
 * Fixed pointer deallocation for iterator operations (680db81)

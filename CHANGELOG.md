@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Next
 
 ### Added
+### Removed
+### Changed
+
+## [0.9.0] - 2020-07-16
+
+### Added
 
 * Added support for ghc-8.10.1 and ghc-8.11 (HEAD)
 * Use TH.addCorePlugin instead of -fplugin

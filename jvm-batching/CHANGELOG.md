@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+### Added
+### Removed
+### Changed
+
+## [0.1.2] - 2020-07-16
+
 ## Added
 
 * Support for jvm-0.5.0 which now uses variadic functions

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
+### Added
+### Removed
+### Changed
+
+## [0.5.0] - 2020-07-16
+
 ### Changed
 
 * `call`, `callStatic` and `new` are now variadic. Instead of packing
