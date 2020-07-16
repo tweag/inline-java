@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Added
 
+* Support for jvm-0.5.0 which now uses variadic functions
+
 ### Changed
+
+* Minor documentation edits.
 
 ## [0.1.1] - 2018-02-27
 

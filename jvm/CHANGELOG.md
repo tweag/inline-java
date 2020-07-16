@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
-* Support for ghc-8.9
+* Added support for ghc-8.10.1 and ghc-8.11 (HEAD)
 * `setGetClassFunction/getClass` to have _call_ functions
   use other loading mechanisms than `findClass`
 * Benchmarks for arrays and direct buffer operations
@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Removed
 
-* Removed support for ghc < 8.2.1
+* Removed support for ghc < 8.10.1
 
 ## [0.4.2] - 2018-02-27
 

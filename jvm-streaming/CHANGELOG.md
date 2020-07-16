@@ -6,9 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Next release
 
-### Added
-
 ### Changed
+
+* Fixed pointer deallocation for iterator operations (680db81)
+* Fix interdependence bug between reflected streams (d7cf7d7)
+* Remove leaking class reference (3d16a0d)
 
 ## [0.3.1] - 2018-01-01
 

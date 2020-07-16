@@ -8,14 +8,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
-* Support for ghc-8.9
+* Added support for ghc-8.10.1 and ghc-8.11 (HEAD)
 * An interface based on linear types
 * NIO support: operations on direct byte buffers
 * Functions get<PrimitiveType>ArrayElements
 
 ### Removed
 
-* Removed support for ghc < 8.2.1
+* Removed support for ghc < 8.10.1
 
 ### Changed
 

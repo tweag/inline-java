@@ -8,14 +8,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
-* Added support for ghc-8.9.
+* Added support for ghc-8.10.1 and ghc-8.11 (HEAD)
 * Use TH.addCorePlugin instead of -fplugin
 * An interface based on linear types (https://github.com/tweag/inline-java/pull/127)
 * An abstract monad to use in the safe interfaces (https://github.com/tweag/inline-java/pull/128)
 
 ### Removed
 
-* Removed support for ghc < 8.2.1
+* Removed support for ghc < 8.10.1
 
 ## [0.8.4] - 2018-07-11
 
