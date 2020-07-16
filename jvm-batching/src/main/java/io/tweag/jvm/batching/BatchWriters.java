@@ -341,6 +341,8 @@ public final class BatchWriters {
         private int[] end;
         // top tells the first position not occupied by arrays in the batch.
         private int top;
+        // index of the next position available in the batch
+        private int nextIndex;
 
         public ObjectArrayBatchWriter(BatchWriter<T, B> ob) {
             this.ob = ob;
@@ -350,6 +352,7 @@ public final class BatchWriters {
             end = new int[size];
             arrays = (T[][]) new Object[size][];
             top = 0;
+            nextIndex = 0;
         }
         public void set(int i, T[] vec) {
             if (vec == null)
@@ -357,18 +360,21 @@ public final class BatchWriters {
             arrays[i] = vec;
             top += vec.length;
             end[i] = top;
+            nextIndex = i + 1;
         }
         public Tuple2<B, int[]> getBatch() {
             ob.start(top);
             int k = 0;
-            for(int i=0;i<end.length && arrays[i]!=null;i++) {
-                for(int j=0;j<arrays[i].length;j++) {
-                    ob.set(k, arrays[i][j]);
-                    k++;
+            for(int i=0;i<nextIndex;i++) {
+                if (arrays[i] != null) {
+                    for(int j=0;j<arrays[i].length;j++) {
+                        ob.set(k, arrays[i][j]);
+                        k++;
+                    }
+                    // Release the reference to the array so it can be reclaimed
+                    // before the loop is over.
+                    arrays[i] = null;
                 }
-                // Release the reference to the array so it can be reclaimed
-                // before the loop is over.
-                arrays[i] = null;
             }
             return new Tuple2<B, int[]>(ob.getBatch(), end);
         }
@@ -404,6 +410,28 @@ public final class BatchWriters {
                 arrays[i] = null;
             }
             return new Tuple2<char[], int[]>(batch, end);
+        }
+    }
+
+    public static final class NullableBatchWriter<A, B>
+            implements BatchWriter<A, Tuple2<boolean[], B>> {
+        private boolean isnull[];
+        final BatchWriter<A, B> b;
+        public NullableBatchWriter(BatchWriter<A, B> b) {
+            this.b = b;
+        }
+        public void start(int size) {
+            b.start(size);
+            isnull = new boolean[size];
+        }
+        public void set(int i, A a) {
+            if (null == a)
+                isnull[i] = true;
+            else
+                b.set(i, a);
+        }
+        public Tuple2<boolean[], B> getBatch() {
+            return new Tuple2(isnull, b.getBatch());
         }
     }
 }
