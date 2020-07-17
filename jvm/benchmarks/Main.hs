@@ -7,7 +7,6 @@
 module Main where
 
 import Control.Concurrent
-import Control.Concurrent.MVar
 import Control.DeepSeq (NFData(..))
 import Criterion.Main as Criterion
 import Control.Monad (replicateM, replicateM_, void)
