@@ -116,6 +116,14 @@ benchRefs =
     ,  bench "global reference (no finalizer)" $ nfIO $ do
         _ <- newGlobalRefNonFinalized jobj
         return ()
+    , bench "delete global reference (no finalizer)" $ nfIO $ do
+        ref <- newGlobalRefNonFinalized jobj
+        _ <- deleteGlobalRefNonFinalized ref
+        return ()
+    , bench "delete global reference (no finalizer, safe)" $ nfIO $ do
+        ref <- newGlobalRefNonFinalized jobj
+        _ <- runInAttachedThread (deleteGlobalRefNonFinalized ref)
+        return ()
     , bench "Foreign.Concurrent.newForeignPtr" $ nfIO $ do
         _ <- Concurrent.newForeignPtr (unsafeObjectToPtr jobj) (return ())
         return ()
