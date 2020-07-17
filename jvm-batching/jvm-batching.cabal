@@ -63,11 +63,13 @@ test-suite spec
     bytestring,
     hspec,
     inline-java,
+    jni,
     jvm,
     jvm-batching,
     text,
     vector
   default-language: Haskell2010
+  ghc-options: -threaded
   cpp-options: -DHSPEC_DISCOVER=hspec-discover
 
 benchmark micro-benchmarks

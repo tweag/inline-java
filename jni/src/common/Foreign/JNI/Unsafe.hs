@@ -72,6 +72,7 @@ module Foreign.JNI.Unsafe
   , deleteLocalRef
   , pushLocalFrame
   , popLocalFrame
+  , submitRefForDelete
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -200,13 +201,14 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
-import Control.Monad (join, unless, void, when)
+import Control.Concurrent.Async (Async, asyncBound, cancel)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
+import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO, uninterruptibleMask_)
+import Control.Monad (forever, join, unless, void, when)
 import Data.Choice
 import Data.Coerce
 import Data.Int
-import Data.IORef (IORef, newIORef, atomicModifyIORef)
+import Data.IORef (IORef, atomicModifyIORef, newIORef, readIORef, writeIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -449,7 +451,7 @@ newJVM options = JVM_ <$> do
       withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
         let n = fromIntegral (length cstrs) :: C.CInt
         checkBoundness
-        [C.block| JavaVM * {
+        jvm <- [C.block| JavaVM * {
           JavaVM *jvm;
           JavaVMInitArgs vm_args;
           JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
@@ -462,6 +464,9 @@ newJVM options = JVM_ <$> do
           JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
           free(options);
           return jvm; } |]
+        cleaner <- createGlobalRefCleaner
+        writeIORef globalRefCleaner cleaner
+        return jvm
 
   where
     checkBoundness :: IO ()
@@ -472,6 +477,8 @@ newJVM options = JVM_ <$> do
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
+    readIORef globalRefCleaner >>= stopGlobalRefCleaner
+    writeIORef globalRefCleaner uninitializedGlobalRefCleaner
     acquireWriteLock globalJVMLock
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
@@ -726,7 +733,7 @@ newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
         (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
     fixIO $ \j ->
-      coerce <$> J <$> newConcForeignPtr gobj (deleteGlobalRefNonFinalized j)
+      coerce <$> J <$> newConcForeignPtr gobj (submitRefForDelete $ upcast $ coerce j)
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
@@ -1059,3 +1066,42 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
       return capacity
     else
       throwIO DirectBufferFailed
+
+data GlobalRefCleaner = GlobalRefCleaner
+  { nextBatchToDelete :: IORef [JObject]
+  , wakeup :: MVar ()
+  , cleanerAsync :: Async ()
+  }
+
+createGlobalRefCleaner :: IO GlobalRefCleaner
+createGlobalRefCleaner = do
+  wakeup <- newEmptyMVar
+  refs <- newIORef []
+  deletingThread <- asyncBound $ runInAttachedThread $ forever $ do
+    takeMVar wakeup
+    xs <- atomicModifyIORef refs $ \xs -> ([], xs)
+    mapM_ deleteGlobalRefNonFinalized xs
+  return (GlobalRefCleaner refs wakeup deletingThread)
+
+stopGlobalRefCleaner :: GlobalRefCleaner -> IO ()
+stopGlobalRefCleaner = uninterruptibleMask_ . cancel . cleanerAsync
+
+cleanGlobalRef :: GlobalRefCleaner -> JObject -> IO ()
+cleanGlobalRef cleaner obj = do
+  atomicModifyIORef (nextBatchToDelete cleaner) $ \xs -> (obj:xs, ())
+  _ <- tryPutMVar (wakeup cleaner) ()
+  return ()
+
+globalRefCleaner :: IORef GlobalRefCleaner
+{-# NOINLINE globalRefCleaner #-}
+globalRefCleaner = unsafePerformIO $ newIORef uninitializedGlobalRefCleaner
+
+uninitializedGlobalRefCleaner :: GlobalRefCleaner
+uninitializedGlobalRefCleaner = error "Cannot delete a reference: a dedicated thread is not initialized"
+
+-- | Submit a global, non-finalized reference for deletion.
+-- Passes the reference to a thread attached to the jvm, which performs the deletion.
+submitRefForDelete :: JObject -> IO ()
+submitRefForDelete obj = do
+  cleaner <- readIORef globalRefCleaner
+  cleanGlobalRef cleaner obj
