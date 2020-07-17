@@ -54,7 +54,7 @@ foreign import ccall unsafe getpid :: IO Int
 forkWait :: IO a -> IO ()
 forkWait io = do
   handle <- newEmptyMVar
-  _ <- runInBoundThread $ forkFinally io (\_ -> putMVar handle ())
+  _ <- forkFinally (runInBoundThread io) (\_ -> putMVar handle ())
   takeMVar handle >>= return
 
 benchCalls :: Benchmark
