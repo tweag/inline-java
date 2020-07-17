@@ -6,6 +6,8 @@
 
 module Main where
 
+import Control.Concurrent
+import Control.Concurrent.MVar
 import Control.DeepSeq (NFData(..))
 import Criterion.Main as Criterion
 import Control.Monad (replicateM, replicateM_, void)
@@ -48,6 +50,13 @@ incrHaskell :: Int32 -> IO Int32
 incrHaskell x = return (x + 1)
 
 foreign import ccall unsafe getpid :: IO Int
+
+-- | Execute the given IO in a separate thread, then wait for it to finish
+forkWait :: IO a -> IO ()
+forkWait io = do
+  handle <- newEmptyMVar
+  _ <- runInBoundThread $ forkFinally io (\_ -> putMVar handle ())
+  takeMVar handle >>= return
 
 benchCalls :: Benchmark
 benchCalls =
@@ -116,11 +125,14 @@ benchRefs =
     ,  bench "global reference (no finalizer)" $ nfIO $ do
         _ <- newGlobalRefNonFinalized jobj
         return ()
-    , bench "delete global reference (no finalizer)" $ nfIO $ do
+    -- The next two benchmarks are to be compared with one another:
+    -- The goal is to evaluate the cost of calling deleteGlobalRefNonFinalized
+    -- with or without attaching the calling thread to the JVM
+    , bench "delete global reference (not attached)" $ nfIO $ forkWait $ do
         ref <- newGlobalRefNonFinalized jobj
         _ <- deleteGlobalRefNonFinalized ref
         return ()
-    , bench "delete global reference (no finalizer, safe)" $ nfIO $ do
+    , bench "delete global reference (attached)" $ nfIO $ forkWait $ do
         ref <- newGlobalRefNonFinalized jobj
         _ <- runInAttachedThread (deleteGlobalRefNonFinalized ref)
         return ()
