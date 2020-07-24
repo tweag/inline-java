@@ -50,13 +50,6 @@ incrHaskell x = return (x + 1)
 
 foreign import ccall unsafe getpid :: IO Int
 
--- | Execute the given IO in a separate thread, then wait for it to finish
-forkWait :: IO a -> IO ()
-forkWait io = do
-  handle <- newEmptyMVar
-  _ <- forkFinally (runInBoundThread io) (\_ -> putMVar handle ())
-  takeMVar handle >>= return
-
 benchCalls :: Benchmark
 benchCalls =
     env ini $ \ ~(Box klass, method) ->
@@ -127,13 +120,17 @@ benchRefs =
     -- The next two benchmarks are to be compared with one another:
     -- The goal is to evaluate the cost of calling deleteGlobalRefNonFinalized
     -- with or without attaching the calling thread to the JVM
-    , bench "delete global reference (not attached)" $ nfIO $ forkWait $ do
+    , bench "delete global reference (not attached)" $ nfIO $ do
+        detachCurrentThread
         ref <- newGlobalRefNonFinalized jobj
         _ <- deleteGlobalRefNonFinalized ref
+        attachCurrentThreadAsDaemon
         return ()
-    , bench "delete global reference (attached)" $ nfIO $ forkWait $ do
+    , bench "delete global reference (attached)" $ nfIO $ do
+        detachCurrentThread
         ref <- newGlobalRefNonFinalized jobj
         _ <- runInAttachedThread (deleteGlobalRefNonFinalized ref)
+        attachCurrentThreadAsDaemon
         return ()
     , bench "Foreign.Concurrent.newForeignPtr" $ nfIO $ do
         _ <- Concurrent.newForeignPtr (unsafeObjectToPtr jobj) (return ())
