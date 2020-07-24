@@ -122,10 +122,10 @@ benchRefs =
     -- when creating and deleting a non-finalized global ref.
     , bench "delete global reference (attached)" $ nfIO $ runInAttachedThread $
         newGlobalRefNonFinalized jobj >>= deleteGlobalRefNonFinalized
-    , bench "delete global reference (not attached)" $ perRunEnvWithCleanup
+    , envWithCleanup
       detachCurrentThread
       (const attachCurrentThreadAsDaemon) $
-      \() -> runInAttachedThread $
+      \_ -> bench "delete global reference (not attached)" $ nfIO $ runInAttachedThread $
         newGlobalRefNonFinalized jobj >>= deleteGlobalRefNonFinalized
     , bench "Foreign.Concurrent.newForeignPtr" $ nfIO $ do
         _ <- Concurrent.newForeignPtr (unsafeObjectToPtr jobj) (return ())
