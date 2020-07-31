@@ -117,9 +117,10 @@ benchRefs =
     ,  bench "global reference (no finalizer)" $ nfIO $ do
         _ <- newGlobalRefNonFinalized jobj
         return ()
-    -- The next two benchmarks are to be compared with one another:
+    -- The next three benchmarks are to be compared with one another:
     -- The goal is to evaluate the cost of attaching a thread to the JVM
-    -- when creating and deleting a non-finalized global ref.
+    -- when deleting a non-finalized global ref, versus the cost
+    -- of having a dedicated thread to do the deleting
     , bench "delete global reference (attached)" $ nfIO $ runInAttachedThread $
         newGlobalRefNonFinalized jobj >>= deleteGlobalRefNonFinalized
     , envWithCleanup
@@ -127,6 +128,8 @@ benchRefs =
       (const attachCurrentThreadAsDaemon) $
       \_ -> bench "delete global reference (not attached)" $ nfIO $ runInAttachedThread $
         newGlobalRefNonFinalized jobj >>= deleteGlobalRefNonFinalized
+    , bench "delete global reference (separate thread)" $ nfIO $ do
+        newGlobalRefNonFinalized jobj >>= submitRefForDelete
     , bench "Foreign.Concurrent.newForeignPtr" $ nfIO $ do
         _ <- Concurrent.newForeignPtr (unsafeObjectToPtr jobj) (return ())
         return ()
