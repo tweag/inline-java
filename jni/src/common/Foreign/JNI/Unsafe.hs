@@ -72,6 +72,7 @@ module Foreign.JNI.Unsafe
   , deleteLocalRef
   , pushLocalFrame
   , popLocalFrame
+  , submitRefForDelete
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -199,10 +200,10 @@ module Foreign.JNI.Unsafe
   , getDirectBufferCapacity
   ) where
 
-import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent (forkOS, isCurrentThreadBound, rtsSupportsBoundThreads)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
 import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
-import Control.Monad (join, unless, void, when)
+import Control.Monad (forever, join, unless, void, when)
 import Data.Choice
 import Data.Coerce
 import Data.Int
@@ -449,6 +450,7 @@ newJVM options = JVM_ <$> do
       withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
         let n = fromIntegral (length cstrs) :: C.CInt
         checkBoundness
+        createRefDeletingThread
         [C.block| JavaVM * {
           JavaVM *jvm;
           JavaVMInitArgs vm_args;
@@ -468,6 +470,13 @@ newJVM options = JVM_ <$> do
     checkBoundness = when rtsSupportsBoundThreads $ do
       bound <- isCurrentThreadBound
       unless bound (throwIO ThreadNotBound)
+    createRefDeletingThread :: IO ()
+    createRefDeletingThread = do
+      forkOS $ runInAttachedThread $ forever $ do
+        takeMVar wakeup
+        xs <- atomicModifyIORef refs $ \xs -> ([], xs)
+        mapM deleteGlobalRefNonFinalized xs
+      return ()
 
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
@@ -1059,3 +1068,19 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
       return capacity
     else
       throwIO DirectBufferFailed
+
+wakeup :: MVar ()
+{-# NOINLINE wakeup #-}
+wakeup = unsafePerformIO newEmptyMVar
+
+refs :: IORef [JObject]
+{-# NOINLINE refs #-}
+refs = unsafePerformIO $ newIORef []
+
+-- | Submit a global, non-finalized reference for deletion.
+-- Passes the reference to a thread attached to the jvm, which performs the deletion.
+submitRefForDelete :: Coercible o (J ty) => o -> IO ()
+submitRefForDelete (coerce -> upcast -> obj) = do
+  atomicModifyIORef refs $ \xs -> (obj:xs, ())
+  tryPutMVar wakeup ()
+  return ()
