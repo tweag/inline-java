@@ -450,8 +450,7 @@ newJVM options = JVM_ <$> do
       withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
         let n = fromIntegral (length cstrs) :: C.CInt
         checkBoundness
-        createRefDeletingThread
-        [C.block| JavaVM * {
+        jvm <- [C.block| JavaVM * {
           JavaVM *jvm;
           JavaVMInitArgs vm_args;
           JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
@@ -464,6 +463,8 @@ newJVM options = JVM_ <$> do
           JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
           free(options);
           return jvm; } |]
+        createRefDeletingThread
+        return jvm
 
   where
     checkBoundness :: IO ()
