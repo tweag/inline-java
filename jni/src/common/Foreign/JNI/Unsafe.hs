@@ -201,13 +201,15 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Concurrent (forkOS, isCurrentThreadBound, rtsSupportsBoundThreads)
+import Control.Concurrent.Async (Async, async, wait)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
 import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
-import Control.Monad (forever, join, unless, void, when)
+import Control.Monad (join, unless, void, when)
+import Control.Monad.Loops (untilM_)
 import Data.Choice
 import Data.Coerce
 import Data.Int
-import Data.IORef (IORef, newIORef, atomicModifyIORef)
+import Data.IORef (IORef, atomicModifyIORef, newIORef, readIORef, writeIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -463,7 +465,8 @@ newJVM options = JVM_ <$> do
           JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
           free(options);
           return jvm; } |]
-        createRefDeletingThread
+        cleaner <- createGlobalRefCleaner
+        writeIORef globalRefCleaner (Just cleaner)
         return jvm
 
   where
@@ -471,13 +474,6 @@ newJVM options = JVM_ <$> do
     checkBoundness = when rtsSupportsBoundThreads $ do
       bound <- isCurrentThreadBound
       unless bound (throwIO ThreadNotBound)
-    createRefDeletingThread :: IO ()
-    createRefDeletingThread = do
-      forkOS $ runInAttachedThread $ forever $ do
-        takeMVar wakeup
-        xs <- atomicModifyIORef refs $ \xs -> ([], xs)
-        mapM deleteGlobalRefNonFinalized xs
-      return ()
 
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
@@ -487,6 +483,9 @@ destroyJVM (JVM_ jvm) = do
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
         jniEnv = NULL;
     } |]
+    cleanerMaybe <- readIORef globalRefCleaner
+    maybe (return ()) stopGlobalRefCleaner cleanerMaybe
+    writeIORef globalRefCleaner Nothing
 
 -- | Create a new JVM, with the given arguments. Destroy it once the given
 -- action completes. /Can only be called once/. Best practice: use it to wrap
@@ -1070,18 +1069,39 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
     else
       throwIO DirectBufferFailed
 
-wakeup :: MVar ()
-{-# NOINLINE wakeup #-}
-wakeup = unsafePerformIO newEmptyMVar
+data GlobalRefCleaner o = GlobalRefCleaner (IORef [o]) (MVar Bool) (Async ())
 
-refs :: IORef [JObject]
-{-# NOINLINE refs #-}
-refs = unsafePerformIO $ newIORef []
+createGlobalRefCleaner :: Coercible o (J ty) => IO (GlobalRefCleaner o)
+createGlobalRefCleaner = do
+  wakeup <- newEmptyMVar
+  refs <- newIORef []
+  deletingThread <- async $ runInAttachedThread $
+    ( do
+      xs <- atomicModifyIORef refs $ \xs -> ([], xs)
+      mapM deleteGlobalRefNonFinalized xs
+    ) `untilM_` (takeMVar wakeup)
+  return (GlobalRefCleaner refs wakeup deletingThread)
+
+stopGlobalRefCleaner :: Coercible o (J ty) => GlobalRefCleaner o -> IO ()
+stopGlobalRefCleaner (GlobalRefCleaner _ wakeup deletingThread) = do
+  putMVar wakeup True
+  wait deletingThread
+
+cleanGlobalRef :: Coercible o (J ty) => GlobalRefCleaner o -> o -> IO ()
+cleanGlobalRef (GlobalRefCleaner refs wakeup _) obj = do
+  atomicModifyIORef refs $ \xs -> (obj:xs, ())
+  tryPutMVar wakeup False
+  return ()
+
+globalRefCleaner :: Coercible o (J ty) => IORef (Maybe (GlobalRefCleaner o))
+{-# NOINLINE globalRefCleaner #-}
+globalRefCleaner = unsafePerformIO $ newIORef Nothing
 
 -- | Submit a global, non-finalized reference for deletion.
 -- Passes the reference to a thread attached to the jvm, which performs the deletion.
 submitRefForDelete :: Coercible o (J ty) => o -> IO ()
 submitRefForDelete (coerce -> upcast -> obj) = do
-  atomicModifyIORef refs $ \xs -> (obj:xs, ())
-  tryPutMVar wakeup ()
-  return ()
+  cleanerMaybe <- readIORef globalRefCleaner
+  case cleanerMaybe of
+    Nothing -> fail "Cannot delete reference: dedicated thread is not initialized"
+    Just cleaner -> cleanGlobalRef cleaner obj
