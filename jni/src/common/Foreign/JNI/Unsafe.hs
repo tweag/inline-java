@@ -483,7 +483,7 @@ destroyJVM (JVM_ jvm) = do
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
         jniEnv = NULL;
     } |]
-    stopGlobalRefCleaner <$> readIORef globalRefCleaner
+    readIORef globalRefCleaner >>= stopGlobalRefCleaner
     writeIORef globalRefCleaner (error "Cannot delete a reference: a dedicated thread is not initialized")
 
 -- | Create a new JVM, with the given arguments. Destroy it once the given
