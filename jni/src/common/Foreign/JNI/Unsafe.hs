@@ -1104,7 +1104,7 @@ globalRefCleaner = unsafePerformIO $ newIORef (error "Cannot delete a reference:
 
 -- | Submit a global, non-finalized reference for deletion.
 -- Passes the reference to a thread attached to the jvm, which performs the deletion.
-submitRefForDelete :: Coercible o (J ty) => o -> IO ()
-submitRefForDelete (coerce -> upcast -> obj) = do
+submitRefForDelete :: JObject -> IO ()
+submitRefForDelete obj = do
   cleaner <- readIORef globalRefCleaner
   cleanGlobalRef cleaner obj
