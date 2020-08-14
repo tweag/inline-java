@@ -201,7 +201,7 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Concurrent (forkOS, isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.Async (Async, async, wait)
+import Control.Concurrent.Async (Async, asyncBound, wait)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
 import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
 import Control.Monad (join, unless, void, when)
@@ -1080,7 +1080,7 @@ createGlobalRefCleaner :: IO GlobalRefCleaner
 createGlobalRefCleaner = do
   wakeup <- newEmptyMVar
   refs <- newIORef []
-  deletingThread <- async $ runInAttachedThread $ whileM_
+  deletingThread <- asyncBound $ runInAttachedThread $ whileM_
     ((== DeleteReferences) <$> takeMVar wakeup)
     ( do
       xs <- atomicModifyIORef refs $ \xs -> ([], xs)
