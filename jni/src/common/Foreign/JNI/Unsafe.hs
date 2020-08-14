@@ -1069,9 +1069,13 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
     else
       throwIO DirectBufferFailed
 
-data GlobalRefCleaner o = GlobalRefCleaner (IORef [o]) (MVar Bool) (Async ())
+data GlobalRefCleaner = GlobalRefCleaner
+  { nextBatchToDelete :: IORef [JObject]
+  , nextAction :: MVar Bool
+  , cleanerAsync :: Async ()
+  }
 
-createGlobalRefCleaner :: Coercible o (J ty) => IO (GlobalRefCleaner o)
+createGlobalRefCleaner :: IO GlobalRefCleaner
 createGlobalRefCleaner = do
   wakeup <- newEmptyMVar
   refs <- newIORef []
@@ -1082,18 +1086,18 @@ createGlobalRefCleaner = do
     ) `untilM_` (takeMVar wakeup)
   return (GlobalRefCleaner refs wakeup deletingThread)
 
-stopGlobalRefCleaner :: Coercible o (J ty) => GlobalRefCleaner o -> IO ()
-stopGlobalRefCleaner (GlobalRefCleaner _ wakeup deletingThread) = do
-  putMVar wakeup True
-  wait deletingThread
+stopGlobalRefCleaner :: GlobalRefCleaner -> IO ()
+stopGlobalRefCleaner cleaner = do
+  putMVar (nextAction cleaner) True
+  wait (cleanerAsync cleaner)
 
-cleanGlobalRef :: Coercible o (J ty) => GlobalRefCleaner o -> o -> IO ()
-cleanGlobalRef (GlobalRefCleaner refs wakeup _) obj = do
-  atomicModifyIORef refs $ \xs -> (obj:xs, ())
-  tryPutMVar wakeup False
+cleanGlobalRef :: GlobalRefCleaner -> JObject -> IO ()
+cleanGlobalRef cleaner obj = do
+  atomicModifyIORef (nextBatchToDelete cleaner) $ \xs -> (obj:xs, ())
+  tryPutMVar (nextAction cleaner) False
   return ()
 
-globalRefCleaner :: Coercible o (J ty) => IORef (Maybe (GlobalRefCleaner o))
+globalRefCleaner :: IORef (Maybe GlobalRefCleaner)
 {-# NOINLINE globalRefCleaner #-}
 globalRefCleaner = unsafePerformIO $ newIORef Nothing
 
