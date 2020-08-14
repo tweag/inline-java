@@ -466,7 +466,7 @@ newJVM options = JVM_ <$> do
           free(options);
           return jvm; } |]
         cleaner <- createGlobalRefCleaner
-        writeIORef globalRefCleaner (Just cleaner)
+        writeIORef globalRefCleaner cleaner
         return jvm
 
   where
@@ -483,9 +483,8 @@ destroyJVM (JVM_ jvm) = do
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
         jniEnv = NULL;
     } |]
-    cleanerMaybe <- readIORef globalRefCleaner
-    maybe (return ()) stopGlobalRefCleaner cleanerMaybe
-    writeIORef globalRefCleaner Nothing
+    stopGlobalRefCleaner <$> readIORef globalRefCleaner
+    writeIORef globalRefCleaner (error "Cannot delete a reference: a dedicated thread is not initialized")
 
 -- | Create a new JVM, with the given arguments. Destroy it once the given
 -- action completes. /Can only be called once/. Best practice: use it to wrap
@@ -1099,15 +1098,13 @@ cleanGlobalRef cleaner obj = do
   tryPutMVar (nextAction cleaner) DeleteReferences
   return ()
 
-globalRefCleaner :: IORef (Maybe GlobalRefCleaner)
+globalRefCleaner :: IORef GlobalRefCleaner
 {-# NOINLINE globalRefCleaner #-}
-globalRefCleaner = unsafePerformIO $ newIORef Nothing
+globalRefCleaner = unsafePerformIO $ newIORef (error "Cannot delete a reference: a dedicated thread is not initialized")
 
 -- | Submit a global, non-finalized reference for deletion.
 -- Passes the reference to a thread attached to the jvm, which performs the deletion.
 submitRefForDelete :: Coercible o (J ty) => o -> IO ()
 submitRefForDelete (coerce -> upcast -> obj) = do
-  cleanerMaybe <- readIORef globalRefCleaner
-  case cleanerMaybe of
-    Nothing -> fail "Cannot delete reference: dedicated thread is not initialized"
-    Just cleaner -> cleanGlobalRef cleaner obj
+  cleaner <- readIORef globalRefCleaner
+  cleanGlobalRef cleaner obj
