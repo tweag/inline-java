@@ -478,13 +478,13 @@ newJVM options = JVM_ <$> do
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
+    readIORef globalRefCleaner >>= stopGlobalRefCleaner
+    writeIORef globalRefCleaner (error "Cannot delete a reference: a dedicated thread is not initialized")
     acquireWriteLock globalJVMLock
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
         jniEnv = NULL;
     } |]
-    readIORef globalRefCleaner >>= stopGlobalRefCleaner
-    writeIORef globalRefCleaner (error "Cannot delete a reference: a dedicated thread is not initialized")
 
 -- | Create a new JVM, with the given arguments. Destroy it once the given
 -- action completes. /Can only be called once/. Best practice: use it to wrap
