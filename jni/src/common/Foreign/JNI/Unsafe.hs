@@ -201,9 +201,9 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Concurrent (forkOS, isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.Async (Async, asyncBound, wait)
+import Control.Concurrent.Async (Async, asyncBound, cancel)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
-import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
+import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO, uninterruptibleMask_)
 import Control.Monad (join, unless, void, when)
 import Control.Monad.Loops (whileM_)
 import Data.Choice
@@ -1088,9 +1088,7 @@ createGlobalRefCleaner = do
   return (GlobalRefCleaner refs wakeup deletingThread)
 
 stopGlobalRefCleaner :: GlobalRefCleaner -> IO ()
-stopGlobalRefCleaner cleaner = do
-  putMVar (nextAction cleaner) Terminate
-  wait (cleanerAsync cleaner)
+stopGlobalRefCleaner = uninterruptibleMask_ . cancel . cleanerAsync
 
 cleanGlobalRef :: GlobalRefCleaner -> JObject -> IO ()
 cleanGlobalRef cleaner obj = do
