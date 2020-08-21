@@ -204,7 +204,7 @@ import Control.Concurrent (forkOS, isCurrentThreadBound, rtsSupportsBoundThreads
 import Control.Concurrent.Async (Async, asyncBound, cancel)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
 import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO, uninterruptibleMask_)
-import Control.Monad (join, unless, void, when)
+import Control.Monad (forever, join, unless, void, when)
 import Control.Monad.Loops (whileM_)
 import Data.Choice
 import Data.Coerce
@@ -1068,10 +1068,9 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
     else
       throwIO DirectBufferFailed
 
-data CleanerAction = DeleteReferences | Terminate deriving Eq
 data GlobalRefCleaner = GlobalRefCleaner
   { nextBatchToDelete :: IORef [JObject]
-  , nextAction :: MVar CleanerAction
+  , wakeup :: MVar ()
   , cleanerAsync :: Async ()
   }
 
@@ -1079,12 +1078,10 @@ createGlobalRefCleaner :: IO GlobalRefCleaner
 createGlobalRefCleaner = do
   wakeup <- newEmptyMVar
   refs <- newIORef []
-  deletingThread <- asyncBound $ runInAttachedThread $ whileM_
-    ((== DeleteReferences) <$> takeMVar wakeup)
-    ( do
-      xs <- atomicModifyIORef refs $ \xs -> ([], xs)
-      mapM deleteGlobalRefNonFinalized xs
-    )
+  deletingThread <- asyncBound $ runInAttachedThread $ forever $ do
+    takeMVar wakeup
+    xs <- atomicModifyIORef refs $ \xs -> ([], xs)
+    mapM deleteGlobalRefNonFinalized xs
   return (GlobalRefCleaner refs wakeup deletingThread)
 
 stopGlobalRefCleaner :: GlobalRefCleaner -> IO ()
@@ -1093,7 +1090,7 @@ stopGlobalRefCleaner = uninterruptibleMask_ . cancel . cleanerAsync
 cleanGlobalRef :: GlobalRefCleaner -> JObject -> IO ()
 cleanGlobalRef cleaner obj = do
   atomicModifyIORef (nextBatchToDelete cleaner) $ \xs -> (obj:xs, ())
-  tryPutMVar (nextAction cleaner) DeleteReferences
+  tryPutMVar (wakeup cleaner) ()
   return ()
 
 globalRefCleaner :: IORef GlobalRefCleaner
