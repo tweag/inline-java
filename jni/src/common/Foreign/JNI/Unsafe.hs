@@ -1081,7 +1081,7 @@ createGlobalRefCleaner = do
   deletingThread <- asyncBound $ runInAttachedThread $ forever $ do
     takeMVar wakeup
     xs <- atomicModifyIORef refs $ \xs -> ([], xs)
-    mapM deleteGlobalRefNonFinalized xs
+    mapM_ deleteGlobalRefNonFinalized xs
   return (GlobalRefCleaner refs wakeup deletingThread)
 
 stopGlobalRefCleaner :: GlobalRefCleaner -> IO ()
