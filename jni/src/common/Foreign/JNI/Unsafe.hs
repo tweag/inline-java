@@ -200,12 +200,11 @@ module Foreign.JNI.Unsafe
   , getDirectBufferCapacity
   ) where
 
-import Control.Concurrent (forkOS, isCurrentThreadBound, rtsSupportsBoundThreads)
+import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
 import Control.Concurrent.Async (Async, asyncBound, cancel)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
 import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO, uninterruptibleMask_)
 import Control.Monad (forever, join, unless, void, when)
-import Control.Monad.Loops (whileM_)
 import Data.Choice
 import Data.Coerce
 import Data.Int
@@ -1090,7 +1089,7 @@ stopGlobalRefCleaner = uninterruptibleMask_ . cancel . cleanerAsync
 cleanGlobalRef :: GlobalRefCleaner -> JObject -> IO ()
 cleanGlobalRef cleaner obj = do
   atomicModifyIORef (nextBatchToDelete cleaner) $ \xs -> (obj:xs, ())
-  tryPutMVar (wakeup cleaner) ()
+  _ <- tryPutMVar (wakeup cleaner) ()
   return ()
 
 globalRefCleaner :: IORef GlobalRefCleaner
