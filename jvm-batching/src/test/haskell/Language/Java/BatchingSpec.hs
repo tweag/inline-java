@@ -10,13 +10,14 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS
+import Foreign.JNI (runInAttachedThread)
 import Language.Java
 import Language.Java.Batching ()
 import Language.Java.Inline
 import Test.Hspec
 
 spec :: Spec
-spec = do
+spec = around_ runInAttachedThread $ do
     let testrr :: (Eq a, Show a, Reify a, Reflect a) => a -> IO ()
         testrr x = (reflect x >>= reify) `shouldReturn` x
     describe "batching" $ do

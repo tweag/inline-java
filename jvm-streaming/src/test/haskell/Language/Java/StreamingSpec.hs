@@ -6,6 +6,7 @@ module Language.Java.StreamingSpec where
 
 import Data.Int
 import Data.IORef
+import Foreign.JNI (runInAttachedThread)
 import Language.Java
 import Language.Java.Inline
 import Language.Java.Streaming
@@ -14,7 +15,7 @@ import Streaming (Stream, Of)
 import qualified Streaming.Prelude as Streaming
 
 spec :: Spec
-spec = do
+spec = around_ runInAttachedThread $ do
     describe "iteration" $ do
       it "succeeds on empty lists" $ do
         vals <- reflect [1..0 :: Int32]
