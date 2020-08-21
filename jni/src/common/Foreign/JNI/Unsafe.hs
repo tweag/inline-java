@@ -740,7 +740,7 @@ deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
 
 -- | Like 'newGlobalRef' but it doesn't attach a finalizer to destroy
 -- the reference when it is not longer reachable. Use
--- 'submitRefForDelete' to destroy this reference.
+-- 'deleteGlobalRefNonFinalized' to destroy this reference.
 newGlobalRefNonFinalized :: Coercible o (J ty) => o -> IO o
 newGlobalRefNonFinalized (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
     gobj <-
