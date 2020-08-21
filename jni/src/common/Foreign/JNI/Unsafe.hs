@@ -734,14 +734,14 @@ newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
         (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
     fixIO $ \j ->
-      coerce <$> J <$> newConcForeignPtr gobj (runInAttachedThread $ deleteGlobalRefNonFinalized j)
+      coerce <$> J <$> newConcForeignPtr gobj (submitRefForDelete $ upcast $ coerce j)
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
 
 -- | Like 'newGlobalRef' but it doesn't attach a finalizer to destroy
 -- the reference when it is not longer reachable. Use
--- 'deleteGlobalRefNonFinalized' to destroy this reference.
+-- 'submitRefForDelete' to destroy this reference.
 newGlobalRefNonFinalized :: Coercible o (J ty) => o -> IO o
 newGlobalRefNonFinalized (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
     gobj <-
