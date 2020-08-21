@@ -106,7 +106,7 @@ benchCalls =
 
 benchRefs :: Benchmark
 benchRefs =
-    env (Box <$> new) $ \ ~(Box (jobj :: JObject)) ->
+    env (Box <$> (new >>= newGlobalRefNonFinalized)) $ \ ~(Box (jobj :: JObject)) ->
     bgroup "References"
     [ bench "local reference" $ nfIO $ do
         _ <- newLocalRef jobj
