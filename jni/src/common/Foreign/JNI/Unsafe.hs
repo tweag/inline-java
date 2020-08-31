@@ -191,6 +191,7 @@ module Foreign.JNI.Unsafe
     -- * Thread management
   , attachCurrentThreadAsDaemon
   , detachCurrentThread
+  , isCurrentThreadAttached
   , runInAttachedThread
   , ThreadNotAttached(..)
     -- * NIO support
@@ -387,14 +388,18 @@ detachCurrentThread =
       return rc;
     } |]
 
+-- | Tells whether the calling thread is attached to the JVM.
+isCurrentThreadAttached :: IO Bool
+isCurrentThreadAttached =
+    catch (getJNIEnv >> return True) (\ThreadNotAttached -> return False)
+
 -- | Attaches the calling thread to the JVM, runs the given IO action and
 -- then detaches the thread.
 --
 -- If the thread is already attached no attaching and detaching is performed.
 runInAttachedThread :: IO a -> IO a
 runInAttachedThread io = do
-    attached <-
-      catch (getJNIEnv >> return True) (\ThreadNotAttached -> return False)
+    attached <- isCurrentThreadAttached
     if attached
     then io
     else bracket_
