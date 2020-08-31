@@ -128,7 +128,7 @@ benchRefs =
       \_ -> bench "delete global reference in non-attached thread" $ nfIO $ runInAttachedThread $
         newGlobalRefNonFinalized jobj >>= deleteGlobalRefNonFinalized
     , bench "pass global references to another thread for deletion" $ nfIO $
-        newGlobalRefNonFinalized jobj >>= submitRefForDelete
+        newGlobalRefNonFinalized jobj >>= submitRefForDeletion
     , bench "Foreign.Concurrent.newForeignPtr" $ nfIO $ do
         _ <- Concurrent.newForeignPtr (unsafeObjectToPtr jobj) (return ())
         return ()

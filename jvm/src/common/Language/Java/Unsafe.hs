@@ -558,7 +558,7 @@ reifyMVector mk finalize jobj0 = do
     n <- getArrayLength jobj
     ptr <- mk jobj
     fptr <- newForeignPtr ptr $ runInAttachedThread $
-      finalize jobj ptr `finally` (submitRefForDelete $ upcast jobj)
+      finalize jobj ptr `finally` submitRefForDeletion (upcast jobj)
     return (MVector.unsafeFromForeignPtr0 fptr (fromIntegral n))
 
 reflectMVector

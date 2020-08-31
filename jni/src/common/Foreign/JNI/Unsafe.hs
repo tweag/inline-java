@@ -72,7 +72,7 @@ module Foreign.JNI.Unsafe
   , deleteLocalRef
   , pushLocalFrame
   , popLocalFrame
-  , submitRefForDelete
+  , submitRefForDeletion
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -733,7 +733,7 @@ newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
         (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
     fixIO $ \j ->
-      coerce <$> J <$> newConcForeignPtr gobj (submitRefForDelete $ upcast $ coerce j)
+      coerce <$> J <$> newConcForeignPtr gobj (submitRefForDeletion $ upcast $ coerce j)
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
@@ -1101,7 +1101,10 @@ uninitializedGlobalRefCleaner = error "Cannot delete a reference: a dedicated th
 
 -- | Submit a global, non-finalized reference for deletion.
 -- Passes the reference to a thread attached to the jvm, which performs the deletion.
-submitRefForDelete :: JObject -> IO ()
-submitRefForDelete obj = do
+--
+-- This is useful in GC finalizers where attaching the finalizer
+-- thread might be too expensive.
+submitRefForDeletion :: JObject -> IO ()
+submitRefForDeletion obj = do
   cleaner <- readIORef globalRefCleaner
   cleanGlobalRef cleaner obj
