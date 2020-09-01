@@ -475,9 +475,15 @@ newJVM options = JVM_ <$> do
 
   where
     checkBoundness :: IO ()
-    checkBoundness = when rtsSupportsBoundThreads $ do
-      bound <- isCurrentThreadBound
-      unless bound (throwIO ThreadNotBound)
+    checkBoundness =
+      if rtsSupportsBoundThreads then do
+        bound <- isCurrentThreadBound
+        unless bound (throwIO ThreadNotBound)
+      else
+        error $ unlines
+          [ "jni won't work with a non-threaded runtime."
+          , "Perhaps link your program with -threaded."
+          ]
 
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
