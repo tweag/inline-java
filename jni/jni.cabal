@@ -42,13 +42,15 @@ library
   other-modules:
     Foreign.JNI.NativeMethod
   build-depends:
+    async >=2.2.2,
     base >=4.14 && <5,
     bytestring >=0.10,
     choice >=0.2.0,
     containers >=0.5,
     constraints >=0.8,
     deepseq >=1.4.2,
-    inline-c >=0.6
+    inline-c >=0.6,
+    monad-loops >=0.4.3
   if flag(linear-types)
     hs-source-dirs: src/linear-types
     build-depends:

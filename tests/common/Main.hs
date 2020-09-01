@@ -1,11 +1,13 @@
 module Main where
 
-import Language.Java (withJVM)
+import Control.Concurrent (runInBoundThread)
+import Foreign.JNI
 import qualified SafeSpec
 import qualified Spec
 import Test.Hspec
 
 main :: IO ()
-main = withJVM [] $ hspec $ do
-    Spec.spec
-    SafeSpec.spec
+main = withJVM [] $ hspec $
+    around_ (runInBoundThread . runInAttachedThread) $ do
+      Spec.spec
+      SafeSpec.spec

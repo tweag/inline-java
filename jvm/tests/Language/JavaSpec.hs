@@ -7,15 +7,16 @@
 
 module Language.JavaSpec where
 
+import Control.Concurrent (runInBoundThread)
 import Data.Int
 import qualified Data.Text as Text
 import Data.Text (Text)
-import Foreign.JNI (getArrayLength)
+import Foreign.JNI (getArrayLength, runInAttachedThread)
 import Language.Java
 import Test.Hspec
 
 spec :: Spec
-spec = do
+spec = around_ (runInBoundThread . runInAttachedThread) $ do
     describe "callStatic" $ do
       it "can call double-returning static functions" $ do
         jstr <- reflect ("1.2345" :: Text)

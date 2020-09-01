@@ -72,6 +72,7 @@ module Foreign.JNI.Unsafe
   , deleteLocalRef
   , pushLocalFrame
   , popLocalFrame
+  , submitRefForDeletion
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -190,6 +191,7 @@ module Foreign.JNI.Unsafe
     -- * Thread management
   , attachCurrentThreadAsDaemon
   , detachCurrentThread
+  , isCurrentThreadAttached
   , runInAttachedThread
   , ThreadNotAttached(..)
     -- * NIO support
@@ -200,13 +202,14 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
-import Control.Monad (join, unless, void, when)
+import Control.Concurrent.Async (Async, asyncBound, cancel)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
+import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO, uninterruptibleMask_)
+import Control.Monad (forever, join, unless, void, when)
 import Data.Choice
 import Data.Coerce
 import Data.Int
-import Data.IORef (IORef, newIORef, atomicModifyIORef)
+import Data.IORef (IORef, atomicModifyIORef, newIORef, readIORef, writeIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -370,6 +373,7 @@ throwIfNotOK_ m = m >>= \case
 
 attachCurrentThreadAsDaemon :: IO ()
 attachCurrentThreadAsDaemon = do
+    checkBoundness
     throwIfNotOK_
       [CU.exp| jint {
         (*$(JavaVM* jvm))->AttachCurrentThreadAsDaemon($(JavaVM* jvm), (void**)&jniEnv, NULL)
@@ -385,14 +389,18 @@ detachCurrentThread =
       return rc;
     } |]
 
+-- | Tells whether the calling thread is attached to the JVM.
+isCurrentThreadAttached :: IO Bool
+isCurrentThreadAttached =
+    catch (getJNIEnv >> return True) (\ThreadNotAttached -> return False)
+
 -- | Attaches the calling thread to the JVM, runs the given IO action and
 -- then detaches the thread.
 --
 -- If the thread is already attached no attaching and detaching is performed.
 runInAttachedThread :: IO a -> IO a
 runInAttachedThread io = do
-    attached <-
-      catch (getJNIEnv >> return True) (\ThreadNotAttached -> return False)
+    attached <- isCurrentThreadAttached
     if attached
     then io
     else bracket_
@@ -449,7 +457,7 @@ newJVM options = JVM_ <$> do
       withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
         let n = fromIntegral (length cstrs) :: C.CInt
         checkBoundness
-        [C.block| JavaVM * {
+        jvm <- [C.block| JavaVM * {
           JavaVM *jvm;
           JavaVMInitArgs vm_args;
           JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
@@ -462,16 +470,26 @@ newJVM options = JVM_ <$> do
           JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
           free(options);
           return jvm; } |]
+        cleaner <- createGlobalRefCleaner
+        writeIORef globalRefCleaner cleaner
+        return jvm
 
-  where
-    checkBoundness :: IO ()
-    checkBoundness = when rtsSupportsBoundThreads $ do
-      bound <- isCurrentThreadBound
-      unless bound (throwIO ThreadNotBound)
+checkBoundness :: IO ()
+checkBoundness =
+  if rtsSupportsBoundThreads then do
+    bound <- isCurrentThreadBound
+    unless bound (throwIO ThreadNotBound)
+  else
+    error $ unlines
+      [ "jni won't work with a non-threaded runtime."
+      , "Perhaps link your program with -threaded."
+      ]
 
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
+    readIORef globalRefCleaner >>= stopGlobalRefCleaner
+    writeIORef globalRefCleaner uninitializedGlobalRefCleaner
     acquireWriteLock globalJVMLock
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
@@ -726,7 +744,7 @@ newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
         (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
     fixIO $ \j ->
-      coerce <$> J <$> newConcForeignPtr gobj (deleteGlobalRefNonFinalized j)
+      coerce <$> J <$> newConcForeignPtr gobj (submitRefForDeletion $ upcast $ coerce j)
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
@@ -1059,3 +1077,45 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
       return capacity
     else
       throwIO DirectBufferFailed
+
+data GlobalRefCleaner = GlobalRefCleaner
+  { nextBatchToDelete :: IORef [JObject]
+  , wakeup :: MVar ()
+  , cleanerAsync :: Async ()
+  }
+
+createGlobalRefCleaner :: IO GlobalRefCleaner
+createGlobalRefCleaner = do
+  wakeup <- newEmptyMVar
+  refs <- newIORef []
+  deletingThread <- asyncBound $ runInAttachedThread $ forever $ do
+    takeMVar wakeup
+    xs <- atomicModifyIORef refs $ \xs -> ([], xs)
+    mapM_ deleteGlobalRefNonFinalized xs
+  return (GlobalRefCleaner refs wakeup deletingThread)
+
+stopGlobalRefCleaner :: GlobalRefCleaner -> IO ()
+stopGlobalRefCleaner = uninterruptibleMask_ . cancel . cleanerAsync
+
+cleanGlobalRef :: GlobalRefCleaner -> JObject -> IO ()
+cleanGlobalRef cleaner obj = do
+  atomicModifyIORef (nextBatchToDelete cleaner) $ \xs -> (obj:xs, ())
+  _ <- tryPutMVar (wakeup cleaner) ()
+  return ()
+
+globalRefCleaner :: IORef GlobalRefCleaner
+{-# NOINLINE globalRefCleaner #-}
+globalRefCleaner = unsafePerformIO $ newIORef uninitializedGlobalRefCleaner
+
+uninitializedGlobalRefCleaner :: GlobalRefCleaner
+uninitializedGlobalRefCleaner = error "Cannot delete a reference: a dedicated thread is not initialized"
+
+-- | Submit a global, non-finalized reference for deletion.
+-- Passes the reference to a thread attached to the jvm, which performs the deletion.
+--
+-- This is useful in GC finalizers where attaching the finalizer
+-- thread might be too expensive.
+submitRefForDeletion :: JObject -> IO ()
+submitRefForDeletion obj = do
+  cleaner <- readIORef globalRefCleaner
+  cleanGlobalRef cleaner obj

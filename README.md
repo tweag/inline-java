@@ -114,6 +114,44 @@ The generated java output can be dumped to stderr by passing to GHC
 If `-ddump-to-file` is in effect (as when using `stack`), the java code
 is dumped to `<module>.dump-java` instead.
 
+## Troubleshooting
+
+* The program fails at runtime with error `ThreadNotAttached`. Haskell
+  threads need to be attached to the JVM before making JNI calls.
+  `Foreign.JNI.withJVM` attaches the calling thread, and other threads
+  can be attached with Foreign.JNI.runInAttachedThread. When the JVM
+  calls into Haskell, the thread is already attached.
+
+* The program fails at runtime with error `ThreadNotBound`. JNI calls
+  need to be done from bound threads. The thread invoking the `main`
+  function of a program is bound. Threads created with `forkOS` are
+  bound and `Control.Concurrent.runInBoundThread` can be used to run
+  a computation in a bound thread as well.
+
+* The program fails at runtime with error `java.lang.NoClassDefFoundError`.
+  Classes might not be found at runtime if they are not in a folder or jar
+  listed in the `CLASSPATH` environment variable, or in the parameter
+  `-Djava.class.path=<classpath>` passed to `withJVM`. Additionally,
+  classes might not be found if a thread other than the one calling
+  `main` is used to do JNI calls. One can load classes in the thread
+  calling `main` before making calls in other threads, or set the context
+  class loader of other threads:
+
+  ```Haskell
+  loader <- [java| Thread.currentThread().getContextClassLoader() |]
+  ...
+  forkOS $ runInAttachedThread $ do
+    [java| Thread.currentThread().setContextClassLoader($loader) |]
+    ...
+  ```
+
+* The program fails at runtime with error `JVMException`.
+  Any java exception that goes from Java to Haskell will be represented
+  with a reference to the Java exception object. The message and the
+  stacktrace of the exception is printed to stderr when it is rethrown
+  on the Haskell side, but they can be retrieved from the exception object
+  with more JNI calls as well.
+
 ## License
 
 Copyright (c) 2015-2016 EURL Tweag.
