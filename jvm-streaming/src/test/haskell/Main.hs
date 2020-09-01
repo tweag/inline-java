@@ -4,6 +4,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main where
 
+import Control.Concurrent (runInBoundThread)
 import Data.List (intersperse)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text

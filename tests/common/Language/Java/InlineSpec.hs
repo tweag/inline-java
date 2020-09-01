@@ -10,7 +10,7 @@
 module Language.Java.InlineSpec(spec) where
 
 import Data.Int
-import Foreign.JNI (JVMException, runInAttachedThread)
+import Foreign.JNI (JVMException)
 import Language.Java
 import Language.Java.Inline
 import Test.Hspec
@@ -24,7 +24,7 @@ type List a = J (ListClass <> '[a])
 imports "java.util.*"
 
 spec :: Spec
-spec = around_ runInAttachedThread $ do
+spec = do
     describe "Java quasiquoter" $ do
       it "Can return ()" $ do
         [java| { } |] :: IO ()

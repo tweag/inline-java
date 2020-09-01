@@ -5,6 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main where
 
+import Control.Concurrent (runInBoundThread)
 import Foreign.JNI
 import Language.Java.Inline (loadJavaWrappers)
 import qualified Spec

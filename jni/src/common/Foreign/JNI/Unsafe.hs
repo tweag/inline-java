@@ -373,6 +373,7 @@ throwIfNotOK_ m = m >>= \case
 
 attachCurrentThreadAsDaemon :: IO ()
 attachCurrentThreadAsDaemon = do
+    checkBoundness
     throwIfNotOK_
       [CU.exp| jint {
         (*$(JavaVM* jvm))->AttachCurrentThreadAsDaemon($(JavaVM* jvm), (void**)&jniEnv, NULL)
@@ -473,17 +474,16 @@ newJVM options = JVM_ <$> do
         writeIORef globalRefCleaner cleaner
         return jvm
 
-  where
-    checkBoundness :: IO ()
-    checkBoundness =
-      if rtsSupportsBoundThreads then do
-        bound <- isCurrentThreadBound
-        unless bound (throwIO ThreadNotBound)
-      else
-        error $ unlines
-          [ "jni won't work with a non-threaded runtime."
-          , "Perhaps link your program with -threaded."
-          ]
+checkBoundness :: IO ()
+checkBoundness =
+  if rtsSupportsBoundThreads then do
+    bound <- isCurrentThreadBound
+    unless bound (throwIO ThreadNotBound)
+  else
+    error $ unlines
+      [ "jni won't work with a non-threaded runtime."
+      , "Perhaps link your program with -threaded."
+      ]
 
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
