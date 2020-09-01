@@ -8,6 +8,7 @@ haskell_library(
     srcs = glob(['src/common/**/*.hs', 'src/common/**/*.hsc']),
     deps = [
         "@openjdk//:lib",
+        "@stackage//:async",
         "@stackage//:base",
         "@stackage//:bytestring",
         "@stackage//:choice",

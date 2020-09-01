@@ -74,6 +74,7 @@ stack_snapshot(
     name = "stackage",
     packages = [
         "Cabal",
+        "async",
         "base",
         "bytestring",
         "choice",
