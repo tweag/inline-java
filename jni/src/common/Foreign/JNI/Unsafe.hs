@@ -24,15 +24,12 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
@@ -213,7 +210,6 @@ import Data.Choice
 import Data.Coerce
 import Data.Int
 import Data.IORef (IORef, atomicModifyIORef, newIORef, readIORef, writeIORef)
-import Data.Singletons (SomeSing(..), sing)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -381,7 +377,6 @@ attachCurrentThreadAsDaemon = do
       [CU.exp| jint {
         (*$(JavaVM* jvm))->AttachCurrentThreadAsDaemon($(JavaVM* jvm), (void**)&jniEnv, NULL)
       } |]
-    readIORef mainThreadClassLoader >>= setCurrentThreadClassLoader
 
 detachCurrentThread :: IO ()
 detachCurrentThread =
@@ -476,8 +471,6 @@ newJVM options = JVM_ <$> do
           return jvm; } |]
         cleaner <- createGlobalRefCleaner
         writeIORef globalRefCleaner cleaner
-        loader <- getCurrentThreadClassLoader
-        writeIORef mainThreadClassLoader loader
         return jvm
 
   where
@@ -1120,48 +1113,3 @@ submitRefForDeletion :: JObject -> IO ()
 submitRefForDeletion obj = do
   cleaner <- readIORef globalRefCleaner
   cleanGlobalRef cleaner obj
-
-mainThreadClassLoader :: IORef JObject
-{-# NOINLINE mainThreadClassLoader #-}
-mainThreadClassLoader = unsafePerformIO $ newIORef $ error "main thread ClassLoader is not initialized"
-
-getThreadClass :: IO JClass
-getThreadClass = do
-  localThreadClass <- findClass (referenceTypeName (sing @('Class "java.lang.Thread")))
-  threadClass <- newGlobalRef localThreadClass
-  deleteLocalRef localThreadClass
-  return threadClass
-
-getCurrentThread :: IO JObject
-getCurrentThread = do
-  threadClass <- getThreadClass
-  currentThreadMethodID <- getStaticMethodID threadClass "currentThread" $
-                  methodSignature [] (sing @('Class "java.lang.Thread"))
-  localThr <- callStaticObjectMethod threadClass currentThreadMethodID []
-  thr <- newGlobalRef localThr
-  deleteLocalRef localThr
-  return thr
-
-getCurrentThreadClassLoader :: IO JObject
-getCurrentThreadClassLoader = do
-  threadClass <- getThreadClass
-  thr <- getCurrentThread
-  getContextClassLoaderMethodID <- getMethodID threadClass "getContextClassLoader" $
-                  methodSignature
-                    []
-                    (sing @('Class "java.lang.ClassLoader"))
-  localLoader <- callObjectMethod thr getContextClassLoaderMethodID []
-  loader <- newGlobalRef localLoader
-  deleteLocalRef localLoader
-  return loader
-
-setCurrentThreadClassLoader :: JObject -> IO ()
-setCurrentThreadClassLoader loader = do
-  threadClass <- getThreadClass
-  thr <- getCurrentThread
-  setContextClassLoaderMethodID <- getMethodID threadClass "setContextClassLoader" $
-                  methodSignature
-                    [ SomeSing (sing @('Class "java.lang.ClassLoader"))
-                    ]
-                    (sing @('Void))
-  callVoidMethod thr setContextClassLoaderMethodID [JObject loader]
