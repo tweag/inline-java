@@ -7,8 +7,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Next
 
 ### Added
+
 ### Removed
+
 ### Changed
+
+* Have finalizers of global references run in an attached thread (#150).
+  Now programs using jni must link with the threaded runtime.
 
 ## [0.7.0] - 2020-07-16
 
