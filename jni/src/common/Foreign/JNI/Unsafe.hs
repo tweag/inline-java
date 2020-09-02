@@ -455,25 +455,30 @@ useAsCStrings strs m =
 -- practice: use 'withJVM' instead. Only useful for GHCi.
 newJVM :: [ByteString] -> IO JVM
 newJVM options = JVM_ <$> do
-    useAsCStrings options $ \cstrs -> do
-      withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
-        let n = fromIntegral (length cstrs) :: C.CInt
-        checkBoundness
-        jvm <- [C.block| JavaVM * {
-          JavaVM *jvm;
-          JavaVMInitArgs vm_args;
-          JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
-          for(int i = 0; i < $(int n); i++)
-                  options[i].optionString = $(char **coptions)[i];
-          vm_args.version = JNI_VERSION_1_6;
-          vm_args.nOptions = $(int n);
-          vm_args.options = options;
-          vm_args.ignoreUnrecognized = 0;
-          JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
-          free(options);
-          return jvm; } |]
-        createBackgroundWorker >>= writeIORef finalizerThread
-        return jvm
+    checkBoundness
+    startJVM options <* startFinalizerThread
+  where
+    startFinalizerThread =
+      createBackgroundWorker runInAttachedThread >>= writeIORef finalizerThread
+
+    startJVM options =
+      useAsCStrings options $ \cstrs -> do
+        withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
+          let n = fromIntegral (length cstrs) :: C.CInt
+
+          [C.block| JavaVM * {
+            JavaVM *jvm;
+            JavaVMInitArgs vm_args;
+            JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
+            for(int i = 0; i < $(int n); i++)
+                options[i].optionString = $(char **coptions)[i];
+            vm_args.version = JNI_VERSION_1_6;
+            vm_args.nOptions = $(int n);
+            vm_args.options = options;
+            vm_args.ignoreUnrecognized = 0;
+            JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
+            free(options);
+            return jvm; } |]
 
 checkBoundness :: IO ()
 checkBoundness =
@@ -1090,11 +1095,15 @@ data BackgroundWorker = BackgroundWorker
   }
 
 -- | Creates a background worker that starts running immediately.
-createBackgroundWorker :: IO BackgroundWorker
-createBackgroundWorker = do
+--
+-- Takes a function that can initialize the thread before entering
+-- the main loop.
+--
+createBackgroundWorker :: (IO () -> IO ()) -> IO BackgroundWorker
+createBackgroundWorker runInInitializedThread = do
   wakeup <- newEmptyMVar
   nextBatch <- newIORef (return ())
-  workerAsync <- asyncBound $ runInAttachedThread $ forever $ do
+  workerAsync <- asyncBound $ runInInitializedThread $ forever $ do
     takeMVar wakeup
     join $ atomicModifyIORef nextBatch $ \tasks -> (return (), tasks)
   return BackgroundWorker
