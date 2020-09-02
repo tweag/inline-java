@@ -233,7 +233,8 @@ import GHC.ForeignPtr (newConcForeignPtr)
 import GHC.Stack (HasCallStack, callStack, getCallStack, prettySrcLoc)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
-import System.IO (fixIO, hPutStrLn, stderr)
+import qualified System.Exit
+import System.IO (fixIO)
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (String)
 import qualified Prelude
@@ -417,12 +418,11 @@ newJVM options = JVM_ <$> do
   where
     startFinalizerThread =
       BackgroundWorker.create
-          (reportErrors . runInBoundThread . runInAttachedThread)
+          (exitOnError . runInBoundThread . runInAttachedThread)
       >>= writeIORef finalizerThread
 
-    reportErrors = handle $ \(e :: SomeException) -> do
-      hPutStrLn stderr ("Haskell jni package: error in finalizer thread: " ++ show e)
-      throwIO e
+    exitOnError = handle $ \(e :: SomeException) -> do
+      System.Exit.die $ "Haskell jni package: error in finalizer thread: " ++ show e
 
     startJVM options =
       useAsCStrings options $ \cstrs -> do
