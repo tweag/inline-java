@@ -25,6 +25,7 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -72,7 +73,7 @@ module Foreign.JNI.Unsafe
   , deleteLocalRef
   , pushLocalFrame
   , popLocalFrame
-  , submitRefForDeletion
+  , submitToFinalizerThread
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -202,9 +203,10 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.Async (Async, asyncBound, cancel)
+import Control.Concurrent.Async (Async, asyncBound, waitCatch)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
-import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO, uninterruptibleMask_)
+import Control.Exception
+  (Exception, bracket, bracket_, catch, evaluate, finally, throwIO, uninterruptibleMask_)
 import Control.Monad (forever, join, unless, void, when)
 import Data.Choice
 import Data.Coerce
@@ -470,8 +472,7 @@ newJVM options = JVM_ <$> do
           JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
           free(options);
           return jvm; } |]
-        cleaner <- createGlobalRefCleaner
-        writeIORef globalRefCleaner cleaner
+        createBackgroundWorker >>= writeIORef finalizerThread
         return jvm
 
 checkBoundness :: IO ()
@@ -488,8 +489,8 @@ checkBoundness =
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
-    readIORef globalRefCleaner >>= stopGlobalRefCleaner
-    writeIORef globalRefCleaner uninitializedGlobalRefCleaner
+    readIORef finalizerThread >>= stopBackgroundWorker
+    writeIORef finalizerThread uninitializedFinalizerThread
     acquireWriteLock globalJVMLock
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
@@ -744,7 +745,9 @@ newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
         (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
     fixIO $ \j ->
-      coerce <$> J <$> newConcForeignPtr gobj (submitRefForDeletion $ upcast $ coerce j)
+      coerce <$> J <$>
+        newConcForeignPtr gobj
+          (submitToFinalizerThread $ deleteGlobalRefNonFinalized j)
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
@@ -1078,44 +1081,63 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
     else
       throwIO DirectBufferFailed
 
-data GlobalRefCleaner = GlobalRefCleaner
-  { nextBatchToDelete :: IORef [JObject]
+-- | A background thread that we can use to run JNI calls asynchronously
+-- (like deleting global references from finalizers)
+data BackgroundWorker = BackgroundWorker
+  { nextBatch :: IORef (IO ())
   , wakeup :: MVar ()
-  , cleanerAsync :: Async ()
+  , workerAsync :: Async ()
   }
 
-createGlobalRefCleaner :: IO GlobalRefCleaner
-createGlobalRefCleaner = do
+-- | Creates a background worker that starts running immediately.
+createBackgroundWorker :: IO BackgroundWorker
+createBackgroundWorker = do
   wakeup <- newEmptyMVar
-  refs <- newIORef []
-  deletingThread <- asyncBound $ runInAttachedThread $ forever $ do
+  nextBatch <- newIORef (return ())
+  workerAsync <- asyncBound $ runInAttachedThread $ forever $ do
     takeMVar wakeup
-    xs <- atomicModifyIORef refs $ \xs -> ([], xs)
-    mapM_ deleteGlobalRefNonFinalized xs
-  return (GlobalRefCleaner refs wakeup deletingThread)
+    join $ atomicModifyIORef nextBatch $ \tasks -> (return (), tasks)
+  return BackgroundWorker
+    { nextBatch
+    , wakeup
+    , workerAsync
+    }
 
-stopGlobalRefCleaner :: GlobalRefCleaner -> IO ()
-stopGlobalRefCleaner = uninterruptibleMask_ . cancel . cleanerAsync
+-- | Stops the background worker and waits until it terminates.
+stopBackgroundWorker :: BackgroundWorker -> IO ()
+stopBackgroundWorker worker =
+  uninterruptibleMask_ $ do
+    submitTask worker $ evaluate $ error "Terminating background thread"
+    void $ waitCatch (workerAsync worker)
 
-cleanGlobalRef :: GlobalRefCleaner -> JObject -> IO ()
-cleanGlobalRef cleaner obj = do
-  atomicModifyIORef (nextBatchToDelete cleaner) $ \xs -> (obj:xs, ())
-  _ <- tryPutMVar (wakeup cleaner) ()
+-- | Submits a task to the background worker.
+--
+-- Any exception thrown in the given task will stop the
+-- background thread.
+--
+submitTask :: BackgroundWorker -> IO () -> IO ()
+submitTask worker task = do
+  atomicModifyIORef (nextBatch worker) $ \tasks -> (task >> tasks, ())
+  _ <- tryPutMVar (wakeup worker) ()
   return ()
 
-globalRefCleaner :: IORef GlobalRefCleaner
-{-# NOINLINE globalRefCleaner #-}
-globalRefCleaner = unsafePerformIO $ newIORef uninitializedGlobalRefCleaner
+-- | A background thread for cleaning global references
+finalizerThread :: IORef BackgroundWorker
+{-# NOINLINE finalizerThread #-}
+finalizerThread = unsafePerformIO $ newIORef uninitializedFinalizerThread
 
-uninitializedGlobalRefCleaner :: GlobalRefCleaner
-uninitializedGlobalRefCleaner = error "Cannot delete a reference: a dedicated thread is not initialized"
+uninitializedFinalizerThread :: BackgroundWorker
+uninitializedFinalizerThread =
+  error "Cannot delete a reference: a dedicated thread is not initialized"
 
--- | Submit a global, non-finalized reference for deletion.
--- Passes the reference to a thread attached to the jvm, which performs the deletion.
+-- | Runs a task in a long-living background thread attached to the
+-- JVM. The thread is dedicated to release unused references to java
+-- objects.
 --
--- This is useful in GC finalizers where attaching the finalizer
--- thread might be too expensive.
-submitRefForDeletion :: JObject -> IO ()
-submitRefForDeletion obj = do
-  cleaner <- readIORef globalRefCleaner
-  cleanGlobalRef cleaner obj
+-- Useful to be called from GC finalizers, where attaching to the JVM would
+-- be too expensive.
+--
+submitToFinalizerThread :: IO () -> IO ()
+submitToFinalizerThread action = do
+  worker <- readIORef finalizerThread
+  submitTask worker action
