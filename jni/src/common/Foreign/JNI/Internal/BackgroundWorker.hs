@@ -6,15 +6,14 @@ module Foreign.JNI.Internal.BackgroundWorker
   , submitTask
   ) where
 
-import Control.Concurrent.Async (Async, asyncBound, waitCatch)
+import Control.Concurrent.Async (Async, async, waitCatch)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, takeMVar, tryPutMVar)
-import Control.Exception (evaluate, uninterruptibleMask_)
+import Control.Exception (Exception, handle, throwIO, uninterruptibleMask_)
 import Control.Monad (forever, join, void)
 import Data.IORef (IORef, atomicModifyIORef, newIORef)
 
 
--- | A background thread that we can use to run JNI calls asynchronously
--- (like deleting global references from finalizers)
+-- | A background thread that can run tasks asynchronously
 data BackgroundWorker = BackgroundWorker
   { nextBatch :: IORef (IO ())
   , wakeup :: MVar ()
@@ -28,22 +27,30 @@ data BackgroundWorker = BackgroundWorker
 --
 create :: (IO () -> IO ()) -> IO BackgroundWorker
 create runInInitializedThread = do
-  wakeup <- newEmptyMVar
-  nextBatch <- newIORef (return ())
-  workerAsync <- asyncBound $ runInInitializedThread $ forever $ do
-    takeMVar wakeup
-    join $ atomicModifyIORef nextBatch $ \tasks -> (return (), tasks)
-  return BackgroundWorker
-    { nextBatch
-    , wakeup
-    , workerAsync
-    }
+    wakeup <- newEmptyMVar
+    nextBatch <- newIORef (return ())
+    workerAsync <- async $ runInInitializedThread $ handleTermination $
+      forever $ do
+        takeMVar wakeup
+        join $ atomicModifyIORef nextBatch $ \tasks -> (return (), tasks)
+    return BackgroundWorker
+      { nextBatch
+      , wakeup
+      , workerAsync
+      }
+  where
+    handleTermination = handle $ \StopWorkerException -> return ()
+
+data StopWorkerException = StopWorkerException
+  deriving Show
+
+instance Exception StopWorkerException
 
 -- | Stops the background worker and waits until it terminates.
 stop :: BackgroundWorker -> IO ()
 stop worker =
   uninterruptibleMask_ $ do
-    submitTask worker $ evaluate $ error "Terminating background thread"
+    submitTask worker $ throwIO StopWorkerException
     void $ waitCatch (workerAsync worker)
 
 -- | Submits a task to the background worker.

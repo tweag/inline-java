@@ -199,8 +199,10 @@ module Foreign.JNI.Unsafe
   , getDirectBufferCapacity
   ) where
 
-import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
+import Control.Concurrent
+  (isCurrentThreadBound, rtsSupportsBoundThreads, runInBoundThread)
+import Control.Exception
+  (Exception, SomeException, bracket, bracket_, catch, finally, handle, throwIO)
 import Control.Monad (unless, void, when)
 import Data.Choice
 import Data.Coerce
@@ -231,7 +233,7 @@ import GHC.ForeignPtr (newConcForeignPtr)
 import GHC.Stack (HasCallStack, callStack, getCallStack, prettySrcLoc)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
-import System.IO (fixIO)
+import System.IO (fixIO, hPutStrLn, stderr)
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (String)
 import qualified Prelude
@@ -414,7 +416,13 @@ newJVM options = JVM_ <$> do
     startJVM options <* startFinalizerThread
   where
     startFinalizerThread =
-      BackgroundWorker.create runInAttachedThread >>= writeIORef finalizerThread
+      BackgroundWorker.create
+          (reportErrors . runInBoundThread . runInAttachedThread)
+      >>= writeIORef finalizerThread
+
+    reportErrors = handle $ \(e :: SomeException) -> do
+      hPutStrLn stderr ("Haskell jni package: error in finalizer thread: " ++ show e)
+      throwIO e
 
     startJVM options =
       useAsCStrings options $ \cstrs -> do
