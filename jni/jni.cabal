@@ -38,6 +38,7 @@ library
     Foreign.JNI.Types
     Foreign.JNI.String
     Foreign.JNI.Internal
+    Foreign.JNI.Internal.BackgroundWorker
     Foreign.JNI.Unsafe
   other-modules:
     Foreign.JNI.NativeMethod

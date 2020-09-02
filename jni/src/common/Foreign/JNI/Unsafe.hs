@@ -25,7 +25,6 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -203,11 +202,9 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.Async (Async, asyncBound, waitCatch)
-import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
-import Control.Exception
-  (Exception, bracket, bracket_, catch, evaluate, finally, throwIO, uninterruptibleMask_)
-import Control.Monad (forever, join, unless, void, when)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
+import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
+import Control.Monad (join, unless, void, when)
 import Data.Choice
 import Data.Coerce
 import Data.Int
@@ -222,6 +219,8 @@ import Foreign.ForeignPtr
   , withForeignPtr
   )
 import Foreign.JNI.Internal
+import Foreign.JNI.Internal.BackgroundWorker (BackgroundWorker)
+import qualified Foreign.JNI.Internal.BackgroundWorker as BackgroundWorker
 import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
@@ -459,7 +458,7 @@ newJVM options = JVM_ <$> do
     startJVM options <* startFinalizerThread
   where
     startFinalizerThread =
-      createBackgroundWorker runInAttachedThread >>= writeIORef finalizerThread
+      BackgroundWorker.create runInAttachedThread >>= writeIORef finalizerThread
 
     startJVM options =
       useAsCStrings options $ \cstrs -> do
@@ -494,7 +493,7 @@ checkBoundness =
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
-    readIORef finalizerThread >>= stopBackgroundWorker
+    readIORef finalizerThread >>= BackgroundWorker.stop
     writeIORef finalizerThread uninitializedFinalizerThread
     acquireWriteLock globalJVMLock
     [C.block| void {
@@ -1086,50 +1085,6 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
     else
       throwIO DirectBufferFailed
 
--- | A background thread that we can use to run JNI calls asynchronously
--- (like deleting global references from finalizers)
-data BackgroundWorker = BackgroundWorker
-  { nextBatch :: IORef (IO ())
-  , wakeup :: MVar ()
-  , workerAsync :: Async ()
-  }
-
--- | Creates a background worker that starts running immediately.
---
--- Takes a function that can initialize the thread before entering
--- the main loop.
---
-createBackgroundWorker :: (IO () -> IO ()) -> IO BackgroundWorker
-createBackgroundWorker runInInitializedThread = do
-  wakeup <- newEmptyMVar
-  nextBatch <- newIORef (return ())
-  workerAsync <- asyncBound $ runInInitializedThread $ forever $ do
-    takeMVar wakeup
-    join $ atomicModifyIORef nextBatch $ \tasks -> (return (), tasks)
-  return BackgroundWorker
-    { nextBatch
-    , wakeup
-    , workerAsync
-    }
-
--- | Stops the background worker and waits until it terminates.
-stopBackgroundWorker :: BackgroundWorker -> IO ()
-stopBackgroundWorker worker =
-  uninterruptibleMask_ $ do
-    submitTask worker $ evaluate $ error "Terminating background thread"
-    void $ waitCatch (workerAsync worker)
-
--- | Submits a task to the background worker.
---
--- Any exception thrown in the given task will stop the
--- background thread.
---
-submitTask :: BackgroundWorker -> IO () -> IO ()
-submitTask worker task = do
-  atomicModifyIORef (nextBatch worker) $ \tasks -> (task >> tasks, ())
-  _ <- tryPutMVar (wakeup worker) ()
-  return ()
-
 -- | A background thread for cleaning global references
 finalizerThread :: IORef BackgroundWorker
 {-# NOINLINE finalizerThread #-}
@@ -1149,4 +1104,4 @@ uninitializedFinalizerThread =
 submitToFinalizerThread :: IO () -> IO ()
 submitToFinalizerThread action = do
   worker <- readIORef finalizerThread
-  submitTask worker action
+  BackgroundWorker.submitTask worker action
