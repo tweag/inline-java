@@ -18,14 +18,12 @@
 -- leaked.
 --
 
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -202,13 +200,12 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO)
-import Control.Monad (join, unless, void, when)
+import Control.Monad (unless, void, when)
 import Data.Choice
 import Data.Coerce
 import Data.Int
-import Data.IORef (IORef, atomicModifyIORef, newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -220,6 +217,8 @@ import Foreign.ForeignPtr
   )
 import Foreign.JNI.Internal
 import Foreign.JNI.Internal.BackgroundWorker (BackgroundWorker)
+import Foreign.JNI.Internal.RWLock (RWLock)
+import qualified Foreign.JNI.Internal.RWLock as RWLock
 import qualified Foreign.JNI.Internal.BackgroundWorker as BackgroundWorker
 import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
@@ -309,49 +308,6 @@ throwIfJNull j io =
     then throwIO NullPointerException
     else io
 
--- | A read-write lock
---
--- Concurrent readers are allowed, but only one writer is supported.
-newtype RWLock =
-    RWLock (IORef (Int, RWWantedState))
-    -- ^ A count of the held read locks and the wanted state
-
--- | The wanted state of the RW
-data RWWantedState
-    = Reading            -- ^ There are no writers
-    | Writing (MVar ())
-       -- ^ A writer wants to write, grant no more read locks. The MVar is used
-       -- to notify the writer when the currently held read locks are released.
-
--- | Creates a new read-write lock.
-newRWLock :: IO RWLock
-newRWLock = RWLock <$> newIORef (0, Reading)
-
--- | Tries to acquire a read lock. If this call returns `Do #read`, no writer
--- will be granted a lock before the read lock is released.
-tryAcquireReadLock :: RWLock -> IO (Choice "read")
-tryAcquireReadLock (RWLock ref) = do
-    atomicModifyIORef ref $ \case
-      (!readers,  Reading) -> ((readers + 1, Reading),    Do #read)
-      st                   -> (                       st, Don't #read)
-
--- | Releases a read lock.
-releaseReadLock :: RWLock -> IO ()
-releaseReadLock (RWLock ref) = do
-    st <- atomicModifyIORef ref $
-            \st@(readers, aim) -> ((readers - 1, aim), st)
-    case st of
-      -- Notify the writer if I'm the last reader.
-      (1, Writing mv) -> putMVar mv ()
-      _               -> return ()
-
--- | Waits until the current read locks are released and grants a write lock.
-acquireWriteLock :: RWLock -> IO ()
-acquireWriteLock (RWLock ref) = do
-    mv <- newEmptyMVar
-    join $ atomicModifyIORef ref $ \(readers, _) ->
-      ((readers, Writing mv), when (readers > 0) (takeMVar mv))
-
 -- | This lock is used to avoid the JVM from dying before any finalizers
 -- deleting global references are finished.
 --
@@ -360,7 +316,7 @@ acquireWriteLock (RWLock ref) = do
 -- The JVM acquires a write lock before shutdown. Thence, finalizers fail to
 -- acquire read locks and behave as noops.
 globalJVMLock :: RWLock
-globalJVMLock = unsafePerformIO newRWLock
+globalJVMLock = unsafePerformIO RWLock.new
 {-# NOINLINE globalJVMLock #-}
 
 throwIfNotOK_ :: HasCallStack => IO Int32 -> IO ()
@@ -495,7 +451,7 @@ destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
     readIORef finalizerThread >>= BackgroundWorker.stop
     writeIORef finalizerThread uninitializedFinalizerThread
-    acquireWriteLock globalJVMLock
+    RWLock.acquireWriteLock globalJVMLock
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
         jniEnv = NULL;
@@ -771,8 +727,8 @@ newGlobalRefNonFinalized (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
 -- 'newGlobalRefNonFinalized'.
 deleteGlobalRefNonFinalized :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRefNonFinalized (coerce -> upcast -> obj) = do
-    bracket (tryAcquireReadLock globalJVMLock)
-            (\doRead -> when (toBool doRead) $ releaseReadLock globalJVMLock)
+    bracket (RWLock.tryAcquireReadLock globalJVMLock)
+            (\doRead -> when (toBool doRead) $ RWLock.releaseReadLock globalJVMLock)
             $ \doRead ->
       when (toBool doRead) $ withJNIEnv $ \env -> do
         [CU.block| void { (*$(JNIEnv *env))->DeleteGlobalRef($(JNIEnv *env)
