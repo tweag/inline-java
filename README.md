@@ -116,41 +116,60 @@ is dumped to `<module>.dump-java` instead.
 
 ## Troubleshooting
 
-* The program fails at runtime with error `ThreadNotAttached`. Haskell
-  threads need to be attached to the JVM before making JNI calls.
-  `Foreign.JNI.withJVM` attaches the calling thread, and other threads
-  can be attached with Foreign.JNI.runInAttachedThread. When the JVM
-  calls into Haskell, the thread is already attached.
+### Run-time error `ThreadNotAttached`
 
-* The program fails at runtime with error `ThreadNotBound`. JNI calls
-  need to be done from bound threads. The thread invoking the `main`
-  function of a program is bound. Threads created with `forkOS` are
-  bound and `Control.Concurrent.runInBoundThread` can be used to run
-  a computation in a bound thread as well.
+Haskell threads need to be attached to the JVM before making JNI calls.
+`Foreign.JNI.withJVM` attaches the calling thread, and other threads
+can be attached with `Foreign.JNI.runInAttachedThread`. When the JVM
+calls into Haskell, the thread is already attached.
 
-* The program fails at runtime with error `java.lang.NoClassDefFoundError`.
-  Classes might not be found at runtime if they are not in a folder or jar
-  listed in the `CLASSPATH` environment variable, or in the parameter
-  `-Djava.class.path=<classpath>` passed to `withJVM`. Additionally,
-  classes might not be found if a thread other than the one calling
-  `main` is used to do JNI calls. One can load classes in the thread
-  calling `main` before making calls in other threads, or set the context
-  class loader of other threads:
+### Run-time error `ThreadNotBound`
 
-  ```Haskell
-  loader <- [java| Thread.currentThread().getContextClassLoader() |]
+JNI calls need to be done from bound threads. The thread invoking the
+`main` function of a program is bound. Threads created with `forkOS`
+are bound. In other threads, `Control.Concurrent.runInBoundThread`
+can be used to run a computation in a bound thread.
+
+### Run-time error `java.lang.NoClassDefFoundError`
+
+Classes might not be found at runtime if they are not in a folder or
+jar listed in the parameter `-Djava.class.path=<classpath>` passed
+to `withJVM`.
+
+```Haskell
+withJVM ["-Djava.class.path=/path/to/my.jar:/some/other/path"] $ do
   ...
-  forkOS $ runInAttachedThread $ do
-    [java| Thread.currentThread().setContextClassLoader($loader) |]
-    ...
-  ```
+```
 
-* The program fails at runtime with error `JVMException`.
-  Any java exception that goes from Java to Haskell will be represented
-  with a reference to the Java exception object. The message and the
-  stacktrace of the exception is printed to stderr when it is rethrown
-  on the Haskell side, but they can be retrieved from the exception object
-  with more JNI calls as well.
+Additionally, classes might not be found if a thread other than the one
+calling `main` is trying to use them. One solution is to have the thread
+calling `main` load all the classes in advance. Then the classes will
+be available in the JVM for other threads that need them.
+Calling `Language.Java.Inline.loadJavaWrappers` will have the effect of
+loading all classes needed for `java` quotations, which will suffice in
+many cases.
+
+Another option is to set the context class loader of other threads,
+so they earn the ability to load classes on their own. This might
+work when the thread was attached to the JVM via the JNI, and
+the context class loader is just `null`.
+
+```Haskell
+loader <- [java| Thread.currentThread().getContextClassLoader() |]
+...
+forkOS $ runInAttachedThread $ do
+  [java| Thread.currentThread().setContextClassLoader($loader) |]
+  ...
+```
+
+### Run-time error `JVMException`
+
+Any java exception that goes from Java to Haskell will be wrapped
+as a value of type `JVMException` with a reference to the Java object
+representing the exception. The message and the stack trace of the
+exception are printed to stderr when the exception is rethrown on
+the Haskell side, but they can be retrieved from the exception
+object with more JNI calls as well.
 
 ## License
 
