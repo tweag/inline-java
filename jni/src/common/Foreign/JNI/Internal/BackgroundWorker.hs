@@ -50,8 +50,13 @@ instance Exception StopWorkerException
 stop :: BackgroundWorker -> IO ()
 stop worker =
   uninterruptibleMask_ $ do
-    submitTask worker $ throwIO StopWorkerException
+    submitStopAtEndOfBatch
     void $ waitCatch (workerAsync worker)
+  where
+    submitStopAtEndOfBatch = do
+      let task = throwIO StopWorkerException
+      atomicModifyIORef (nextBatch worker) $ \tasks -> (tasks >> task, ())
+      void $ tryPutMVar (wakeup worker) ()
 
 -- | Submits a task to the background worker.
 --
