@@ -18,14 +18,12 @@
 -- leaked.
 --
 
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -72,7 +70,7 @@ module Foreign.JNI.Unsafe
   , deleteLocalRef
   , pushLocalFrame
   , popLocalFrame
-  , submitRefForDeletion
+  , submitToFinalizerThread
     -- ** Field accessor functions
     -- *** Get fields
   , getObjectField
@@ -201,15 +199,15 @@ module Foreign.JNI.Unsafe
   , getDirectBufferCapacity
   ) where
 
-import Control.Concurrent (isCurrentThreadBound, rtsSupportsBoundThreads)
-import Control.Concurrent.Async (Async, asyncBound, cancel)
-import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar, tryPutMVar)
-import Control.Exception (Exception, bracket, bracket_, catch, finally, throwIO, uninterruptibleMask_)
-import Control.Monad (forever, join, unless, void, when)
+import Control.Concurrent
+  (isCurrentThreadBound, rtsSupportsBoundThreads, runInBoundThread)
+import Control.Exception
+  (Exception, SomeException, bracket, bracket_, catch, finally, handle, throwIO)
+import Control.Monad (unless, void, when)
 import Data.Choice
 import Data.Coerce
 import Data.Int
-import Data.IORef (IORef, atomicModifyIORef, newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -220,6 +218,10 @@ import Foreign.ForeignPtr
   , withForeignPtr
   )
 import Foreign.JNI.Internal
+import Foreign.JNI.Internal.BackgroundWorker (BackgroundWorker)
+import Foreign.JNI.Internal.RWLock (RWLock)
+import qualified Foreign.JNI.Internal.RWLock as RWLock
+import qualified Foreign.JNI.Internal.BackgroundWorker as BackgroundWorker
 import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
@@ -231,6 +233,7 @@ import GHC.ForeignPtr (newConcForeignPtr)
 import GHC.Stack (HasCallStack, callStack, getCallStack, prettySrcLoc)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
+import qualified System.Exit
 import System.IO (fixIO)
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (String)
@@ -308,49 +311,6 @@ throwIfJNull j io =
     then throwIO NullPointerException
     else io
 
--- | A read-write lock
---
--- Concurrent readers are allowed, but only one writer is supported.
-newtype RWLock =
-    RWLock (IORef (Int, RWWantedState))
-    -- ^ A count of the held read locks and the wanted state
-
--- | The wanted state of the RW
-data RWWantedState
-    = Reading            -- ^ There are no writers
-    | Writing (MVar ())
-       -- ^ A writer wants to write, grant no more read locks. The MVar is used
-       -- to notify the writer when the currently held read locks are released.
-
--- | Creates a new read-write lock.
-newRWLock :: IO RWLock
-newRWLock = RWLock <$> newIORef (0, Reading)
-
--- | Tries to acquire a read lock. If this call returns `Do #read`, no writer
--- will be granted a lock before the read lock is released.
-tryAcquireReadLock :: RWLock -> IO (Choice "read")
-tryAcquireReadLock (RWLock ref) = do
-    atomicModifyIORef ref $ \case
-      (!readers,  Reading) -> ((readers + 1, Reading),    Do #read)
-      st                   -> (                       st, Don't #read)
-
--- | Releases a read lock.
-releaseReadLock :: RWLock -> IO ()
-releaseReadLock (RWLock ref) = do
-    st <- atomicModifyIORef ref $
-            \st@(readers, aim) -> ((readers - 1, aim), st)
-    case st of
-      -- Notify the writer if I'm the last reader.
-      (1, Writing mv) -> putMVar mv ()
-      _               -> return ()
-
--- | Waits until the current read locks are released and grants a write lock.
-acquireWriteLock :: RWLock -> IO ()
-acquireWriteLock (RWLock ref) = do
-    mv <- newEmptyMVar
-    join $ atomicModifyIORef ref $ \(readers, _) ->
-      ((readers, Writing mv), when (readers > 0) (takeMVar mv))
-
 -- | This lock is used to avoid the JVM from dying before any finalizers
 -- deleting global references are finished.
 --
@@ -359,7 +319,7 @@ acquireWriteLock (RWLock ref) = do
 -- The JVM acquires a write lock before shutdown. Thence, finalizers fail to
 -- acquire read locks and behave as noops.
 globalJVMLock :: RWLock
-globalJVMLock = unsafePerformIO newRWLock
+globalJVMLock = unsafePerformIO RWLock.new
 {-# NOINLINE globalJVMLock #-}
 
 throwIfNotOK_ :: HasCallStack => IO Int32 -> IO ()
@@ -453,26 +413,35 @@ useAsCStrings strs m =
 -- practice: use 'withJVM' instead. Only useful for GHCi.
 newJVM :: [ByteString] -> IO JVM
 newJVM options = JVM_ <$> do
-    useAsCStrings options $ \cstrs -> do
-      withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
-        let n = fromIntegral (length cstrs) :: C.CInt
-        checkBoundness
-        jvm <- [C.block| JavaVM * {
-          JavaVM *jvm;
-          JavaVMInitArgs vm_args;
-          JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
-          for(int i = 0; i < $(int n); i++)
-                  options[i].optionString = $(char **coptions)[i];
-          vm_args.version = JNI_VERSION_1_6;
-          vm_args.nOptions = $(int n);
-          vm_args.options = options;
-          vm_args.ignoreUnrecognized = 0;
-          JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
-          free(options);
-          return jvm; } |]
-        cleaner <- createGlobalRefCleaner
-        writeIORef globalRefCleaner cleaner
-        return jvm
+    checkBoundness
+    startJVM options <* startFinalizerThread
+  where
+    startFinalizerThread =
+      BackgroundWorker.create
+          (exitOnError . runInBoundThread . runInAttachedThread)
+      >>= writeIORef finalizerThread
+
+    exitOnError = handle $ \(e :: SomeException) -> do
+      System.Exit.die $ "Haskell jni package: error in finalizer thread: " ++ show e
+
+    startJVM options =
+      useAsCStrings options $ \cstrs -> do
+        withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
+          let n = fromIntegral (length cstrs) :: C.CInt
+
+          [C.block| JavaVM * {
+            JavaVM *jvm;
+            JavaVMInitArgs vm_args;
+            JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
+            for(int i = 0; i < $(int n); i++)
+                options[i].optionString = $(char **coptions)[i];
+            vm_args.version = JNI_VERSION_1_6;
+            vm_args.nOptions = $(int n);
+            vm_args.options = options;
+            vm_args.ignoreUnrecognized = 0;
+            JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
+            free(options);
+            return jvm; } |]
 
 checkBoundness :: IO ()
 checkBoundness =
@@ -488,9 +457,9 @@ checkBoundness =
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
-    readIORef globalRefCleaner >>= stopGlobalRefCleaner
-    writeIORef globalRefCleaner uninitializedGlobalRefCleaner
-    acquireWriteLock globalJVMLock
+    readIORef finalizerThread >>= BackgroundWorker.stop
+    writeIORef finalizerThread uninitializedFinalizerThread
+    RWLock.acquireWriteLock globalJVMLock
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
         jniEnv = NULL;
@@ -744,7 +713,9 @@ newGlobalRef (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
         (*$(JNIEnv *env))->NewGlobalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
     fixIO $ \j ->
-      coerce <$> J <$> newConcForeignPtr gobj (submitRefForDeletion $ upcast $ coerce j)
+      coerce <$> J <$>
+        newConcForeignPtr gobj
+          (submitToFinalizerThread $ deleteGlobalRefNonFinalized j)
 
 deleteGlobalRef :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRef (coerce -> J p) = finalizeForeignPtr p
@@ -764,8 +735,8 @@ newGlobalRefNonFinalized (coerce -> upcast -> obj) = withJNIEnv $ \env -> do
 -- 'newGlobalRefNonFinalized'.
 deleteGlobalRefNonFinalized :: Coercible o (J ty) => o -> IO ()
 deleteGlobalRefNonFinalized (coerce -> upcast -> obj) = do
-    bracket (tryAcquireReadLock globalJVMLock)
-            (\doRead -> when (toBool doRead) $ releaseReadLock globalJVMLock)
+    bracket (RWLock.tryAcquireReadLock globalJVMLock)
+            (\doRead -> when (toBool doRead) $ RWLock.releaseReadLock globalJVMLock)
             $ \doRead ->
       when (toBool doRead) $ withJNIEnv $ \env -> do
         [CU.block| void { (*$(JNIEnv *env))->DeleteGlobalRef($(JNIEnv *env)
@@ -1078,44 +1049,22 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
     else
       throwIO DirectBufferFailed
 
-data GlobalRefCleaner = GlobalRefCleaner
-  { nextBatchToDelete :: IORef [JObject]
-  , wakeup :: MVar ()
-  , cleanerAsync :: Async ()
-  }
+-- | A background thread for cleaning global references
+finalizerThread :: IORef BackgroundWorker
+{-# NOINLINE finalizerThread #-}
+finalizerThread = unsafePerformIO $ newIORef uninitializedFinalizerThread
 
-createGlobalRefCleaner :: IO GlobalRefCleaner
-createGlobalRefCleaner = do
-  wakeup <- newEmptyMVar
-  refs <- newIORef []
-  deletingThread <- asyncBound $ runInAttachedThread $ forever $ do
-    takeMVar wakeup
-    xs <- atomicModifyIORef refs $ \xs -> ([], xs)
-    mapM_ deleteGlobalRefNonFinalized xs
-  return (GlobalRefCleaner refs wakeup deletingThread)
+uninitializedFinalizerThread :: BackgroundWorker
+uninitializedFinalizerThread = error "The finalizer thread is not initialized"
 
-stopGlobalRefCleaner :: GlobalRefCleaner -> IO ()
-stopGlobalRefCleaner = uninterruptibleMask_ . cancel . cleanerAsync
-
-cleanGlobalRef :: GlobalRefCleaner -> JObject -> IO ()
-cleanGlobalRef cleaner obj = do
-  atomicModifyIORef (nextBatchToDelete cleaner) $ \xs -> (obj:xs, ())
-  _ <- tryPutMVar (wakeup cleaner) ()
-  return ()
-
-globalRefCleaner :: IORef GlobalRefCleaner
-{-# NOINLINE globalRefCleaner #-}
-globalRefCleaner = unsafePerformIO $ newIORef uninitializedGlobalRefCleaner
-
-uninitializedGlobalRefCleaner :: GlobalRefCleaner
-uninitializedGlobalRefCleaner = error "Cannot delete a reference: a dedicated thread is not initialized"
-
--- | Submit a global, non-finalized reference for deletion.
--- Passes the reference to a thread attached to the jvm, which performs the deletion.
+-- | Runs a task in a long-living background thread attached to the
+-- JVM. The thread is dedicated to release unused references to java
+-- objects.
 --
--- This is useful in GC finalizers where attaching the finalizer
--- thread might be too expensive.
-submitRefForDeletion :: JObject -> IO ()
-submitRefForDeletion obj = do
-  cleaner <- readIORef globalRefCleaner
-  cleanGlobalRef cleaner obj
+-- Useful to be called from GC finalizers, where attaching to the JVM would
+-- be too expensive.
+--
+submitToFinalizerThread :: IO () -> IO ()
+submitToFinalizerThread action = do
+  worker <- readIORef finalizerThread
+  BackgroundWorker.submitTask worker action
