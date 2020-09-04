@@ -1055,8 +1055,7 @@ finalizerThread :: IORef BackgroundWorker
 finalizerThread = unsafePerformIO $ newIORef uninitializedFinalizerThread
 
 uninitializedFinalizerThread :: BackgroundWorker
-uninitializedFinalizerThread =
-  error "Cannot delete a reference: a dedicated thread is not initialized"
+uninitializedFinalizerThread = error "The finalizer thread is not initialized"
 
 -- | Runs a task in a long-living background thread attached to the
 -- JVM. The thread is dedicated to release unused references to java
