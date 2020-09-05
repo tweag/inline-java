@@ -19,6 +19,9 @@ import Data.IORef (IORef, atomicModifyIORef, newIORef)
 -- | A read-write lock
 --
 -- Concurrent readers are allowed, but only one writer is supported.
+--
+-- Moreover, a writer trying to acquire a write lock has priority over
+-- new readers trying to acquire a read lock.
 newtype RWLock =
     RWLock (IORef (Int, RWWantedState))
     -- ^ A count of the held read locks and the wanted state
@@ -35,7 +38,8 @@ new :: IO RWLock
 new = RWLock <$> newIORef (0, Reading)
 
 -- | Tries to acquire a read lock. If this call returns `Do #read`, no writer
--- will be granted a lock before the read lock is released.
+-- will be granted a lock before the read lock is released. The lock can be
+-- denied if a writer is writing or waiting to write.
 tryAcquireReadLock :: RWLock -> IO (Choice "read")
 tryAcquireReadLock (RWLock ref) = do
     atomicModifyIORef ref $ \case
@@ -53,6 +57,8 @@ releaseReadLock (RWLock ref) = do
       _               -> return ()
 
 -- | Waits until the current read locks are released and grants a write lock.
+-- No new reader locks are granted while the writer is waiting for the lock
+-- and while it holds the write lock.
 acquireWriteLock :: RWLock -> IO ()
 acquireWriteLock (RWLock ref) = do
     mv <- newEmptyMVar
