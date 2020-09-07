@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 module Foreign.JNI.Internal.BackgroundWorker
   ( BackgroundWorker
@@ -8,18 +9,17 @@ module Foreign.JNI.Internal.BackgroundWorker
   ) where
 
 import Control.Concurrent.Async (Async, async, waitCatch)
-import Control.Concurrent.MVar (MVar, newEmptyMVar, takeMVar, tryPutMVar)
+import Control.Concurrent.STM
+  (TVar, atomically, modifyTVar', newTVarIO, readTVar, retry, writeTVar)
 import Control.Exception (Exception, handle, throwIO, uninterruptibleMask_)
 import Control.Monad (forever, join, void)
-import Control.Monad.Loops (whileM_)
-import Data.IORef (IORef, atomicModifyIORef, newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 
 
 -- | A background thread that can run tasks asynchronously
 data BackgroundWorker = BackgroundWorker
-  { nextBatch :: IORef (Int, IO ())
+  { nextBatch :: TVar (Int, IO ())
   , queueSize :: IORef Int
-  , wakeup :: MVar ()
   , workerAsync :: Async ()
   }
 
@@ -30,22 +30,22 @@ data BackgroundWorker = BackgroundWorker
 --
 create :: (IO () -> IO ()) -> IO BackgroundWorker
 create runInInitializedThread = do
-    wakeup <- newEmptyMVar
     queueSize <- newIORef defaultQueueSize
-    nextBatch <- newIORef emptyBatch
+    nextBatch <- newTVarIO emptyBatch
     workerAsync <- async $ runInInitializedThread $ handleTermination $
-      forever $ do
-        takeMVar wakeup
-        join $ atomicModifyIORef nextBatch $ \(_, tasks) -> (emptyBatch, tasks)
+      forever (runNextBatch nextBatch)
     return BackgroundWorker
       { nextBatch
       , queueSize
-      , wakeup
       , workerAsync
       }
   where
     handleTermination = handle $ \StopWorkerException -> return ()
     emptyBatch = (0, return ())
+    runNextBatch nextBatch =
+      join $ atomically $ readTVar nextBatch >>= \case
+        (0, _) -> retry
+        (_, tasks) -> tasks <$ writeTVar nextBatch emptyBatch
 
 defaultQueueSize :: Int
 defaultQueueSize = 1024
@@ -61,28 +61,28 @@ instance Exception StopWorkerException
 
 -- | Stops the background worker and waits until it terminates.
 stop :: BackgroundWorker -> IO ()
-stop worker =
+stop (BackgroundWorker {nextBatch, workerAsync}) =
   uninterruptibleMask_ $ do
     submitStopAtEndOfBatch
-    void $ waitCatch (workerAsync worker)
+    void $ waitCatch workerAsync
   where
     submitStopAtEndOfBatch = do
       let task = throwIO StopWorkerException
-      atomicModifyIORef (nextBatch worker) $ \(n, tasks) -> ((n, tasks >> task), ())
-      void $ tryPutMVar (wakeup worker) ()
+      atomically $ modifyTVar' nextBatch $ \(n, tasks) -> (n + 1, tasks >> task)
 
 -- | Submits a task to the background worker.
 --
 -- Any exception thrown in the given task will stop the
 -- background thread.
 --
--- If the job queue is currently full, block until it isn't
+-- If the job queue is currently full, block until it isn't.
 --
 submitTask :: BackgroundWorker -> IO () -> IO ()
-submitTask worker task = do
-  maxSize <- readIORef $ queueSize worker
-  flip whileM_ (return ()) $ atomicModifyIORef (nextBatch worker) $ \(n, tasks) ->
-    if n >= maxSize
-    then ((n, tasks), True)
-    else ((n+1, task >> tasks), False)
-  void $ tryPutMVar (wakeup worker) ()
+submitTask (BackgroundWorker {nextBatch, queueSize}) task = do
+  maxSize <- readIORef queueSize
+  atomically $ do
+    (size, tasks) <- readTVar nextBatch
+    if size < maxSize then
+      writeTVar nextBatch (size + 1, task >> tasks)
+    else
+      retry

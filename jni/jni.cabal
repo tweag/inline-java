@@ -51,7 +51,8 @@ library
     containers >=0.5,
     constraints >=0.8,
     deepseq >=1.4.2,
-    inline-c >=0.6
+    inline-c >=0.6,
+    stm >= 2.3
   if flag(linear-types)
     hs-source-dirs: src/linear-types
     build-depends:
