@@ -48,7 +48,7 @@ create runInInitializedThread = do
         (_, tasks) -> tasks <$ writeTVar nextBatch emptyBatch
 
 defaultQueueSize :: Int
-defaultQueueSize = 1024
+defaultQueueSize = 1024 * 1024
 
 -- | Set the maximum number of pending tasks
 setQueueSize :: BackgroundWorker -> Int -> IO ()
