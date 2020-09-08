@@ -18,7 +18,7 @@ import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 
 -- | A background thread that can run tasks asynchronously
 data BackgroundWorker = BackgroundWorker
-  { nextBatch :: TVar (Int, IO ())
+  { nextBatch :: TVar Batch
   , queueSize :: IORef Int
   , workerAsync :: Async ()
   }
@@ -41,11 +41,12 @@ create runInInitializedThread = do
       }
   where
     handleTermination = handle $ \StopWorkerException -> return ()
-    emptyBatch = (0, return ())
     runNextBatch nextBatch =
-      join $ atomically $ readTVar nextBatch >>= \case
-        (0, _) -> retry
-        (_, tasks) -> tasks <$ writeTVar nextBatch emptyBatch
+      join $ atomically $ do
+        batch <- readTVar nextBatch
+        case getTasks batch of
+          Just tasks -> tasks <$ writeTVar nextBatch emptyBatch
+          Nothing -> retry
 
 defaultQueueSize :: Int
 defaultQueueSize = 1024 * 1024
@@ -68,7 +69,7 @@ stop (BackgroundWorker {nextBatch, workerAsync}) =
   where
     submitStopAtEndOfBatch = do
       let task = throwIO StopWorkerException
-      atomically $ modifyTVar' nextBatch $ \(n, tasks) -> (n + 1, tasks >> task)
+      atomically $ modifyTVar' nextBatch (snocTask task)
 
 -- | Submits a task to the background worker.
 --
@@ -81,8 +82,31 @@ submitTask :: BackgroundWorker -> IO () -> IO ()
 submitTask (BackgroundWorker {nextBatch, queueSize}) task = do
   maxSize <- readIORef queueSize
   atomically $ do
-    (size, tasks) <- readTVar nextBatch
-    if size < maxSize then
-      writeTVar nextBatch (size + 1, task >> tasks)
+    batch <- readTVar nextBatch
+    if getBatchSize batch < maxSize then
+      writeTVar nextBatch (consTask task batch)
     else
       retry
+
+-- | A batch of tasks
+--
+-- Contains the task count and the computation that performs
+-- all the tasks.
+newtype Batch = Batch (Int, IO ())
+
+emptyBatch :: Batch
+emptyBatch = Batch (0, return ())
+
+consTask :: IO () -> Batch -> Batch
+consTask task (Batch (n, tasks)) = Batch (n + 1, task >> tasks)
+
+snocTask :: IO () -> Batch -> Batch
+snocTask task (Batch (n, tasks)) = Batch (n + 1, tasks >> task)
+
+-- | Yields Nothing on an empty batch.
+getTasks :: Batch -> Maybe (IO ())
+getTasks (Batch (0, _)) = Nothing
+getTasks (Batch (_, tasks)) = Just tasks
+
+getBatchSize :: Batch -> Int
+getBatchSize (Batch (n, _)) = n
