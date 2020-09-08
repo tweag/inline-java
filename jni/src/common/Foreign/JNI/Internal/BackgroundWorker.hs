@@ -31,21 +31,21 @@ data BackgroundWorker = BackgroundWorker
 create :: (IO () -> IO ()) -> IO BackgroundWorker
 create runInInitializedThread = do
     queueSizeRef <- newIORef defaultQueueSize
-    nextBatch <- newTVarIO emptyBatch
+    nextBatchRef <- newTVarIO emptyBatch
     workerAsync <- async $ runInInitializedThread $ handleTermination $
-      forever (runNextBatch nextBatch)
+      forever (runNextBatch nextBatchRef)
     return BackgroundWorker
-      { nextBatch
+      { nextBatchRef
       , queueSizeRef
       , workerAsync
       }
   where
     handleTermination = handle $ \StopWorkerException -> return ()
-    runNextBatch nextBatch =
+    runNextBatch nextBatchRef =
       join $ atomically $ do
-        batch <- readTVar nextBatch
-        case getTasks batch of
-          Just tasks -> tasks <$ writeTVar nextBatch emptyBatch
+        nextBatch <- readTVar nextBatchRef
+        case getTasks nextBatch of
+          Just tasks -> tasks <$ writeTVar nextBatchRef emptyBatch
           Nothing -> retry
 
 defaultQueueSize :: Int
@@ -62,14 +62,14 @@ instance Exception StopWorkerException
 
 -- | Stops the background worker and waits until it terminates.
 stop :: BackgroundWorker -> IO ()
-stop (BackgroundWorker {nextBatch, workerAsync}) =
+stop (BackgroundWorker {nextBatchRef, workerAsync}) =
   uninterruptibleMask_ $ do
     submitStopAtEndOfBatch
     void $ waitCatch workerAsync
   where
     submitStopAtEndOfBatch = do
       let task = throwIO StopWorkerException
-      atomically $ modifyTVar' nextBatch (snocTask task)
+      atomically $ modifyTVar' nextBatchRef (snocTask task)
 
 -- | Submits a task to the background worker.
 --
@@ -79,12 +79,12 @@ stop (BackgroundWorker {nextBatch, workerAsync}) =
 -- If the job queue is currently full, block until it isn't.
 --
 submitTask :: BackgroundWorker -> IO () -> IO ()
-submitTask (BackgroundWorker {nextBatch, queueSizeRef}) task = do
+submitTask (BackgroundWorker {nextBatchRef, queueSizeRef}) task = do
   queueSize <- readIORef queueSizeRef
   atomically $ do
-    batch <- readTVar nextBatch
-    if getBatchSize batch < queueSize then
-      writeTVar nextBatch (consTask task batch)
+    nextBatch <- readTVar nextBatchRef
+    if getBatchSize nextBatch < queueSize then
+      writeTVar nextBatchRef (consTask task nextBatch)
     else
       retry
 
