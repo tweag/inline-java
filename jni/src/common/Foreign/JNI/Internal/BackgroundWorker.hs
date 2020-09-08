@@ -18,8 +18,8 @@ import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 
 -- | A background thread that can run tasks asynchronously
 data BackgroundWorker = BackgroundWorker
-  { nextBatch :: TVar Batch
-  , queueSize :: IORef Int
+  { nextBatchRef :: TVar Batch
+  , queueSizeRef :: IORef Int
   , workerAsync :: Async ()
   }
 
@@ -30,13 +30,13 @@ data BackgroundWorker = BackgroundWorker
 --
 create :: (IO () -> IO ()) -> IO BackgroundWorker
 create runInInitializedThread = do
-    queueSize <- newIORef defaultQueueSize
+    queueSizeRef <- newIORef defaultQueueSize
     nextBatch <- newTVarIO emptyBatch
     workerAsync <- async $ runInInitializedThread $ handleTermination $
       forever (runNextBatch nextBatch)
     return BackgroundWorker
       { nextBatch
-      , queueSize
+      , queueSizeRef
       , workerAsync
       }
   where
@@ -53,7 +53,7 @@ defaultQueueSize = 1024 * 1024
 
 -- | Set the maximum number of pending tasks
 setQueueSize :: BackgroundWorker -> Int -> IO ()
-setQueueSize = writeIORef . queueSize
+setQueueSize = writeIORef . queueSizeRef
 
 data StopWorkerException = StopWorkerException
   deriving Show
@@ -79,11 +79,11 @@ stop (BackgroundWorker {nextBatch, workerAsync}) =
 -- If the job queue is currently full, block until it isn't.
 --
 submitTask :: BackgroundWorker -> IO () -> IO ()
-submitTask (BackgroundWorker {nextBatch, queueSize}) task = do
-  maxSize <- readIORef queueSize
+submitTask (BackgroundWorker {nextBatch, queueSizeRef}) task = do
+  queueSize <- readIORef queueSizeRef
   atomically $ do
     batch <- readTVar nextBatch
-    if getBatchSize batch < maxSize then
+    if getBatchSize batch < queueSize then
       writeTVar nextBatch (consTask task batch)
     else
       retry
