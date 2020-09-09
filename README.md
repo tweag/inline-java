@@ -116,6 +116,15 @@ is dumped to `<module>.dump-java` instead.
 
 ## Troubleshooting
 
+### Build-time error `package or class Blah does not exist`
+
+`inline-java` is going to invoke the `javac` compiler, and any classes
+used in `java` quotations need to be reachable via the `CLASSPATH`
+environment variable. For instance,
+```
+CLASSPATH=/path/to/my.jar:/some/other/path ghc --make program.hs
+```
+
 ### Run-time error `ThreadNotAttached`
 
 Haskell threads need to be attached to the JVM before making JNI calls.
