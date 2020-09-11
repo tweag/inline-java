@@ -13,13 +13,12 @@ import Control.Concurrent.STM
   (TVar, atomically, modifyTVar', newTVarIO, readTVar, retry, writeTVar)
 import Control.Exception (Exception, handle, throwIO, uninterruptibleMask_)
 import Control.Monad (forever, join, void)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 
 
 -- | A background thread that can run tasks asynchronously
 data BackgroundWorker = BackgroundWorker
   { nextBatchRef :: TVar Batch
-  , queueSizeRef :: IORef Int
+  , queueSizeRef :: TVar Int
   , workerAsync :: Async ()
   }
 
@@ -30,7 +29,7 @@ data BackgroundWorker = BackgroundWorker
 --
 create :: (IO () -> IO ()) -> IO BackgroundWorker
 create runInInitializedThread = do
-    queueSizeRef <- newIORef defaultQueueSize
+    queueSizeRef <- newTVarIO defaultQueueSize
     nextBatchRef <- newTVarIO emptyBatch
     workerAsync <- async $ runInInitializedThread $ handleTermination $
       forever (runNextBatch nextBatchRef)
@@ -55,7 +54,7 @@ defaultQueueSize = 1024 * 1024
 setQueueSize :: BackgroundWorker -> Int -> IO ()
 setQueueSize (BackgroundWorker {queueSizeRef}) n =
   if n > 0
-  then writeIORef queueSizeRef n
+  then atomically $ writeTVar queueSizeRef n
   else return ()
 
 data StopWorkerException = StopWorkerException
@@ -83,8 +82,8 @@ stop (BackgroundWorker {nextBatchRef, workerAsync}) =
 --
 submitTask :: BackgroundWorker -> IO () -> IO ()
 submitTask (BackgroundWorker {nextBatchRef, queueSizeRef}) task = do
-  queueSize <- readIORef queueSizeRef
   atomically $ do
+    queueSize <- readTVar queueSizeRef
     nextBatch <- readTVar nextBatchRef
     if getBatchSize nextBatch < queueSize then
       writeTVar nextBatchRef (consTask task nextBatch)
