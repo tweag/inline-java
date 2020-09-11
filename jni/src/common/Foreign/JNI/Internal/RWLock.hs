@@ -11,7 +11,8 @@ module Foreign.JNI.Internal.RWLock
   ) where
 
 import Control.Concurrent.STM
-  (TVar, atomically, modifyTVar', newTVarIO, readTVar, retry, writeTVar)
+  (TVar, atomically, check, newTVarIO, readTVar, stateTVar, writeTVar)
+import Control.Monad (when)
 import Data.Choice
 
 
@@ -27,8 +28,10 @@ newtype RWLock =
 
 -- | The wanted state of the RW
 data RWWantedState
-    = Reading            -- ^ There are no writers
-    | Writing            -- ^ A writer wants to write, grant no more read locks.
+    = Reading             -- ^ There are no writers
+    | Writing (TVar Bool) -- ^ A writer wants to write, grant no more read locks.
+                          -- The TVar is to be written when the last read lock
+                          -- is released.
 
 -- | Creates a new read-write lock.
 new :: IO RWLock
@@ -48,14 +51,20 @@ tryAcquireReadLock (RWLock ref) = atomically $
 -- | Releases a read lock.
 releaseReadLock :: RWLock -> IO ()
 releaseReadLock (RWLock ref) =
-    atomically $ modifyTVar' ref $ \(readers, aim) -> (readers - 1, aim)
+    atomically $ do
+      (readers, aim) <- readTVar ref
+      writeTVar ref (readers - 1, aim)
+      case (readers, aim) of
+        (1, Writing noReadersRef) -> writeTVar noReadersRef True
+        _ -> return ()
 
 -- | Waits until the current read locks are released and grants a write lock.
 -- No new reader locks are granted while the writer is waiting for the lock
 -- and while it holds the write lock.
 acquireWriteLock :: RWLock -> IO ()
 acquireWriteLock (RWLock ref) = do
-    atomically $ modifyTVar' ref $ \(readers, _) -> (readers, Writing)
-    atomically $ readTVar ref >>= \case
-      (0, _) -> return ()
-      _      -> retry
+    noReadersRef <- newTVarIO False
+    readers <- atomically $ stateTVar ref $ \(readers, _) ->
+      (readers, (readers, Writing noReadersRef))
+    when (readers > 0) $ atomically $
+      readTVar noReadersRef >>= check
