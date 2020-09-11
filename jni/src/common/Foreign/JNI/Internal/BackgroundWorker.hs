@@ -55,7 +55,7 @@ setQueueSize :: BackgroundWorker -> Int -> IO ()
 setQueueSize (BackgroundWorker {queueSizeRef}) n =
   if n > 0
   then atomically $ writeTVar queueSizeRef n
-  else return ()
+  else error ("The queue size must be a positive number. Tried " ++ show n)
 
 data StopWorkerException = StopWorkerException
   deriving Show
