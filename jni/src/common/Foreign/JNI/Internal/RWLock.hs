@@ -38,10 +38,9 @@ new = RWLock <$> newTVarIO (0, Reading)
 -- will be granted a lock before the read lock is released. The lock can be
 -- denied if a writer is writing or waiting to write.
 tryAcquireReadLock :: RWLock -> IO (Choice "read")
-tryAcquireReadLock (RWLock ref) = atomically $ do
-    (readers, aim) <- readTVar ref
-    case aim of
-      Reading -> do
+tryAcquireReadLock (RWLock ref) = atomically $
+    readTVar ref >>= \case
+      (readers, Reading) -> do
         writeTVar ref (readers + 1, Reading)
         return $ Do #read
       _ -> return $ Don't #read
@@ -57,8 +56,6 @@ releaseReadLock (RWLock ref) =
 acquireWriteLock :: RWLock -> IO ()
 acquireWriteLock (RWLock ref) = do
     atomically $ modifyTVar' ref $ \(readers, _) -> (readers, Writing)
-    atomically $ do
-      (readers, _) <- readTVar ref
-      case readers of
-        0 -> return ()
-        _ -> retry
+    atomically $ readTVar ref >>= \case
+      (0, _) -> return ()
+      _      -> retry
