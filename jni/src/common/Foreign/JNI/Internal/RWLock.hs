@@ -43,7 +43,7 @@ new = RWLock <$> newTVarIO (0, Reading)
 tryAcquireReadLock :: RWLock -> IO (Choice "read")
 tryAcquireReadLock (RWLock ref) = atomically $
     readTVar ref >>= \case
-      (readers, Reading) -> do
+      (!readers, Reading) -> do
         writeTVar ref (readers + 1, Reading)
         return $ Do #read
       _ -> return $ Don't #read
