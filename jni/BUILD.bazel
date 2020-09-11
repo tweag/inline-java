@@ -16,6 +16,7 @@ haskell_library(
         "@stackage//:constraints",
         "@stackage//:deepseq",
         "@stackage//:inline-c",
+        "@stackage//:stm",
         "@stackage//:singletons",
     ],
     visibility = ["//visibility:public"],

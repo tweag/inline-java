@@ -103,6 +103,7 @@ stack_snapshot(
         "ghc-prim",
         "ordered-containers",
         "semigroups",
+        "stm",
         "syb",
         "th-abstraction",
         "th-lift",
