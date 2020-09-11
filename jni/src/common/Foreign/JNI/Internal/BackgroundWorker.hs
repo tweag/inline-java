@@ -53,7 +53,10 @@ defaultQueueSize = 1024 * 1024
 
 -- | Set the maximum number of pending tasks
 setQueueSize :: BackgroundWorker -> Int -> IO ()
-setQueueSize = writeIORef . queueSizeRef
+setQueueSize (BackgroundWorker {queueSizeRef}) n =
+  if n > 0
+  then writeIORef queueSizeRef n
+  else return ()
 
 data StopWorkerException = StopWorkerException
   deriving Show
