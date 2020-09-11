@@ -10,10 +10,9 @@ module Foreign.JNI.Internal.RWLock
   , acquireWriteLock
   ) where
 
-import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Monad (join, when)
+import Control.Concurrent.STM
+  (TVar, atomically, modifyTVar', newTVarIO, readTVar, retry, writeTVar)
 import Data.Choice
-import Data.IORef (IORef, atomicModifyIORef, newIORef)
 
 
 -- | A read-write lock
@@ -23,44 +22,40 @@ import Data.IORef (IORef, atomicModifyIORef, newIORef)
 -- Moreover, a writer trying to acquire a write lock has priority over
 -- new readers trying to acquire a read lock.
 newtype RWLock =
-    RWLock (IORef (Int, RWWantedState))
+    RWLock (TVar (Int, RWWantedState))
     -- ^ A count of the held read locks and the wanted state
 
 -- | The wanted state of the RW
 data RWWantedState
     = Reading            -- ^ There are no writers
-    | Writing (MVar ())
-       -- ^ A writer wants to write, grant no more read locks. The MVar is used
-       -- to notify the writer when the currently held read locks are released.
+    | Writing            -- ^ A writer wants to write, grant no more read locks.
 
 -- | Creates a new read-write lock.
 new :: IO RWLock
-new = RWLock <$> newIORef (0, Reading)
+new = RWLock <$> newTVarIO (0, Reading)
 
 -- | Tries to acquire a read lock. If this call returns `Do #read`, no writer
 -- will be granted a lock before the read lock is released. The lock can be
 -- denied if a writer is writing or waiting to write.
 tryAcquireReadLock :: RWLock -> IO (Choice "read")
-tryAcquireReadLock (RWLock ref) = do
-    atomicModifyIORef ref $ \case
-      (!readers,  Reading) -> ((readers + 1, Reading),    Do #read)
-      st                   -> (                       st, Don't #read)
+tryAcquireReadLock (RWLock ref) = atomically $
+    readTVar ref >>= \case
+      (readers, Reading) -> do
+        writeTVar ref (readers + 1, Reading)
+        return $ Do #read
+      _ -> return $ Don't #read
 
 -- | Releases a read lock.
 releaseReadLock :: RWLock -> IO ()
-releaseReadLock (RWLock ref) = do
-    st <- atomicModifyIORef ref $
-            \st@(readers, aim) -> ((readers - 1, aim), st)
-    case st of
-      -- Notify the writer if I'm the last reader.
-      (1, Writing mv) -> putMVar mv ()
-      _               -> return ()
+releaseReadLock (RWLock ref) =
+    atomically $ modifyTVar' ref $ \(readers, aim) -> (readers - 1, aim)
 
 -- | Waits until the current read locks are released and grants a write lock.
 -- No new reader locks are granted while the writer is waiting for the lock
 -- and while it holds the write lock.
 acquireWriteLock :: RWLock -> IO ()
 acquireWriteLock (RWLock ref) = do
-    mv <- newEmptyMVar
-    join $ atomicModifyIORef ref $ \(readers, _) ->
-      ((readers, Writing mv), when (readers > 0) (takeMVar mv))
+    atomically $ modifyTVar' ref $ \(readers, _) -> (readers, Writing)
+    atomically $ readTVar ref >>= \case
+      (0, _) -> return ()
+      _      -> retry
