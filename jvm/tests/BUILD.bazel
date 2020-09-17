@@ -10,6 +10,7 @@ haskell_test(
     compiler_flags = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-DHSPEC_DISCOVER=$(location @hspec-discover//:bin)",
+        "-threaded",
     ],
     timeout = "short",
     tools = ["@hspec-discover//:bin"],
