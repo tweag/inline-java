@@ -2,7 +2,7 @@ steps:
   - label: "Run tests (Bazel)"
     command: |
       echo "build --host_platform=@rules_haskell//haskell/platforms:linux_x86_64_nixpkgs" > .bazelrc.local
-      nix-shell --pure --run 'bazel build //...'
+      nix-shell --pure --run 'bazel test //...'
     timeout: 30
   - label: "Run tests (Stack)"
     command: |
