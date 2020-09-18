@@ -28,6 +28,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
@@ -197,20 +198,29 @@ module Foreign.JNI.Unsafe
   , newDirectByteBuffer
   , getDirectBufferAddress
   , getDirectBufferCapacity
+  -- TODO: remove
+  , getSignatures
   ) where
 
 import Control.Concurrent
   (isCurrentThreadBound, rtsSupportsBoundThreads, runInBoundThread)
 import Control.Exception
   (Exception, SomeException, bracket, bracket_, catch, finally, handle, throwIO)
-import Control.Monad (unless, void, when)
+import Control.Monad (forM, unless, void, when)
 import Data.Choice
 import Data.Coerce
+import Data.Foldable (fold)
 import Data.Int
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.Maybe (catMaybes)
 import Data.Word
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Data.ByteString.Builder (toLazyByteString, word16LE)
+import Data.ByteString.Lazy (toStrict)
+import Data.Singletons (sing)
+import Data.Text (unpack)
+import Data.Text.Encoding (decodeUtf16LE)
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
   ( finalizeForeignPtr
@@ -1068,3 +1078,54 @@ submitToFinalizerThread :: IO () -> IO ()
 submitToFinalizerThread action = do
   worker <- readIORef finalizerThread
   BackgroundWorker.submitTask worker action
+
+-- | @getSignatures c methodName@ yields the Java signatures of overloadings of
+-- methods called @methodName@ in class @c@.
+getSignatures :: JClass -> JNI.String -> IO [JNI.String]
+getSignatures c methodName = do
+  id <- getMethods
+  array :: JObjectArray <- unsafeCast <$> callObjectMethod c id []
+  l <- getArrayLength array
+  names <- forM [0 .. l - 1] $ \i -> do
+    ithObj :: JObject <- getObjectArrayElement array i
+    id <- methodToName
+    jName :: JString <- unsafeCast <$> callObjectMethod ithObj id []
+    name <- toString jName
+    if name == methodName
+      then do
+        id <- methodToSignature
+        jMethodName :: JString <- unsafeCast <$> callObjectMethod ithObj id []
+        Just <$> toString jMethodName
+      else return Nothing
+  return $ catMaybes names
+
+toString :: JString -> IO JNI.String
+toString obj = do
+  chars <- getStringChars obj
+  length <- fromIntegral <$> getStringLength obj
+  words <- peekArray length chars
+  return $ JNI.fromChars $ unpack $ decodeUtf16LE $ toStrict $ toLazyByteString $ fold $ word16LE <$> words
+
+kclass :: IO JClass
+kclass = findClass $ referenceTypeName $ sing @('Class "java.lang.Class")
+
+kmethod :: IO JClass
+kmethod = findClass $ referenceTypeName $ sing @('Class "java.lang.reflect.Method")
+
+getMethods :: IO JMethodID
+getMethods = do
+  klass <- kclass
+  let sig = methodSignature [] (SArray $ sing @('Class "java.lang.reflect.Method"))
+  getMethodID klass "getMethods" sig
+
+methodToSignature :: IO JMethodID
+methodToSignature = do
+  klass <- kmethod
+  let sig = methodSignature [] (sing @('Class "java.lang.String"))
+  getMethodID klass "toString" sig
+
+methodToName :: IO JMethodID
+methodToName = do
+  klass <- kmethod
+  let sig = methodSignature [] (sing @('Class "java.lang.String"))
+  getMethodID klass "getName" sig
