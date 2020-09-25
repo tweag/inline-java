@@ -218,6 +218,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.ByteString.Builder (toLazyByteString, word16LE)
 import Data.ByteString.Lazy (toStrict)
+import Data.List (intercalate)
 import Data.Singletons (sing)
 import Data.Text (unpack)
 import Data.Text.Encoding (decodeUtf16LE)
@@ -295,6 +296,16 @@ data JNIError = JNIError Prelude.String Int32
   deriving Show
 
 instance Exception JNIError
+
+data VerboseNoSuchMethodException = VerboseNoSuchMethodException JNI.String JNI.String [JNI.String]
+  deriving Exception
+
+instance Show VerboseNoSuchMethodException where
+  show (VerboseNoSuchMethodException className methodName signatures) = case signatures of
+    [] -> "No method named " ++ show methodName ++ " was found in class " ++ show className
+    sigs -> "Possible type signatures for " ++ show methodName
+      ++ " in class " ++ show className ++ ":\n"
+      ++ (intercalate "\n" $ map show sigs)
 
 -- | Map Java exceptions to Haskell exceptions.
 throwIfException :: Ptr JNIEnv -> IO a -> IO a
@@ -539,7 +550,7 @@ newObject :: JClass -> MethodSignature -> [JValue] -> IO JObject
 newObject cls (coerce -> sig) args = throwIfJNull cls $ withJNIEnv $ \env ->
     throwIfException env $
     withJValues args $ \cargs -> do
-      constr <- getMethodID cls "<init>" sig
+      constr <- getMethodID' cls "<init>" sig
       objectFromPtr =<< [CU.exp| jobject {
         (*$(JNIEnv *env))->NewObjectA($(JNIEnv *env),
                                       $fptr-ptr:(jclass cls),
@@ -671,12 +682,26 @@ SET_STATIC_FIELD(Long, Int64, jlong)
 SET_STATIC_FIELD(Float, Float, jfloat)
 SET_STATIC_FIELD(Double, Double, jdouble)
 
+-- | wrapper around getMethodID' : raise a verbose exception if no method was found
 getMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
   -> JNI.String -- ^ Field name
   -> MethodSignature -- ^ JNI signature
   -> IO JMethodID
-getMethodID cls methodname (coerce -> sig) = throwIfJNull cls $
+getMethodID cls methodName sig = catch
+  (getMethodID' cls methodName sig)
+  (\(e::JVMException) -> do
+    signatures <- getSignatures cls methodName
+    className <- getClassName cls
+    throwIO $ VerboseNoSuchMethodException className methodName signatures
+  )
+
+getMethodID'
+  :: JClass -- ^ A class object as returned by 'findClass'
+  -> JNI.String -- ^ Field name
+  -> MethodSignature -- ^ JNI signature
+  -> IO JMethodID
+getMethodID' cls methodname (coerce -> sig) = throwIfJNull cls $
     withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString methodname $ \methodnamep ->
@@ -687,12 +712,26 @@ getMethodID cls methodname (coerce -> sig) = throwIfJNull cls $
                                      $(char *methodnamep),
                                      $(char *sigp)) } |]
 
+-- | wrapper around getStaticMethodID' : raise a verbose exception if no method was found
 getStaticMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
   -> JNI.String -- ^ Field name
   -> MethodSignature -- ^ JNI signature
   -> IO JMethodID
-getStaticMethodID cls methodname (coerce -> sig) = throwIfJNull cls $
+getStaticMethodID cls methodName sig = catch
+  (getStaticMethodID' cls methodName sig)
+  (\(e::JVMException) -> do
+    signatures <- getSignatures cls methodName
+    className <- getClassName cls
+    throwIO $ VerboseNoSuchMethodException className methodName signatures
+  )
+
+getStaticMethodID'
+  :: JClass -- ^ A class object as returned by 'findClass'
+  -> JNI.String -- ^ Field name
+  -> MethodSignature -- ^ JNI signature
+  -> IO JMethodID
+getStaticMethodID' cls methodname (coerce -> sig) = throwIfJNull cls $
     withJNIEnv $ \env ->
     throwIfException env $
     JNI.withString methodname $ \methodnamep ->
@@ -1099,6 +1138,12 @@ getSignatures c methodName = do
       else return Nothing
   return $ catMaybes names
 
+getClassName :: JClass -> IO JNI.String
+getClassName c = do
+  id <- classToName
+  jName :: JString <- unsafeCast <$> callObjectMethod c id []
+  toString jName
+
 toString :: JString -> IO JNI.String
 toString obj = do
   chars <- getStringChars obj
@@ -1106,9 +1151,11 @@ toString obj = do
   words <- peekArray length chars
   return $ JNI.fromChars $ unpack $ decodeUtf16LE $ toStrict $ toLazyByteString $ fold $ word16LE <$> words
 
+-- | the "Class" class
 kclass :: IO JClass
 kclass = findClass $ referenceTypeName $ sing @('Class "java.lang.Class")
 
+-- | the "Method" class
 kmethod :: IO JClass
 kmethod = findClass $ referenceTypeName $ sing @('Class "java.lang.reflect.Method")
 
@@ -1116,16 +1163,22 @@ getMethods :: IO JMethodID
 getMethods = do
   klass <- kclass
   let sig = methodSignature [] (SArray $ sing @('Class "java.lang.reflect.Method"))
-  getMethodID klass "getMethods" sig
+  getMethodID' klass "getMethods" sig
+
+classToName :: IO JMethodID
+classToName = do
+  klass <- kclass
+  let sig = methodSignature [] (sing @('Class "java.lang.String"))
+  getMethodID' klass "toString" sig
 
 methodToSignature :: IO JMethodID
 methodToSignature = do
   klass <- kmethod
   let sig = methodSignature [] (sing @('Class "java.lang.String"))
-  getMethodID klass "toString" sig
+  getMethodID' klass "toString" sig
 
 methodToName :: IO JMethodID
 methodToName = do
   klass <- kmethod
   let sig = methodSignature [] (sing @('Class "java.lang.String"))
-  getMethodID klass "getName" sig
+  getMethodID' klass "getName" sig
