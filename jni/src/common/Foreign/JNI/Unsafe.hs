@@ -690,7 +690,7 @@ getMethodID
   -> IO JMethodID
 getMethodID cls methodName sig = catch
   (getMethodID' cls methodName sig)
-  (\(e::JVMException) -> do
+  (\(_::JVMException) -> do
     signatures <- getSignatures cls methodName
     className <- getClassName cls
     throwIO $ VerboseNoSuchMethodException className methodName signatures
@@ -1169,7 +1169,7 @@ classToName :: IO JMethodID
 classToName = do
   klass <- kclass
   let sig = methodSignature [] (sing @('Class "java.lang.String"))
-  getMethodID' klass "toString" sig
+  getMethodID' klass "getName" sig
 
 methodToSignature :: IO JMethodID
 methodToSignature = do
