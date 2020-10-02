@@ -24,3 +24,23 @@ spec = do
         runInBoundThread $ do
           findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
             `shouldThrow` \ThreadNotAttached -> True
+
+    around_ (runInBoundThread . runInAttachedThread) $
+      describe "isInstanceOf" $ do
+        it "identifies a class name as a String" $ do
+          klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
+          id <- classGetNameMethod
+          name <- callObjectMethod klong id []
+          kstring <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.String")))
+          isInstanceOf kstring name `shouldReturn` True
+        it "identifies a class name as an Object" $ do
+          klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
+          id <- classGetNameMethod
+          name <- callObjectMethod klong id []
+          kobject <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Object")))
+          isInstanceOf kobject name `shouldReturn` True
+        it "doesn't identify a class name as a Long" $ do
+          klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
+          id <- classGetNameMethod
+          name <- callObjectMethod klong id []
+          isInstanceOf klong name `shouldReturn` False
