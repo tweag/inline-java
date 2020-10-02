@@ -93,10 +93,10 @@ getSignatures c methodName = do
 -- Tricky, because Java encodes string in utf-16
 toString :: JString -> IO JNI.String
 toString obj = do
-  chars <- getStringChars obj
-  length <- fromIntegral <$> getStringLength obj
-  words <- peekArray length chars
-  return $ JNI.fromChars $ unpack $ decodeUtf16LE $ toStrict $ toLazyByteString $ fold $ word16LE <$> words
+  cs <- getStringChars obj
+  sz <- fromIntegral <$> getStringLength obj
+  ws <- peekArray sz cs
+  return $ JNI.fromChars $ unpack $ decodeUtf16LE $ toStrict $ toLazyByteString $ fold $ word16LE <$> ws
 
 -- | @getClassName c@ yields the name of class @c@
 getClassName :: JClass -> IO JNI.String
