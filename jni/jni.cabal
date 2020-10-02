@@ -41,9 +41,10 @@ library
     Foreign.JNI.Internal.BackgroundWorker
     Foreign.JNI.Internal.RWLock
     Foreign.JNI.Unsafe
+    Foreign.JNI.Unsafe.Internal
+    Foreign.JNI.Unsafe.Introspection
   other-modules:
     Foreign.JNI.NativeMethod
-    Foreign.JNI.Unsafe.Internal
   build-depends:
     async >=2.2.2,
     base >=4.14 && <5,
@@ -53,7 +54,8 @@ library
     constraints >=0.8,
     deepseq >=1.4.2,
     inline-c >=0.6,
-    stm >= 2.3
+    stm >= 2.3,
+    text >= 1.2.3
   if flag(linear-types)
     hs-source-dirs: src/linear-types
     build-depends:

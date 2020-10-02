@@ -20,6 +20,8 @@
 -- Reexports definitions from "Foreign.JNI.Unsafe.Internal".
 module Foreign.JNI.Unsafe
   ( module Foreign.JNI.Unsafe.Internal
+  , module Foreign.JNI.Unsafe.Introspection
   ) where
 
 import Foreign.JNI.Unsafe.Internal
+import Foreign.JNI.Unsafe.Introspection
