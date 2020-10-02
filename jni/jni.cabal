@@ -43,6 +43,7 @@ library
     Foreign.JNI.Unsafe
   other-modules:
     Foreign.JNI.NativeMethod
+    Foreign.JNI.Unsafe.Internal
   build-depends:
     async >=2.2.2,
     base >=4.14 && <5,
