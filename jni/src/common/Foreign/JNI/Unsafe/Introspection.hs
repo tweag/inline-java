@@ -2,8 +2,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-
 module Foreign.JNI.Unsafe.Introspection
  ( getClassName
  , getSignatures
@@ -25,66 +23,68 @@ import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import Foreign.Marshal.Array
 import Prelude hiding (String)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | The "Class" class.
-kclass :: IO JClass
-kclass = findClass $ referenceTypeName $ sing @('Class "java.lang.Class")
+kclass :: JClass
+{-# NOINLINE kclass #-}
+kclass = unsafePerformIO $
+  findClass $ referenceTypeName $ sing @('Class "java.lang.Class")
 
 -- | The "Method" class
-kmethod :: IO JClass
-kmethod = findClass $ referenceTypeName $ sing @('Class "java.lang.reflect.Method")
+kmethod :: JClass
+{-# NOINLINE kmethod #-}
+kmethod = unsafePerformIO $
+  findClass $ referenceTypeName $ sing @('Class "java.lang.reflect.Method")
 
 -- | Class.getMethods
-classGetMethodsMethod :: IO JMethodID
-classGetMethodsMethod = do
-  klass <- kclass
-  let sig = methodSignature [] (SArray $ sing @('Class "java.lang.reflect.Method"))
-  getMethodID klass (JNI.fromChars "getMethods") sig
+classGetMethodsMethod :: JMethodID
+{-# NOINLINE classGetMethodsMethod #-}
+classGetMethodsMethod = unsafePerformIO $
+  getMethodID kclass (JNI.fromChars "getMethods") $
+    methodSignature [] (SArray $ sing @('Class "java.lang.reflect.Method"))
 
 -- | Method.toString
-methodToStringMethod :: IO JMethodID
-methodToStringMethod = do
-  klass <- kmethod
-  let sig = methodSignature [] (sing @('Class "java.lang.String"))
-  getMethodID klass (JNI.fromChars "toString") sig
+methodToStringMethod :: JMethodID
+{-# NOINLINE methodToStringMethod #-}
+methodToStringMethod = unsafePerformIO $
+  getMethodID kmethod (JNI.fromChars "toString") $
+    methodSignature [] (sing @('Class "java.lang.String"))
 
 -- | Method.getName
-methodGetNameMethod :: IO JMethodID
-methodGetNameMethod = do
-  klass <- kmethod
-  let sig = methodSignature [] (sing @('Class "java.lang.String"))
-  getMethodID klass (JNI.fromChars "getName") sig
+methodGetNameMethod :: JMethodID
+{-# NOINLINE methodGetNameMethod #-}
+methodGetNameMethod = unsafePerformIO $
+  getMethodID kmethod (JNI.fromChars "getName") $
+    methodSignature [] (sing @('Class "java.lang.String"))
 
 -- | Class.getName
-classGetNameMethod :: IO JMethodID
-classGetNameMethod = do
-  klass <- kclass
-  let sig = methodSignature [] (sing @('Class "java.lang.String"))
-  getMethodID klass (JNI.fromChars "getName") sig
+classGetNameMethod :: JMethodID
+{-# NOINLINE classGetNameMethod #-}
+classGetNameMethod = unsafePerformIO $
+  getMethodID kclass (JNI.fromChars "getName") $
+    methodSignature [] (sing @('Class "java.lang.String"))
 
 -- | Class.isInstance
-classIsInstanceMethod :: IO JMethodID
-classIsInstanceMethod = do
-  klass <- kclass
-  let sig = methodSignature [SomeSing $ sing @('Class "java.lang.Object")] (sing @('Prim "boolean"))
-  getMethodID klass (JNI.fromChars "isInstance") sig
+classIsInstanceMethod :: JMethodID
+{-# NOINLINE classIsInstanceMethod #-}
+classIsInstanceMethod = unsafePerformIO $ do
+  getMethodID kclass (JNI.fromChars "isInstance") $
+    methodSignature [SomeSing $ sing @('Class "java.lang.Object")] (sing @('Prim "boolean"))
 
 -- | @getSignatures c methodName@ yields the Java signatures of overloadings of
 -- methods called @methodName@ in class @c@.
 getSignatures :: JClass -> JNI.String -> IO [JNI.String]
 getSignatures c methodName = do
-  id <- classGetMethodsMethod
-  array :: JObjectArray <- unsafeCast <$> callObjectMethod c id []
+  array :: JObjectArray <- unsafeCast <$> callObjectMethod c classGetMethodsMethod []
   l <- getArrayLength array
   names <- forM [0 .. l - 1] $ \i -> do
     ithObj :: JObject <- getObjectArrayElement array i
-    id <- methodGetNameMethod
-    jName :: JString <- unsafeCast <$> callObjectMethod ithObj id []
+    jName :: JString <- unsafeCast <$> callObjectMethod ithObj methodGetNameMethod []
     name <- toString jName
     if name == methodName
       then do
-        id <- methodToStringMethod
-        jMethodName :: JString <- unsafeCast <$> callObjectMethod ithObj id []
+        jMethodName :: JString <- unsafeCast <$> callObjectMethod ithObj methodToStringMethod []
         Just <$> toString jMethodName
       else return Nothing
   return $ catMaybes names
@@ -101,11 +101,9 @@ toString obj = do
 -- | @getClassName c@ yields the name of class @c@
 getClassName :: JClass -> IO JNI.String
 getClassName c = do
-    id <- classGetNameMethod
-    jName :: JString <- unsafeCast <$> callObjectMethod c id []
+    jName :: JString <- unsafeCast <$> callObjectMethod c classGetNameMethod []
     toString jName
 
 isInstanceOf :: JClass -> JObject -> IO Bool
-isInstanceOf klass obj = do
-  id <- classIsInstanceMethod
-  callBooleanMethod klass id [JObject obj]
+isInstanceOf klass obj =
+  callBooleanMethod klass classIsInstanceMethod [JObject obj]
