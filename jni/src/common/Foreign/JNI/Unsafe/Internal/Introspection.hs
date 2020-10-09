@@ -28,14 +28,18 @@ import GHC.ForeignPtr (ForeignPtr)
 -- | The "Class" class.
 kclass :: JClass
 {-# NOINLINE kclass #-}
-kclass = unsafePerformIO $
-  findClass $ referenceTypeName $ sing @('Class "java.lang.Class")
+kclass = unsafePerformIO $ bracket
+  (findClass $ referenceTypeName $ sing @('Class "java.lang.Class"))
+  deleteLocalRef
+  newGlobalRef
 
 -- | The "Method" class
 kmethod :: JClass
 {-# NOINLINE kmethod #-}
-kmethod = unsafePerformIO $
-  findClass $ referenceTypeName $ sing @('Class "java.lang.reflect.Method")
+kmethod = unsafePerformIO $ bracket
+  (findClass $ referenceTypeName $ sing @('Class "java.lang.reflect.Method"))
+  deleteLocalRef
+  newGlobalRef
 
 -- | Class.getMethods
 classGetMethodsMethod :: JMethodID
