@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -11,6 +12,7 @@ module Foreign.JNI.Unsafe.Internal.Introspection
 
 import Control.Exception (bracket)
 import Control.Monad (forM)
+import Data.Coerce
 import Data.Maybe (catMaybes)
 import Data.Singletons
 import qualified Data.Text as Text
@@ -21,6 +23,7 @@ import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
 import Prelude hiding (String)
 import System.IO.Unsafe (unsafePerformIO)
+import GHC.ForeignPtr (ForeignPtr)
 
 -- | The "Class" class.
 kclass :: JClass
@@ -62,39 +65,42 @@ classGetNameMethod = unsafePerformIO $
   getMethodID kclass (JNI.fromChars "getName") $
     methodSignature [] (sing @('Class "java.lang.String"))
 
+withDeleteLocalRef :: Coercible o (ForeignPtr (J ty)) => IO o -> (o -> IO c) -> IO c
+withDeleteLocalRef grab action = bracket grab deleteLocalRef action
+
 -- | @getSignatures c methodName@ yields the Java signatures of overloadings of
 -- methods called @methodName@ in class @c@.
 getSignatures :: JClass -> JNI.String -> IO [Text.Text]
-getSignatures c methodName = bracket
-  (unsafeCast <$> callObjectMethod c classGetMethodsMethod [])
-  deleteLocalRef $
+getSignatures c methodName = withDeleteLocalRef
+  (unsafeCast <$> callObjectMethod c classGetMethodsMethod []) $
   \(array :: JObjectArray) -> do
     l <- getArrayLength array
     let methodNameTxt = Text.decodeUtf8 $ JNI.toByteString methodName
-    names <- forM [0 .. l - 1] $ \i -> bracket
-      (getObjectArrayElement array i)
-      deleteLocalRef $
-      \(ithObj :: JObject) -> do
-        jName :: JString <- unsafeCast <$> callObjectMethod ithObj methodGetNameMethod []
-        name <- toText jName
-        if name == methodNameTxt
-          then do
-            jMethodName :: JString <- unsafeCast <$> callObjectMethod ithObj methodToStringMethod []
-            Just <$> toText jMethodName
-          else return Nothing
+    names <- forM [0 .. l - 1] $ \i -> withDeleteLocalRef
+      (getObjectArrayElement array i) $
+      \(ithObj :: JObject) -> withDeleteLocalRef
+        (unsafeCast <$> callObjectMethod ithObj methodGetNameMethod []) $
+        \(jName :: JString) -> do
+          name <- toText jName
+          if name == methodNameTxt
+            then withDeleteLocalRef
+              (unsafeCast <$> callObjectMethod ithObj methodToStringMethod []) $
+              \(jMethodName :: JString) -> Just <$> toText jMethodName
+            else return Nothing
     return $ catMaybes names
 
 -- | Turns a JString into Text.
 toText :: JString -> IO Text.Text
-toText obj = do
-  cs <- getStringChars obj
-  sz <- fromIntegral <$> getStringLength obj
-  txt <- Text.fromPtr cs sz
-  releaseStringChars obj cs
-  return txt
+toText obj = bracket
+  (getStringChars obj)
+  (releaseStringChars obj) $
+  \cs -> do
+    sz <- fromIntegral <$> getStringLength obj
+    txt <- Text.fromPtr cs sz
+    return txt
 
 -- | @getClassName c@ yields the name of class @c@
 getClassName :: JClass -> IO Text.Text
-getClassName c = do
-    jName :: JString <- unsafeCast <$> callObjectMethod c classGetNameMethod []
-    toText jName
+getClassName c = withDeleteLocalRef
+    (unsafeCast <$> callObjectMethod c classGetNameMethod []) $
+    \(jName :: JString) -> toText jName
