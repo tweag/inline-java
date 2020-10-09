@@ -5,23 +5,20 @@
 module Foreign.JNI.Unsafe.Introspection
  ( getClassName
  , getSignatures
- , toString
+ , toText
  , isInstanceOf
  , classGetNameMethod
  ) where
 
 import Control.Monad (forM)
-import Data.Foldable (fold)
 import Data.Maybe (catMaybes)
-import Data.ByteString.Builder (toLazyByteString, word16LE)
-import Data.ByteString.Lazy (toStrict)
 import Data.Singletons
-import Data.Text (unpack)
-import Data.Text.Encoding (decodeUtf16LE)
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
+import qualified Data.Text.Foreign as Text
 import Foreign.JNI.Unsafe.Internal
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
-import Foreign.Marshal.Array
 import Prelude hiding (String)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -74,35 +71,36 @@ classIsInstanceMethod = unsafePerformIO $ do
 
 -- | @getSignatures c methodName@ yields the Java signatures of overloadings of
 -- methods called @methodName@ in class @c@.
-getSignatures :: JClass -> JNI.String -> IO [JNI.String]
+getSignatures :: JClass -> JNI.String -> IO [Text.Text]
 getSignatures c methodName = do
+  let methodNameTxt = Text.decodeUtf8 $ JNI.toByteString methodName
   array :: JObjectArray <- unsafeCast <$> callObjectMethod c classGetMethodsMethod []
   l <- getArrayLength array
   names <- forM [0 .. l - 1] $ \i -> do
     ithObj :: JObject <- getObjectArrayElement array i
     jName :: JString <- unsafeCast <$> callObjectMethod ithObj methodGetNameMethod []
-    name <- toString jName
-    if name == methodName
+    name <- toText jName
+    if name == methodNameTxt
       then do
         jMethodName :: JString <- unsafeCast <$> callObjectMethod ithObj methodToStringMethod []
-        Just <$> toString jMethodName
+        Just <$> toText jMethodName
       else return Nothing
   return $ catMaybes names
 
--- | Turns a JString into a JNI String.
--- Tricky, because Java encodes string in utf-16
-toString :: JString -> IO JNI.String
-toString obj = do
+-- | Turns a JString into Text.
+toText :: JString -> IO Text.Text
+toText obj = do
   cs <- getStringChars obj
   sz <- fromIntegral <$> getStringLength obj
-  ws <- peekArray sz cs
-  return $ JNI.fromChars $ unpack $ decodeUtf16LE $ toStrict $ toLazyByteString $ fold $ word16LE <$> ws
+  txt <- Text.fromPtr cs sz
+  releaseStringChars obj cs
+  return txt
 
 -- | @getClassName c@ yields the name of class @c@
-getClassName :: JClass -> IO JNI.String
+getClassName :: JClass -> IO Text.Text
 getClassName c = do
     jName :: JString <- unsafeCast <$> callObjectMethod c classGetNameMethod []
-    toString jName
+    toText jName
 
 isInstanceOf :: JClass -> JObject -> IO Bool
 isInstanceOf klass obj =
