@@ -9,6 +9,7 @@ import Control.Concurrent (runInBoundThread)
 import Data.Singletons
 import Foreign.JNI.Types
 import Foreign.JNI.Unsafe
+import Foreign.JNI.Unsafe.Internal.Introspection
 import Test.Hspec
 
 spec :: Spec
@@ -24,3 +25,20 @@ spec = do
         runInBoundThread $ do
           findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
             `shouldThrow` \ThreadNotAttached -> True
+
+    around_ (runInBoundThread . runInAttachedThread) $
+      describe "isInstanceOf" $ do
+        it "identifies a class name as a String" $ do
+          klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
+          name <- callObjectMethod klong classGetNameMethod []
+          kstring <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.String")))
+          isInstanceOf name kstring `shouldReturn` True
+        it "identifies a class name as an Object" $ do
+          klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
+          name <- callObjectMethod klong classGetNameMethod []
+          kobject <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Object")))
+          isInstanceOf name kobject `shouldReturn` True
+        it "doesn't identify a class name as a Long" $ do
+          klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
+          name <- callObjectMethod klong classGetNameMethod []
+          isInstanceOf name klong `shouldReturn` False
