@@ -42,7 +42,7 @@ library
     Foreign.JNI.Internal.RWLock
     Foreign.JNI.Unsafe
     Foreign.JNI.Unsafe.Internal
-    Foreign.JNI.Unsafe.Introspection
+    Foreign.JNI.Unsafe.Internal.Introspection
   other-modules:
     Foreign.JNI.NativeMethod
   build-depends:
