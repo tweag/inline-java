@@ -18,6 +18,7 @@ haskell_library(
         "@stackage//:inline-c",
         "@stackage//:stm",
         "@stackage//:singletons",
+        "@stackage//:text",
     ],
     visibility = ["//visibility:public"],
 )
