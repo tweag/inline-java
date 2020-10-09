@@ -10,6 +10,7 @@ module Foreign.JNI.Unsafe.Introspection
  , classGetNameMethod
  ) where
 
+import Control.Exception (bracket)
 import Control.Monad (forM)
 import Data.Maybe (catMaybes)
 import Data.Singletons
@@ -72,20 +73,24 @@ classIsInstanceMethod = unsafePerformIO $ do
 -- | @getSignatures c methodName@ yields the Java signatures of overloadings of
 -- methods called @methodName@ in class @c@.
 getSignatures :: JClass -> JNI.String -> IO [Text.Text]
-getSignatures c methodName = do
-  let methodNameTxt = Text.decodeUtf8 $ JNI.toByteString methodName
-  array :: JObjectArray <- unsafeCast <$> callObjectMethod c classGetMethodsMethod []
-  l <- getArrayLength array
-  names <- forM [0 .. l - 1] $ \i -> do
-    ithObj :: JObject <- getObjectArrayElement array i
-    jName :: JString <- unsafeCast <$> callObjectMethod ithObj methodGetNameMethod []
-    name <- toText jName
-    if name == methodNameTxt
-      then do
-        jMethodName :: JString <- unsafeCast <$> callObjectMethod ithObj methodToStringMethod []
-        Just <$> toText jMethodName
-      else return Nothing
-  return $ catMaybes names
+getSignatures c methodName = bracket
+  (unsafeCast <$> callObjectMethod c classGetMethodsMethod [])
+  deleteLocalRef $
+  \(array :: JObjectArray) -> do
+    l <- getArrayLength array
+    let methodNameTxt = Text.decodeUtf8 $ JNI.toByteString methodName
+    names <- forM [0 .. l - 1] $ \i -> bracket
+      (getObjectArrayElement array i)
+      deleteLocalRef $
+      \(ithObj :: JObject) -> do
+        jName :: JString <- unsafeCast <$> callObjectMethod ithObj methodGetNameMethod []
+        name <- toText jName
+        if name == methodNameTxt
+          then do
+            jMethodName :: JString <- unsafeCast <$> callObjectMethod ithObj methodToStringMethod []
+            Just <$> toText jMethodName
+          else return Nothing
+    return $ catMaybes names
 
 -- | Turns a JString into Text.
 toText :: JString -> IO Text.Text
