@@ -41,6 +41,7 @@ module Foreign.JNI.Unsafe.Internal
   , getMethodID
   , getStaticMethodID
   , getObjectClass
+  , isInstanceOf
     -- ** Reference manipulation
   , newGlobalRef
   , deleteGlobalRef
@@ -1028,6 +1029,16 @@ getDirectBufferCapacity (upcast -> jbuffer) = do
       return capacity
     else
       throwIO DirectBufferFailed
+
+isInstanceOf :: Coercible o (J ty) => o -> JClass -> IO Bool
+isInstanceOf (coerce -> upcast -> obj) cls = do
+    w <- throwIfJNull obj $ throwIfJNull cls $
+      withJNIEnv $ \env ->
+      [C.exp| jboolean {
+        (*$(JNIEnv *env))->IsInstanceOf($(JNIEnv *env),
+                                        $fptr-ptr:(jobject obj),
+                                        $fptr-ptr:(jclass cls)) } |]
+    return $ toEnum $ fromIntegral w
 
 -- | A background thread for cleaning global references
 finalizerThread :: IORef BackgroundWorker

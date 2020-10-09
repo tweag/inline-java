@@ -31,13 +31,13 @@ spec = do
           klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
           name <- callObjectMethod klong classGetNameMethod []
           kstring <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.String")))
-          isInstanceOf kstring name `shouldReturn` True
+          isInstanceOf name kstring `shouldReturn` True
         it "identifies a class name as an Object" $ do
           klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
           name <- callObjectMethod klong classGetNameMethod []
           kobject <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Object")))
-          isInstanceOf kobject name `shouldReturn` True
+          isInstanceOf name kobject `shouldReturn` True
         it "doesn't identify a class name as a Long" $ do
           klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
           name <- callObjectMethod klong classGetNameMethod []
-          isInstanceOf klong name `shouldReturn` False
+          isInstanceOf name klong `shouldReturn` False

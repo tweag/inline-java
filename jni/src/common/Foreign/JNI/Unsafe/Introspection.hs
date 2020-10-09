@@ -6,7 +6,6 @@ module Foreign.JNI.Unsafe.Introspection
  ( getClassName
  , getSignatures
  , toText
- , isInstanceOf
  , classGetNameMethod
  ) where
 
@@ -63,13 +62,6 @@ classGetNameMethod = unsafePerformIO $
   getMethodID kclass (JNI.fromChars "getName") $
     methodSignature [] (sing @('Class "java.lang.String"))
 
--- | Class.isInstance
-classIsInstanceMethod :: JMethodID
-{-# NOINLINE classIsInstanceMethod #-}
-classIsInstanceMethod = unsafePerformIO $ do
-  getMethodID kclass (JNI.fromChars "isInstance") $
-    methodSignature [SomeSing $ sing @('Class "java.lang.Object")] (sing @('Prim "boolean"))
-
 -- | @getSignatures c methodName@ yields the Java signatures of overloadings of
 -- methods called @methodName@ in class @c@.
 getSignatures :: JClass -> JNI.String -> IO [Text.Text]
@@ -106,7 +98,3 @@ getClassName :: JClass -> IO Text.Text
 getClassName c = do
     jName :: JString <- unsafeCast <$> callObjectMethod c classGetNameMethod []
     toText jName
-
-isInstanceOf :: JClass -> JObject -> IO Bool
-isInstanceOf klass obj =
-  callBooleanMethod klass classIsInstanceMethod [JObject obj]
