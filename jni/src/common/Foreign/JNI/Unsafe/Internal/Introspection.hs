@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Foreign.JNI.Unsafe.Introspection
+module Foreign.JNI.Unsafe.Internal.Introspection
  ( getClassName
  , getSignatures
  , toText
