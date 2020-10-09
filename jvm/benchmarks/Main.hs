@@ -271,7 +271,7 @@ benchDirectBuffers =
 
 main :: IO ()
 main = withJVM [] $ do
-    Criterion.defaultMain []
+    Criterion.defaultMain
       [ benchCalls
       , benchRefs
       , benchNew
