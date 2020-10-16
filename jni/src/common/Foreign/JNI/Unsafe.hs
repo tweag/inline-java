@@ -65,8 +65,8 @@ instance Show NoSuchMethod where
         [ "No method named", noSuchMethodName exn
         , "has signature", noSuchMethodSignature exn
         , "in class", noSuchMethodClassName exn
-        , ".\nThe candidate methods are:"
-        , Text.unlines sigs
+        , "\nThe candidate methods are:\n"
+        <> Text.unlines sigs
         ]
 
 getMethodID
