@@ -6,7 +6,11 @@
 module Foreign.JNISpec where
 
 import Control.Concurrent (runInBoundThread)
+import Control.Exception (try)
+import Data.List (sort)
 import Data.Singletons
+import Foreign.JNI.Internal (jniMethodToJavaSignature)
+import Foreign.JNI.String (fromChars)
 import Foreign.JNI.Types
 import Foreign.JNI.Unsafe
 import Foreign.JNI.Unsafe.Internal.Introspection
@@ -26,7 +30,7 @@ spec = do
           findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
             `shouldThrow` \ThreadNotAttached -> True
 
-    around_ (runInBoundThread . runInAttachedThread) $
+    around_ (runInBoundThread . runInAttachedThread) $ do
       describe "isInstanceOf" $ do
         it "identifies a class name as a String" $ do
           klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
@@ -42,3 +46,24 @@ spec = do
           klong <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Long")))
           name <- callObjectMethod klong classGetNameMethod []
           isInstanceOf name klong `shouldReturn` False
+
+      describe "getMethodID" $ do
+        it "gives correct hints on a mistake" $ do
+          kstring <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.String")))
+          let sig = methodSignature [] (sing @('Class "java.lang.String"))
+          result <- try $ getMethodID kstring (fromChars "replace") sig
+          case result of
+            Left e -> do
+              sort (noSuchMethodOverloadings e) `shouldBe`
+                [ "public java.lang.String java.lang.String.replace(char,char)"
+                , "public java.lang.String java.lang.String.replace(java.lang.CharSequence,java.lang.CharSequence)"
+                ]
+            _ -> expectationFailure "call should have failed with a NoSuchMethod exception"
+
+      describe "jniMethodToJavaSignature" $
+        it "converts JNI signatures correctly" $ do
+          jniMethodToJavaSignature "()J" `shouldBe` Right ([], "long")
+          jniMethodToJavaSignature "(I)B" `shouldBe` Right (["int"], "byte")
+          jniMethodToJavaSignature "(SF)V" `shouldBe` Right (["short", "float"], "void")
+          jniMethodToJavaSignature "(C[Ljava/lang/String;D)Z"
+            `shouldBe` Right (["char", "java.lang.String[]", "double"], "boolean")
