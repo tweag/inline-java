@@ -74,7 +74,7 @@ nix:
 
 ## Building the safe interface
 
-There is [an experimental interface][safe-interface] which catches
+There is [an experimental interface][safe-inline-java] which catches
 common memory management mistakes at compile time. This interface
 currently needs a [fork][linear-types-ghc] of GHC which supports the
 [LinearTypes][linear-types-proposal] language extension. Both the GHC
@@ -101,8 +101,12 @@ Check the [tutorial][inline-java-tutorial] on how to use `inline-java`.
 If you want to know more about how it is implemented, look at
 [our post][inline-java-plugin] on the plugin implementation.
 
+There is also a post which gives an overview of the
+[safe interface][safe-interface-post].
+
 [inline-java-tutorial]: https://www.tweag.io/posts/2017-09-15-inline-java-tutorial.html
 [inline-java-plugin]: https://www.tweag.io/posts/2017-09-22-inline-java-ghc-plugin.html
+[safe-interface-post]: https://www.tweag.io/blog/2020-02-06-safe-inline-java
 
 ## Debugging
 
