@@ -8,6 +8,7 @@ module Foreign.JNISpec where
 import Control.Concurrent (runInBoundThread)
 import Control.Exception (try)
 import Data.Singletons
+import Foreign.JNI.Internal (jniMethodToJavaSignature)
 import Foreign.JNI.String (fromChars)
 import Foreign.JNI.Types
 import Foreign.JNI.Unsafe
@@ -51,9 +52,17 @@ spec = do
           let sig = methodSignature [] (sing @('Class "java.lang.String"))
           result <- try $ getMethodID kstring (fromChars "replace") sig
           case result of
-            Left (NoSuchMethod _ _ _ candidates) ->
-              candidates `shouldBe`
+            Left e -> do
+              noSuchMethodOverloadings e `shouldBe`
                 [ "public java.lang.String java.lang.String.replace(char,char)"
                 , "public java.lang.String java.lang.String.replace(java.lang.CharSequence,java.lang.CharSequence)"
                 ]
             _ -> expectationFailure "call should have failed with a NoSuchMethod exception"
+
+      describe "jniMethodToJavaSignature" $
+        it "converts JNI signatures correctly" $ do
+          jniMethodToJavaSignature "()J" `shouldBe` Right ([], "long")
+          jniMethodToJavaSignature "(I)B" `shouldBe` Right (["int"], "byte")
+          jniMethodToJavaSignature "(SF)V" `shouldBe` Right (["short", "float"], "void")
+          jniMethodToJavaSignature "(C[Ljava/lang/String;D)Z"
+            `shouldBe` Right (["char", "java.lang.String[]", "double"], "boolean")

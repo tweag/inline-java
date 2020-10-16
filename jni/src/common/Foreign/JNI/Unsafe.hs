@@ -34,11 +34,13 @@ module Foreign.JNI.Unsafe
   ) where
 
 import Control.Exception (Exception, bracket, catch, throwIO)
+import Data.List (intersperse)
 import Data.Singletons (sing)
+import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Foreign.JNI.Types
-import Foreign.JNI.Internal (MethodSignature(..))
+import Foreign.JNI.Internal (MethodSignature(..), jniMethodToJavaSignature)
 import qualified Foreign.JNI.String as JNI
 import qualified Foreign.JNI.Unsafe.Internal as Internal
 import Foreign.JNI.Unsafe.Internal hiding (getMethodID, getStaticMethodID)
@@ -47,27 +49,35 @@ import System.IO.Unsafe (unsafePerformIO)
 
 -- | Throws when a method can't be found
 data NoSuchMethod = NoSuchMethod
-  { noSuchMethodClassName :: Text.Text
-  , noSuchMethodName ::  Text.Text
-  , noSuchMethodSignature :: Text.Text
-  , noSuchMethodCandidates :: [Text.Text]
+  { noSuchMethodClassName :: Text
+  , noSuchMethodName :: Text
+  , noSuchMethodSignature :: Text
+  , noSuchMethodOverloadings :: [Text]
   } deriving Exception
 
 instance Show NoSuchMethod where
-  show exn = Text.unpack $ Text.unwords $
-    case noSuchMethodCandidates exn of
+  show exn = Text.unpack $ Text.concat $
+    case noSuchMethodOverloadings exn of
       [] ->
-        [ "No method named", noSuchMethodName exn
-        , "was found in class", noSuchMethodClassName exn
-        , ".\nWas there a mispelling ?"
+        [ "No method named ", noSuchMethodName exn
+        , " was found in class ", noSuchMethodClassName exn
+        , "\nWas there a mispelling?"
         ]
       sigs ->
-        [ "No method named", noSuchMethodName exn
-        , "has signature", noSuchMethodSignature exn
-        , "in class", noSuchMethodClassName exn
-        , "\nThe candidate methods are:\n"
-        <> Text.unlines sigs
+        [ "Couldn't find method\n  "
+        , showMethod (noSuchMethodName exn) (noSuchMethodSignature exn)
+        , "\nin class ", noSuchMethodClassName exn
+        , ".\nThe available method overloadings are:\n"
+        , Text.unlines $ map ("  "<>) sigs
         ]
+    where
+      showMethod methodName sig =
+        case jniMethodToJavaSignature sig of
+          -- A Left value is a bug, but we provide the JNI signature
+          -- which is still useful.
+          Left _ -> methodName <> ": " <> sig
+          Right (args, ret) -> Text.concat $
+            ret : " " : methodName : "(" : intersperse "," args ++ [")"]
 
 getMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
@@ -107,12 +117,12 @@ handleJVMException
 handleJVMException cls method (MethodSignature sig) (JVMException e) =
   isInstanceOf (upcast e) kexception >>= \case
     True -> do
-      noSuchMethodCandidates <- getSignatures cls method
+      noSuchMethodOverloadings <- getSignatures cls method
       noSuchMethodClassName <- getClassName cls
       throwIO $ NoSuchMethod
         { noSuchMethodClassName
         , noSuchMethodName = Text.decodeUtf8 (JNI.toByteString method)
         , noSuchMethodSignature = Text.decodeUtf8 (JNI.toByteString sig)
-        , noSuchMethodCandidates
+        , noSuchMethodOverloadings
         }
     False -> throwIO $ JVMException e
