@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -30,8 +31,7 @@ module Foreign.JNI.Unsafe
   , getStaticMethodID
   ) where
 
-import Control.Exception (Exception, catch, throwIO)
-import Data.List (intercalate)
+import Control.Exception (Exception, bracket, catch, throwIO)
 import Data.Singletons (sing)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
@@ -40,26 +40,30 @@ import qualified Foreign.JNI.String as JNI
 import qualified Foreign.JNI.Unsafe.Internal as Internal
 import Foreign.JNI.Unsafe.Internal hiding (getMethodID, getStaticMethodID)
 import Foreign.JNI.Unsafe.Internal.Introspection
+import System.IO.Unsafe (unsafePerformIO)
 
 data NoSuchMethod = NoSuchMethod
   { className :: Text.Text
   , methodName :: Text.Text
-  , targetSignature :: String
+  , targetSignature :: Text.Text
   , candidateSignatures :: [Text.Text]
   } deriving Exception
 
 instance Show NoSuchMethod where
-  show exn =
-    let base = "No method named " ++ show (methodName exn)
-            ++ " with signature " ++ targetSignature exn
-            ++ " was found in class " ++ show (className exn)
-    in
-      base ++ case candidateSignatures exn of
-        [] -> ""
-        sigs -> "\nCandidate type signatures are:\n"
-          ++ (intercalate "\n" $ map show sigs)
+  show exn = Text.unpack $ Text.unwords $ case candidateSignatures exn of
+    [] ->
+      [ "No method named", methodName exn
+      , "was found in class", className exn
+      , ".\nWas there a mispelling ?"
+      ]
+    sigs ->
+      [ "No method named", methodName exn
+      , "has signature", targetSignature exn
+      , "in class", className exn
+      , ".\nCandidates methods are:"
+      , Text.unlines sigs
+      ]
 
--- | wrapper around getMethodID' : raise a verbose exception if no method was found
 getMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
   -> JNI.String -- ^ Field name
@@ -69,7 +73,6 @@ getMethodID cls method sig = catch
   (Internal.getMethodID cls method sig)
   (handleJVMException cls method sig)
 
--- | wrapper around getStaticMethodID' : raise a verbose exception if no method was found
 getStaticMethodID
   :: JClass -- ^ A class object as returned by 'findClass'
   -> JNI.String -- ^ Field name
@@ -78,6 +81,14 @@ getStaticMethodID
 getStaticMethodID cls method sig = catch
   (Internal.getStaticMethodID cls method sig)
   (handleJVMException cls method sig)
+
+-- | The "NoSuchMethodError" class.
+kexception :: JClass
+{-# NOINLINE kexception #-}
+kexception = unsafePerformIO $ bracket
+  (findClass $ referenceTypeName $ sing @('Class "java.lang.NoSuchMethodError"))
+  deleteLocalRef
+  newGlobalRef
 
 -- | When the exception is an instance of java.lang.NoSuchMethodError,
 -- throw a verbose exception suggesting possible corrections.
@@ -88,12 +99,11 @@ handleJVMException
   -> MethodSignature
   -> JVMException
   -> IO a
-handleJVMException cls method sig (JVMException e) = do
-  kexception <- findClass $ referenceTypeName $ sing @('Class "java.lang.NoSuchMethodError")
+handleJVMException cls method sig (JVMException e) =
   isInstanceOf (upcast e) kexception >>= \case
     True -> do
       signatures <- getSignatures cls method
       clsName <- getClassName cls
       let methodNameTxt = Text.decodeUtf8 $ JNI.toByteString method
-      throwIO $ NoSuchMethod clsName methodNameTxt (show sig) signatures
+      throwIO $ NoSuchMethod clsName methodNameTxt (Text.pack $ show sig) signatures
     False -> throwIO $ JVMException e
