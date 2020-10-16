@@ -7,6 +7,7 @@ module Foreign.JNISpec where
 
 import Control.Concurrent (runInBoundThread)
 import Control.Exception (try)
+import Data.List (sort)
 import Data.Singletons
 import Foreign.JNI.Internal (jniMethodToJavaSignature)
 import Foreign.JNI.String (fromChars)
@@ -53,7 +54,7 @@ spec = do
           result <- try $ getMethodID kstring (fromChars "replace") sig
           case result of
             Left e -> do
-              noSuchMethodOverloadings e `shouldBe`
+              sort (noSuchMethodOverloadings e) `shouldBe`
                 [ "public java.lang.String java.lang.String.replace(char,char)"
                 , "public java.lang.String java.lang.String.replace(java.lang.CharSequence,java.lang.CharSequence)"
                 ]
