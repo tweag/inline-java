@@ -90,3 +90,12 @@ spec = around_ (runInBoundThread . runInAttachedThread) $ do
         let i = maxBound :: Int32
         j <- new i :: IO (J ('Class "java.lang.Integer"))
         reify (unsafeCast j) `shouldReturn` (fromIntegral i :: Int64)
+
+      it "correctly encodes characters outside ASCII range" $ do
+        let incorrect :: Text = "आपकी उम्र लंबी हो और आप समृद्ध बने 👋"
+        let correct = Text.replace "👋" "🖖" incorrect
+        hello <- reflect ("👋" :: Text)
+        spock <- reflect ("🖖" :: Text)
+        jincorrect <- reflect incorrect
+        jcorrect :: JString <- call jincorrect "replaceFirst" hello spock
+        reify jcorrect `shouldReturn` correct
