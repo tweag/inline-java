@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * Have finalizers of global references run in an attached thread (#150).
   Now programs using jni must link with the threaded runtime.
 
+* Failed lookups with getMethodID and getStaticMethodID now
+  list the overloadings of the method that was searched (#164).
+
 ## [0.7.0] - 2020-07-16
 
 ### Added
