@@ -66,7 +66,7 @@ toByteString (String bs) = BS.init bs
 -- a null-terminated buffer first.
 fromByteString :: ByteString -> String
 fromByteString bs
-  | BS.last bs == 0 = String bs
+  | BS.length bs > 0 && BS.last bs == 0 = String bs
   | otherwise = String (bs `BS.snoc` 0)
 
 -- | Same as 'fromByteString', but doesn't check whether the input is
