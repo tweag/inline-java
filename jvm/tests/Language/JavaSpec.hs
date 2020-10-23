@@ -117,21 +117,21 @@ spec = around_ (runInBoundThread . runInAttachedThread) $ do
 
       prop "correctly convert back and forth from Data.Text to java.lang.String" $
         \(textBefore :: Text) -> ioProperty $ do
-          jTextBefore <- reflect textBefore
-          -- call substring() to force returning a new object
-          jTextAfter :: JString <- call jTextBefore "substring" (0 :: Int32)
-          textAfter :: Text <- reify jTextAfter
-          return $ textBefore === textAfter
+          withLocalRef (reflect textBefore) $ \jTextBefore ->
+            -- call substring() to force returning a new object
+            withLocalRef (call jTextBefore "substring" (0 :: Int32)) $ \(jTextAfter :: JString) -> do
+              textAfter :: Text <- reify jTextAfter
+              return $ textBefore === textAfter
 
       prop "correctly convert back and forth from java.lang.String to Data.Text" $
         \(textBefore :: Text) -> ioProperty $ do
-          jTextBefore <- reflect textBefore
-          jTextAfter <- join $ (reflect . Text.copy) <$> reify jTextBefore
-          isEqual :: Bool <- call jTextBefore "equals" (upcast jTextAfter)
-          return $ isEqual === True
+          withLocalRef (reflect textBefore) $ \jTextBefore ->
+            withLocalRef (join $ (reflect . Text.copy) <$> reify jTextBefore) $ \jTextAfter -> do
+              isEqual :: Bool <- call jTextBefore "equals" (upcast jTextAfter)
+              return $ isEqual === True
 
     describe "modified UTF-8 encoding" $ do
       it "correctly processes NUL character" $ do
-        let sample :: Text = ("a\NULb" :: Text)
-        withLocalRef (reflect sample) $
-          \s -> reify s `shouldReturn` sample
+        let sample :: Text = "a\NULb"
+        withLocalRef (reflect sample) $ \s ->
+          reify s `shouldReturn` sample
