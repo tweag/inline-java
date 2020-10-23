@@ -10,10 +10,15 @@ module Language.JavaSpec where
 import Control.Concurrent (runInBoundThread)
 import Data.Int
 import qualified Data.Text as Text
-import Data.Text (Text)
+import Data.Text (Text, isInfixOf)
+import Data.Text.Arbitrary ()
+import Data.Text.Encoding (encodeUtf8)
 import Foreign.JNI (getArrayLength, runInAttachedThread)
+import qualified Foreign.JNI.String as JNI
 import Language.Java
 import Test.Hspec
+import Test.Hspec.QuickCheck
+import Test.QuickCheck
 
 spec :: Spec
 spec = around_ (runInBoundThread . runInAttachedThread) $ do
@@ -99,3 +104,12 @@ spec = around_ (runInBoundThread . runInAttachedThread) $ do
         jincorrect <- reflect incorrect
         jcorrect :: JString <- call jincorrect "replaceFirst" hello spock
         reify jcorrect `shouldReturn` correct
+
+    describe "strings" $ do
+      -- It is known that the current implementation of JNI.String does not support embedded NULL
+      prop "correctly convert back and forth from Prelude.String to JNI.String" $
+        \s -> (notElem '\NUL' s) ==> (s === (JNI.toChars . JNI.fromChars) s)
+      prop "correctly convert back and forth from JNI.String to Prelude.String" $
+        \t -> (not $ isInfixOf "\NUL" t) ==>
+          let s = JNI.fromByteString $ encodeUtf8 t
+          in s === (JNI.fromChars . JNI.toChars) s
