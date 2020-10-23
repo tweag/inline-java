@@ -8,6 +8,7 @@
 module Language.JavaSpec where
 
 import Control.Concurrent (runInBoundThread)
+import Control.Monad (join)
 import Data.Int
 import qualified Data.Text as Text
 import Data.Text (Text, isInfixOf)
@@ -113,3 +114,18 @@ spec = around_ (runInBoundThread . runInAttachedThread) $ do
         \t -> (not $ isInfixOf "\NUL" t) ==>
           let s = JNI.fromByteString $ encodeUtf8 t
           in s === (JNI.fromChars . JNI.toChars) s
+
+      prop "correctly convert back and forth from Data.Text to java.lang.String" $
+        \(textBefore :: Text) -> ioProperty $ do
+          jTextBefore <- reflect textBefore
+          -- call substring() to force returning a new object
+          jTextAfter :: JString <- call jTextBefore "substring" (0 :: Int32)
+          textAfter :: Text <- reify jTextAfter
+          return $ textBefore === textAfter
+
+      prop "correctly convert back and forth from java.lang.String to Data.Text" $
+        \(textBefore :: Text) -> ioProperty $ do
+          jTextBefore <- reflect textBefore
+          jTextAfter <- join $ (reflect . Text.copy) <$> reify jTextBefore
+          isEqual :: Bool <- call jTextBefore "equals" (upcast jTextAfter)
+          return $ isEqual === True
