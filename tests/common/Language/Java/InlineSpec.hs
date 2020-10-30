@@ -10,12 +10,16 @@
 
 module Language.Java.InlineSpec(spec) where
 
+import Data.Char
 import Data.Int
-import Data.Text
+import Data.Text as T hiding (map)
 import Foreign.JNI (JVMException)
 import Language.Java
 import Language.Java.Inline
 import Test.Hspec
+import Test.Hspec.QuickCheck
+import Test.QuickCheck
+import Test.QuickCheck.Unicode
 
 type ObjectClass = 'Class "java.lang.Object"
 type ListClass = 'Iface "java.util.List"
@@ -132,3 +136,19 @@ spec = do
       it "Supports modified utf-8 encoding from Java to Haskell" $ do
           jString <- [java| new String("a\0b") |]
           (reify jString) `shouldReturn` ("a\NULb" :: T.Text)
+
+      prop "Processes Unicode code points as the JVM does" $ do
+        \u -> ioProperty $ do
+          let chars :: [Char] = fromUnicode u
+          let text = T.pack chars
+          let codePoints :: [Int32] = map (fromIntegral . ord) chars
+          withLocalRef (reflect codePoints) $ \jPoints -> do
+            -- Converting from Integer[] to int[] is very boilerplate-y
+            jString <- [java| {
+              int[] ints = new int[$jPoints.length];
+              for (int i = 0; i < $jPoints.length; ++i) {
+                ints[i] = $jPoints[i].intValue();
+              }
+              return new String(ints, 0, ints.length); } |]
+            jText <- reify jString
+            return $ jText === text
