@@ -131,7 +131,7 @@ spec = do
 
       it "Supports modified utf-8 encoding from Haskell to Java" $
           withLocalRef (reflect ("a\NULb" :: T.Text)) $ \jString ->
-            [java| new String("a\0b").equals($jString) |] `shouldReturn` True
+            [java| "a\0b".equals($jString) |] `shouldReturn` True
 
       it "Supports modified utf-8 encoding from Java to Haskell" $ do
           jString <- [java| new String("a\0b") |]
