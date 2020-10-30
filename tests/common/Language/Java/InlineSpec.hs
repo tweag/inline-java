@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -10,6 +11,7 @@
 module Language.Java.InlineSpec(spec) where
 
 import Data.Int
+import Data.Text
 import Foreign.JNI (JVMException)
 import Language.Java
 import Language.Java.Inline
@@ -122,3 +124,11 @@ spec = do
           st :: J ('Class "java.lang.Thread$State") <-
             [java| Thread.State.NEW |]
           [java| $st == Thread.State.NEW |] `shouldReturn` True
+
+      it "Supports modified utf-8 encoding from Haskell to Java" $
+          withLocalRef (reflect ("a\NULb" :: T.Text)) $ \jString ->
+            [java| new String("a\0b").equals($jString) |] `shouldReturn` True
+
+      it "Supports modified utf-8 encoding from Java to Haskell" $ do
+          jString <- [java| new String("a\0b") |]
+          (reify jString) `shouldReturn` ("a\NULb" :: T.Text)

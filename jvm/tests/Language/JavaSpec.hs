@@ -129,9 +129,3 @@ spec = around_ (runInBoundThread . runInAttachedThread) $ do
             withLocalRef (join $ (reflect . Text.copy) <$> reify jTextBefore) $ \jTextAfter -> do
               isEqual :: Bool <- call jTextBefore "equals" (upcast jTextAfter)
               return $ isEqual === True
-
-    describe "modified UTF-8 encoding" $ do
-      it "correctly processes NUL character" $ do
-        let sample :: Text = "a\NULb"
-        withLocalRef (reflect sample) $ \s ->
-          reify s `shouldReturn` sample
