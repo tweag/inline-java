@@ -134,8 +134,7 @@ spec = do
             [java| "a\0b".equals($jString) |] `shouldReturn` True
 
       it "Supports modified utf-8 encoding from Java to Haskell" $ do
-          jString <- [java| new String("a\0b") |]
-          (reify jString) `shouldReturn` ("a\NULb" :: T.Text)
+          withLocalRef [java| "a\0b" |] reify `shouldReturn` ("a\NULb" :: T.Text)
 
       prop "Processes Unicode code points as the JVM does" $ do
         \u -> ioProperty $ do
