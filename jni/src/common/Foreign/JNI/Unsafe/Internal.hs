@@ -274,7 +274,6 @@ throwIfException :: Ptr JNIEnv -> IO a -> IO a
 throwIfException env m = m `finally` do
     excptr <- [CU.exp| jthrowable { (*$(JNIEnv *env))->ExceptionOccurred($(JNIEnv *env)) } |]
     unless (excptr == nullPtr) $ do
-      [CU.exp| void { (*$(JNIEnv *env))->ExceptionDescribe($(JNIEnv *env)) } |]
       [CU.exp| void { (*$(JNIEnv *env))->ExceptionClear($(JNIEnv *env)) } |]
       throwIO . JVMException =<< newGlobalRef =<< objectFromPtr excptr
 
