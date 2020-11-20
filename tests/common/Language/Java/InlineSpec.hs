@@ -13,6 +13,7 @@ module Language.Java.InlineSpec(spec) where
 import Data.Char
 import Data.Int
 import qualified Data.Text as Text
+import qualified Data.Vector.Storable.Mutable as Vector
 import Foreign.JNI (JVMException)
 import Language.Java
 import Language.Java.Inline
@@ -140,14 +141,11 @@ spec = do
         \u -> ioProperty $ do
           let chars :: [Char] = fromUnicode u
           let text = Text.pack chars
-          let codePoints :: [Int32] = map (fromIntegral . ord) chars
+          codePoints :: Vector.IOVector Int32 <- Vector.new $ length chars
+          mapM_
+            (\(i, c) -> Vector.unsafeWrite codePoints i $ fromIntegral $ ord c)
+            (zip [0..] chars)
           withLocalRef (reflect codePoints) $ \jPoints -> do
-            -- Converting from Integer[] to int[] is very boilerplate-y
-            jString <- [java| {
-              int[] ints = new int[$jPoints.length];
-              for (int i = 0; i < $jPoints.length; ++i) {
-                ints[i] = $jPoints[i].intValue();
-              }
-              return new String(ints, 0, ints.length); } |]
+            jString <- [java| new String($jPoints, 0, $jPoints.length) |]
             jText <- reify jString
             return $ jText === text
