@@ -160,7 +160,7 @@ showException (JVMException e) = withDeleteLocalRef
     (newObject
       kPrintWriter
       (methodSignature
-        [SomeSing (sing :: Sing ('Class "java.io.StringWriter"))]
+        [SomeSing (sing :: Sing ('Class "java.io.Writer"))]
         (sing :: Sing 'Void))
       [JObject stringWriter])
     $ \printWriter -> do
