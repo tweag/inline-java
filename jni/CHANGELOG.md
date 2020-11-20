@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 * Failed lookups with getMethodID and getStaticMethodID now
   list the overloadings of the method that was searched (#164).
 
+* Exceptions raised in the JVM do not automatically print a line in stdin.
+  Instead, a Haskell function is provided to print the stack trace of any
+  JVMException (#168).
+
 ## [0.7.0] - 2020-07-16
 
 ### Added
