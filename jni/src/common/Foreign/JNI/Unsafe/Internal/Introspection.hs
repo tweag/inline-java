@@ -8,6 +8,7 @@ module Foreign.JNI.Unsafe.Internal.Introspection
  , getSignatures
  , toText
  , classGetNameMethod
+ , showException
  ) where
 
 import Control.Exception (bracket)
@@ -108,3 +109,68 @@ getClassName :: JClass -> IO Text.Text
 getClassName c = withDeleteLocalRef
     (unsafeCast <$> callObjectMethod c classGetNameMethod []) $
     \(jName :: JString) -> toText jName
+
+-- | The "Throwable" interface.
+iThrowable :: JClass
+{-# NOINLINE iThrowable #-}
+iThrowable = unsafePerformIO $ withDeleteLocalRef
+  (findClass $ referenceTypeName $ sing @('Class "java.lang.Throwable"))
+  newGlobalRef
+
+-- | Throwable.printStackTrace(PrintWriter s)
+throwablePrintStackTraceMethod :: JMethodID
+{-# NOINLINE throwablePrintStackTraceMethod #-}
+throwablePrintStackTraceMethod = unsafePerformIO $
+  getMethodID iThrowable (JNI.fromChars "printStackTrace") $
+    methodSignature [SomeSing (sing :: Sing ('Class "java.io.PrintWriter"))] (sing :: Sing 'Void)
+
+-- | The "StringWriter" class.
+kStringWriter :: JClass
+{-# NOINLINE kStringWriter #-}
+kStringWriter = unsafePerformIO $ withDeleteLocalRef
+  (findClass $ referenceTypeName $ sing @('Class "java.io.StringWriter"))
+  newGlobalRef
+
+-- | The "PrintWriter" class.
+kPrintWriter :: JClass
+{-# NOINLINE kPrintWriter #-}
+kPrintWriter = unsafePerformIO $ withDeleteLocalRef
+  (findClass $ referenceTypeName $ sing @('Class "java.io.PrintWriter"))
+  newGlobalRef
+
+-- | StringWriter.toString
+stringWriterToStringMethod :: JMethodID
+{-# NOINLINE stringWriterToStringMethod #-}
+stringWriterToStringMethod = unsafePerformIO $
+  getMethodID kStringWriter (JNI.fromChars "toString") $
+    methodSignature [] (sing @('Class "java.lang.String"))
+
+-- | Equivalent Java code:
+-- StringWriter stringWriter = new StringWriter();
+-- PrintWriter printWriter = new PrintWriter(stringWriter);
+-- e.printStackTrace(printWriter);
+-- return stringWriter.toString();
+showException :: JVMException -> IO Text.Text
+showException (JVMException e) = withDeleteLocalRef
+  (newObject
+    kStringWriter
+    (methodSignature [] (sing :: Sing 'Void))
+    [])
+  $ \stringWriter -> withDeleteLocalRef
+    (newObject
+      kPrintWriter
+      (methodSignature
+        [SomeSing (sing :: Sing ('Class "java.io.Writer"))]
+        (sing :: Sing 'Void))
+      [JObject stringWriter])
+    $ \printWriter -> do
+      _ <- callVoidMethod
+        e
+        throwablePrintStackTraceMethod
+        [JObject printWriter]
+      withDeleteLocalRef
+        (unsafeCast <$> callObjectMethod
+          stringWriter
+          stringWriterToStringMethod
+          [])
+        toText

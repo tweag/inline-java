@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Foreign.JNISpec where
@@ -13,6 +14,7 @@ import Foreign.JNI.Internal (jniMethodToJavaSignature)
 import Foreign.JNI.String (fromChars)
 import Foreign.JNI.Types
 import Foreign.JNI.Unsafe
+import qualified Foreign.JNI.Unsafe.Internal as Internal
 import Foreign.JNI.Unsafe.Internal.Introspection
 import Test.Hspec
 
@@ -67,3 +69,12 @@ spec = do
           jniMethodToJavaSignature "(SF)V" `shouldBe` Right (["short", "float"], "void")
           jniMethodToJavaSignature "(C[Ljava/lang/String;D)Z"
             `shouldBe` Right (["char", "java.lang.String[]", "double"], "boolean")
+
+      describe "showException" $
+        it "correctly displays exceptions" $ do
+          kinteger <- findClass (referenceTypeName (sing :: Sing ('Class "java.lang.Integer")))
+          let sig = methodSignature [] (sing :: Sing 'Void)
+          result <- try $ Internal.getMethodID kinteger (fromChars "toString") sig
+          case result of
+            Left (e :: JVMException) -> showException e `shouldReturn` "java.lang.NoSuchMethodError: toString\n"
+            _ -> expectationFailure "call should have failed with a JVMException"
