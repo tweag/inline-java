@@ -12,7 +12,7 @@ module Language.Java.InlineSpec(spec) where
 
 import Data.Char
 import Data.Int
-import Data.Text as T hiding (map)
+import qualified Data.Text as Text
 import Foreign.JNI (JVMException)
 import Language.Java
 import Language.Java.Inline
@@ -130,16 +130,16 @@ spec = do
           [java| $st == Thread.State.NEW |] `shouldReturn` True
 
       it "Supports modified utf-8 encoding from Haskell to Java" $
-          withLocalRef (reflect ("a\NULb" :: T.Text)) $ \jString ->
+          withLocalRef (reflect ("a\NULb" :: Text.Text)) $ \jString ->
             [java| "a\0b".equals($jString) |] `shouldReturn` True
 
       it "Supports modified utf-8 encoding from Java to Haskell" $ do
-          withLocalRef [java| "a\0b" |] reify `shouldReturn` ("a\NULb" :: T.Text)
+          withLocalRef [java| "a\0b" |] reify `shouldReturn` ("a\NULb" :: Text.Text)
 
       prop "Processes Unicode code points as the JVM does" $ do
         \u -> ioProperty $ do
           let chars :: [Char] = fromUnicode u
-          let text = T.pack chars
+          let text = Text.pack chars
           let codePoints :: [Int32] = map (fromIntegral . ord) chars
           withLocalRef (reflect codePoints) $ \jPoints -> do
             -- Converting from Integer[] to int[] is very boilerplate-y
