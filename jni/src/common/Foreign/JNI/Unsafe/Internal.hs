@@ -234,9 +234,11 @@ $(C.verbatim "static __thread JNIEnv* jniEnv; ")
 -- | A JNI call may cause a (Java) exception to be raised. This module raises it
 -- as a Haskell exception wrapping the Java exception.
 newtype JVMException = JVMException JThrowable
-  deriving Show
 
 instance Exception JVMException
+
+instance Show JVMException where
+  show (JVMException e) = show e ++ ": Call (Foreign.JNI.showException e) to see details."
 
 -- | Thrown when @Get<PrimitiveType>ArrayElements@ returns a null pointer,
 -- because it wanted to copy the array contents but couldn't. In this case the
