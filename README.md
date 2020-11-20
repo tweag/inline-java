@@ -171,7 +171,7 @@ the context class loader is just `null`.
 loader <- [java| Thread.currentThread().getContextClassLoader() |]
 ...
 forkOS $ runInAttachedThread $ do
-  [java| Thread.currentThread().setContextClassLoader($loader) |]
+  [java| { Thread.currentThread().setContextClassLoader($loader); } |]
   ...
 ```
 
@@ -180,9 +180,13 @@ forkOS $ runInAttachedThread $ do
 Any java exception that goes from Java to Haskell will be wrapped
 as a value of type `JVMException` with a reference to the Java object
 representing the exception. The message and the stack trace of the
-exception are printed to stderr when the exception is rethrown on
-the Haskell side, but they can be retrieved from the exception
-object with more JNI calls as well.
+exception can be retrieved from the exception object with more JNI
+calls, e.g.
+
+```Haskell
+\(JVMException e) -> [java| { $e.printStackTrace(); } |]
+```
+or with `JNI.Foreign.showException`.
 
 ## License
 
