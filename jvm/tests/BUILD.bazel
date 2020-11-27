@@ -20,6 +20,9 @@ haskell_test(
         "@stackage//:base",
         "@stackage//:bytestring",
         "@stackage//:hspec",
+        "@stackage//:QuickCheck",
+        "@stackage//:quickcheck-text",
+        "@stackage//:quickcheck-unicode",
         "@stackage//:text",
     ],
 )
