@@ -13,7 +13,8 @@ module Language.Java.InlineSpec(spec) where
 import Data.Char
 import Data.Int
 import qualified Data.Text as Text
-import qualified Data.Vector.Storable.Mutable as Vector
+import qualified Data.Vector.Storable as Vector
+import Data.Vector.Storable.Mutable (IOVector)
 import Foreign.JNI (JVMException)
 import Language.Java
 import Language.Java.Inline
@@ -141,10 +142,7 @@ spec = do
         \u -> ioProperty $ do
           let chars :: [Char] = fromUnicode u
           let text = Text.pack chars
-          codePoints :: Vector.IOVector Int32 <- Vector.new $ length chars
-          mapM_
-            (\(i, c) -> Vector.unsafeWrite codePoints i $ fromIntegral $ ord c)
-            (zip [0..] chars)
+          codePoints :: IOVector Int32 <- Vector.thaw $ Vector.fromList $ map (fromIntegral . ord) chars
           withLocalRef (reflect codePoints) $ \jPoints -> do
             jString <- [java| new String($jPoints, 0, $jPoints.length) |]
             jText <- reify jString
