@@ -90,7 +90,10 @@ test-suite spec
     jvm,
     hspec,
     inline-java,
-    text
+    QuickCheck,
+    quickcheck-unicode,
+    text,
+    vector
   default-language: Haskell2010
   ghc-options: -threaded
   cpp-options: -DHSPEC_DISCOVER=hspec-discover

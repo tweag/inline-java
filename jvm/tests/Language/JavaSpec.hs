@@ -8,12 +8,18 @@
 module Language.JavaSpec where
 
 import Control.Concurrent (runInBoundThread)
+import Control.Monad (join)
 import Data.Int
 import qualified Data.Text as Text
-import Data.Text (Text)
+import Data.Text (Text, isInfixOf)
+import Data.Text.Arbitrary ()
+import Data.Text.Encoding (encodeUtf8)
 import Foreign.JNI (getArrayLength, runInAttachedThread)
+import qualified Foreign.JNI.String as JNI
 import Language.Java
 import Test.Hspec
+import Test.Hspec.QuickCheck
+import Test.QuickCheck
 
 spec :: Spec
 spec = around_ (runInBoundThread . runInAttachedThread) $ do
@@ -90,3 +96,36 @@ spec = around_ (runInBoundThread . runInAttachedThread) $ do
         let i = maxBound :: Int32
         j <- new i :: IO (J ('Class "java.lang.Integer"))
         reify (unsafeCast j) `shouldReturn` (fromIntegral i :: Int64)
+
+      it "correctly encodes characters outside ASCII range" $ do
+        let incorrect :: Text = "आपकी उम्र लंबी हो और आप समृद्ध बने 👋"
+        let correct = Text.replace "👋" "🖖" incorrect
+        hello <- reflect ("👋" :: Text)
+        spock <- reflect ("🖖" :: Text)
+        jincorrect <- reflect incorrect
+        jcorrect :: JString <- call jincorrect "replaceFirst" hello spock
+        reify jcorrect `shouldReturn` correct
+
+    describe "strings" $ do
+      -- It is known that the current implementation of JNI.String does not support embedded NULL
+      prop "correctly convert back and forth from Prelude.String to JNI.String" $
+        \s -> (notElem '\NUL' s) ==> (s === (JNI.toChars . JNI.fromChars) s)
+      prop "correctly convert back and forth from JNI.String to Prelude.String" $
+        \t -> (not $ isInfixOf "\NUL" t) ==>
+          let s = JNI.fromByteString $ encodeUtf8 t
+          in s === (JNI.fromChars . JNI.toChars) s
+
+      prop "correctly convert back and forth from Data.Text to java.lang.String" $
+        \(textBefore :: Text) -> ioProperty $ do
+          withLocalRef (reflect textBefore) $ \jTextBefore ->
+            -- call substring() to force returning a new object
+            withLocalRef (call jTextBefore "substring" (0 :: Int32)) $ \(jTextAfter :: JString) -> do
+              textAfter :: Text <- reify jTextAfter
+              return $ textBefore === textAfter
+
+      prop "correctly convert back and forth from java.lang.String to Data.Text" $
+        \(textBefore :: Text) -> ioProperty $ do
+          withLocalRef (reflect textBefore) $ \jTextBefore ->
+            withLocalRef (join $ (reflect . Text.copy) <$> reify jTextBefore) $ \jTextAfter -> do
+              isEqual :: Bool <- call jTextBefore "equals" (upcast jTextAfter)
+              return $ isEqual === True

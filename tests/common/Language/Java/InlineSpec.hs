@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -9,11 +10,18 @@
 
 module Language.Java.InlineSpec(spec) where
 
+import Data.Char
 import Data.Int
+import qualified Data.Text as Text
+import qualified Data.Vector.Storable as Vector
+import Data.Vector.Storable.Mutable (IOVector)
 import Foreign.JNI (JVMException)
 import Language.Java
 import Language.Java.Inline
 import Test.Hspec
+import Test.Hspec.QuickCheck
+import Test.QuickCheck
+import Test.QuickCheck.Unicode
 
 type ObjectClass = 'Class "java.lang.Object"
 type ListClass = 'Iface "java.util.List"
@@ -122,3 +130,20 @@ spec = do
           st :: J ('Class "java.lang.Thread$State") <-
             [java| Thread.State.NEW |]
           [java| $st == Thread.State.NEW |] `shouldReturn` True
+
+      it "Supports modified utf-8 encoding from Haskell to Java" $
+          withLocalRef (reflect ("a\NULb" :: Text.Text)) $ \jString ->
+            [java| "a\0b".equals($jString) |] `shouldReturn` True
+
+      it "Supports modified utf-8 encoding from Java to Haskell" $ do
+          withLocalRef [java| "a\0b" |] reify `shouldReturn` ("a\NULb" :: Text.Text)
+
+      prop "Processes Unicode code points as the JVM does" $ do
+        \u -> ioProperty $ do
+          let chars :: [Char] = fromUnicode u
+          let text = Text.pack chars
+          codePoints :: IOVector Int32 <- Vector.thaw $ Vector.fromList $ map (fromIntegral . ord) chars
+          withLocalRef (reflect codePoints) $ \jPoints -> do
+            jString <- [java| new String($jPoints, 0, $jPoints.length) |]
+            jText <- reify jString
+            return $ jText === text
