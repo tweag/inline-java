@@ -12,6 +12,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 
+## [0.8.0] - 2020-11-30
+
+### Changed
+
+* Added missing cpphs-cpp script needed for OSX builds (#170).
+
+* Have Foreign.JNI.String.fromByteString succeed on empty strings (#167). 
+
 * Have finalizers of global references run in an attached thread (#150).
   Now programs using jni must link with the threaded runtime.
 

@@ -1,5 +1,5 @@
 name:                jvm-streaming
-version:             0.3.2
+version:             0.4.0
 synopsis:            Expose Java iterators as streams from the streaming package.
 description:         Please see README.md.
 homepage:            http://github.com/tweag/inline-java/tree/master/jvm-streaming#readme
@@ -23,7 +23,7 @@ custom-setup
     base,
     Cabal >= 1.24,
     inline-java >= 0.6.3,
-    jvm-batching >= 0.1 && <0.2
+    jvm-batching >= 0.2 && <0.3
 
 library
   hs-source-dirs: src/main/haskell src/cabal/haskell
@@ -34,10 +34,10 @@ library
   build-depends:
     base >= 4.7 && < 5,
     distributed-closure >= 0.3,
-    jni >= 0.4.0 && <0.8,
-    jvm >= 0.4.0 && <0.6,
-    jvm-batching >= 0.1 && <0.2,
-    inline-java >= 0.9 && <0.10,
+    jni >= 0.8.0 && <0.9,
+    jvm >= 0.6.0 && <0.7,
+    jvm-batching >= 0.2 && <0.3,
+    inline-java >= 0.10 && <0.11,
     singletons >= 2.6,
     streaming >= 0.1.4,
     vector

@@ -7,11 +7,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Next release
 
 ### Added
+### Removed
+### Changed
+
+## [0.6.0] - 2020-11-30
+
+### Added
 
 * A newtype Nullable coercible to Maybe, which can reify null references. (#144)
 
-### Removed
 ### Changed
+
+* Support building with jni-0.8
 
 ## [0.5.0] - 2020-07-16
 

@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Removed
 ### Changed
 
+## [0.10.0] - 2020-11-30
+
+### Changed
+
+* Support building with jni-0.8
+
 ## [0.9.1] - 2020-07-16
 
 ### Changed

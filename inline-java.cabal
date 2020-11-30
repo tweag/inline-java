@@ -1,5 +1,5 @@
 name:                inline-java
-version:             0.9.1
+version:             0.10.0
 synopsis:            Java interop via inline Java code in Haskell modules.
 description:         Please see README.md.
 homepage:            http://github.com/tweag/inline-java#readme
@@ -56,8 +56,8 @@ library
     directory >=1.2,
     filepath >=1,
     ghc >=8.10.1 && <=8.11,
-    jni >=0.7 && <0.8,
-    jvm >=0.5 && <0.6,
+    jni >=0.8 && <0.9,
+    jvm >=0.6 && <0.7,
     language-java >=0.2,
     mtl >=2.2.1,
     process >=1.2,

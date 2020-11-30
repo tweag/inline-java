@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Next release
 
 ### Added
+### Removed
+### Changed
+
+## [0.2.0] - 2020-11-30
+
+### Added
 
 * Ability to reify batches containing nulls (#144).
 
@@ -15,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Changed
 
 * Fixed some leaks of references (#144)
+* Support building with jni-0.8
 
 ## [0.1.2] - 2020-07-16
 
