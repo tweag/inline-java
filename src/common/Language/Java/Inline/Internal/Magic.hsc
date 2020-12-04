@@ -20,11 +20,11 @@
 module Language.Java.Inline.Internal.Magic
   ( DotClass(..)
   , JavaImport(..)
-  , forEachDotClass
+  , getDotClasses
   , mangleClassName
   ) where
 
-import Control.Monad (forM_)
+import Control.Monad (forM)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Unsafe as BS
 import Data.Char (isAlphaNum)
@@ -65,17 +65,19 @@ peekDotClass ptr = do
       <$> (#{peek struct inline_java_dot_class, name} ptr >>= peekCString)
       <*> (BS.unsafePackCStringLen (bc, fromIntegral (sz :: CSize)))
 
--- | Runs the given function for every class in the bytecode table.
-forEachDotClass :: (DotClass -> IO ()) -> IO ()
-forEachDotClass f = peek bctable >>= go
+-- | Returns every class in the bytecode table
+getDotClasses :: IO [DotClass]
+getDotClasses = peek bctable >>= go
   where
-    go :: Ptr DotClass -> IO ()
+    go :: Ptr DotClass -> IO [DotClass]
     go tbl
-      | tbl == nullPtr = return ()
+      | tbl == nullPtr = return []
       | otherwise = do
         dcs_ptr <- #{peek struct inline_java_pack, classes} tbl
         tbl_sz <- #{peek struct inline_java_pack, size} tbl
-        forM_ [0..(tbl_sz-1)] $ \i -> do
-          let dc_sz = #{size struct inline_java_dot_class}
-          f =<< peekDotClass (dcs_ptr `plusPtr` (i * dc_sz))
-        #{peek struct inline_java_pack, next} tbl >>= go
+        head_dcs <- forM [0..(tbl_sz-1)] $ \i ->
+          peekDotClass (dcs_ptr `plusPtr` (i * dc_sz))
+        tail_dcs <- #{peek struct inline_java_pack, next} tbl >>= go
+        return $ head_dcs ++ tail_dcs
+    dc_sz :: Int
+    dc_sz = #{size struct inline_java_dot_class}

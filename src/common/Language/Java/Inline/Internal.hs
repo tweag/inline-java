@@ -52,9 +52,8 @@ module Language.Java.Inline.Internal
   , loadJavaWrappers
   ) where
 
-import Control.Monad (when)
+import Control.Monad (forM_, when)
 import Data.Data
-import Data.IORef
 import Data.List (isPrefixOf, intercalate, isSuffixOf, nub)
 import Data.String (fromString)
 import Foreign.JNI (defineClass, newGlobalRefNonFinalized, setObjectArrayElement)
@@ -140,18 +139,14 @@ loadJavaWrappers = doit `seq` return ()
   where
     {-# NOINLINE doit #-}
     doit = unsafePerformIO $ push $ do
-      idx <- newIORef 0
-      Magic.forEachDotClass $ const $ modifyIORef' idx (+1)
-      classRefs :: JObjectArray <- readIORef idx >>= newArray >>= newGlobalRefNonFinalized
-      writeIORef idx 0
+      dotClasses <- Magic.getDotClasses
+      (classRefs :: JObjectArray) <- newArray (toEnum $ length dotClasses) >>= newGlobalRefNonFinalized
       loader :: J ('Class "java.lang.ClassLoader") <- do
         thr <- callStatic "java.lang.Thread" "currentThread"
         call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader"
-      Magic.forEachDotClass $ \Magic.DotClass{..} -> do
+      forM_ (zip dotClasses [0..]) $ \(Magic.DotClass{..}, i) -> do
         cls <- defineClass (referenceTypeName (SClass className)) loader classBytecode
-        i <- readIORef idx
         setObjectArrayElement classRefs i cls
-        modifyIORef idx (+1)
       pop
 
 mangle :: TH.Module -> String
