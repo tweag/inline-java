@@ -1,5 +1,71 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'signing'
+}
+
+group = 'io.tweag'
+version = '0.2.0'
 
 dependencies {
-    compile files(buildscript.sourceFile.getParent() + "/build/libs/jvm-batching.jar")
+    implementation files(buildscript.sourceFile.getParent() + "/build/libs/jvm-batching.jar")
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'jvm-batching'
+            from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+            pom {
+                name = 'JVM Batching'
+                description = 'Provides batched marshalling of values between Java and Haskell.'
+                url = 'https://hackage.haskell.org/package/jvm-batching'
+                licenses {
+                    license {
+                        name = 'Copyright'
+                        url = 'https://github.com/tweag/inline-java/blob/master/jvm-batching/LICENSE'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'facundominguez'
+                        name = 'Facundo Domínguez'
+                        email = 'facundo.dominguez@tweag.io'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/tweag/inline-java.git'
+                    url = 'https://github.com/tweag/inline-java/tree/master/jvm-batching'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            url = "$buildDir/releases"
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.mavenJava
+}
+
+javadoc {
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
 }
