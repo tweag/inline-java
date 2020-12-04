@@ -140,13 +140,15 @@ loadJavaWrappers = doit `seq` return ()
     {-# NOINLINE doit #-}
     doit = unsafePerformIO $ push $ do
       dotClasses <- Magic.getDotClasses
-      (classRefs :: JObjectArray) <- newArray (toEnum $ length dotClasses) >>= newGlobalRefNonFinalized
+      (classRefs :: JObjectArray) <- withLocalRef
+        (newArray $ toEnum $ length dotClasses)
+        newGlobalRefNonFinalized
       loader :: J ('Class "java.lang.ClassLoader") <- do
         thr <- callStatic "java.lang.Thread" "currentThread"
         call (thr :: J ('Class "java.lang.Thread")) "getContextClassLoader"
-      forM_ (zip dotClasses [0..]) $ \(Magic.DotClass{..}, i) -> do
-        cls <- defineClass (referenceTypeName (SClass className)) loader classBytecode
-        setObjectArrayElement classRefs i cls
+      forM_ (zip dotClasses [0..]) $ \(Magic.DotClass{..}, i) -> withLocalRef
+        (defineClass (referenceTypeName (SClass className)) loader classBytecode)
+        (setObjectArrayElement classRefs i)
       pop
 
 mangle :: TH.Module -> String
