@@ -67,17 +67,16 @@ peekDotClass ptr = do
 
 -- | Returns every class in the bytecode table
 getDotClasses :: IO [DotClass]
-getDotClasses = peek bctable >>= go
+getDotClasses = peek bctable >>= go id
   where
-    go :: Ptr DotClass -> IO [DotClass]
-    go tbl
-      | tbl == nullPtr = return []
+    go :: ([DotClass] -> [DotClass]) -> Ptr DotClass -> IO [DotClass]
+    go acc tbl
+      | tbl == nullPtr = return (acc [])
       | otherwise = do
         dcs_ptr <- #{peek struct inline_java_pack, classes} tbl
         tbl_sz <- #{peek struct inline_java_pack, size} tbl
         head_dcs <- forM [0..(tbl_sz-1)] $ \i ->
           peekDotClass (dcs_ptr `plusPtr` (i * dc_sz))
-        tail_dcs <- #{peek struct inline_java_pack, next} tbl >>= go
-        return $ head_dcs ++ tail_dcs
+        #{peek struct inline_java_pack, next} tbl >>= go ((head_dcs ++) . acc)
     dc_sz :: Int
     dc_sz = #{size struct inline_java_dot_class}
