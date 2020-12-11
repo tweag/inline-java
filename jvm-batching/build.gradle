@@ -1,8 +1,6 @@
-plugins {
-    id 'java'
-    id 'maven-publish'
-    id 'signing'
-}
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+apply plugin: 'signing'
 
 group = 'io.tweag'
 version = '0.2.0'
