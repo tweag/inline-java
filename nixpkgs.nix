@@ -1,1 +1,1 @@
-import (fetchTarball "https://github.com/tweag/nixpkgs/archive/331f0ec32598e8a0984d9d5200f85535d28d7cbb.tar.gz")
+import (fetchTarball "https://github.com/tweag/nixpkgs/archive/267bb1df046fbad76a64440994afdb5c0fd3bc99.tar.gz")
