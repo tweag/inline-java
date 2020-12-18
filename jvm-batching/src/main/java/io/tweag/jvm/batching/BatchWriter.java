@@ -1,7 +1,7 @@
 package io.tweag.jvm.batching;
 
 /**
- *  A BatchWriter<A,B> is an object that takes elements of type A one at
+ *  A BatchWriter&lt;A, B&gt; is an object that takes elements of type A one at
  *  a time and yields a batch of type B containing all of them.
  */
 public interface BatchWriter<A, B> {
