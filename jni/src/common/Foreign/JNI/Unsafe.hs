@@ -31,6 +31,7 @@ module Foreign.JNI.Unsafe
   , NoSuchMethod(..)
   , getMethodID
   , getStaticMethodID
+  , showException
   ) where
 
 import Control.Exception (Exception, bracket, catch, throwIO)
