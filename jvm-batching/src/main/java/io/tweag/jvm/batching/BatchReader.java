@@ -1,7 +1,7 @@
 package io.tweag.jvm.batching;
 
 /**
- *  A BatchReader<A, B> provides access to the elements of type B in a
+ *  A BatchReader&lt;A, B&gt; provides access to the elements of type B in a
  *  batch of type A.
  */
 public interface BatchReader<A, B> {
