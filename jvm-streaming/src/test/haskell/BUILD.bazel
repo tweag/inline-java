@@ -10,20 +10,19 @@ haskell_test(
     compiler_flags = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-DHSPEC_DISCOVER=$(location @hspec-discover//:bin)",
+        "-threaded",
     ],
     size = "small",
     plugins = ["//:inline-java-plugin"],
     tools = ["@hspec-discover//:bin"],
     deps = [
         "//:inline-java",
+        "//jni",
         "//jvm",
-        "//jvm-batching:jar",
         "//jvm-streaming",
         "@stackage//:base",
         "@stackage//:hspec",
         "@stackage//:streaming",
         "@stackage//:text",
     ],
-    # Failing test. TODO Reenable.
-    tags = ["manual"],
 )

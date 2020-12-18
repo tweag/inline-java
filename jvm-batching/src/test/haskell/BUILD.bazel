@@ -10,15 +10,16 @@ haskell_test(
     compiler_flags = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-DHSPEC_DISCOVER=$(location @hspec-discover//:bin)",
+		"-threaded",
     ],
     size = "small",
     plugins = ["//:inline-java-plugin"],
     tools = ["@hspec-discover//:bin"],
     deps = [
         "//:inline-java",
+        "//jni",
         "//jvm",
         "//jvm-batching",
-        "//jvm-batching:jar",
         "//jvm-streaming",
         "@stackage//:base",
         "@stackage//:bytestring",
@@ -27,6 +28,4 @@ haskell_test(
         "@stackage//:text",
         "@stackage//:vector",
     ],
-    # Failing test. TODO Reenable.
-    tags = ["manual"],
 )
