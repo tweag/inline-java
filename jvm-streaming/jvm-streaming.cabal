@@ -67,6 +67,8 @@ test-suite spec
 benchmark micro-benchmarks
   type: exitcode-stdio-1.0
   main-is: Main.hs
+  other-modules:
+    Bench
   hs-source-dirs: benchmarks
   build-depends:
     base >=4.8 && <5,
