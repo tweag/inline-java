@@ -53,5 +53,5 @@ benchBatching = deepseq intValues $
     ]
 
 main :: IO ()
-main = withJVM ["-Djava.class.path=build/libs/jvm-batching.jar"] $
+main = withJVM ["-Djava.class.path=build/libs/jvm-batching.jar:jvm-batching/libjar.jar"] $
     Criterion.defaultMain [benchBatching]

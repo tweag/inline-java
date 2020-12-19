@@ -1,0 +1,25 @@
+load(
+  "@rules_haskell//haskell:defs.bzl",
+  "haskell_binary",
+)
+
+haskell_binary(
+    name = "bench",
+    srcs = glob(['**/*.hs'], exclude = ["Main.hs"]),
+    extra_srcs = ["@openjdk//:rpath"],
+    compiler_flags = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",
+        "-threaded",
+    ],
+    deps = [
+        "//jvm",
+        "//jni",
+        "//jvm-streaming",
+        "@stackage//:base",
+        "@stackage//:criterion",
+        "@stackage//:deepseq",
+        "@stackage//:streaming",
+        "@stackage//:text",
+        "@stackage//:vector",
+    ],
+)
