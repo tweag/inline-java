@@ -42,34 +42,22 @@ main = withJVM [] $ do
 ## Building it
 
 **Requirements:**
-* the [Stack][stack] build tool;
-* either, the [Nix][nix] package manager,
-* or, OpenJDK installed from your distro.
+* the [Bazel][bazel] build tool, and
+* the [Nix][nix] package manager.
 
 To build:
 
 ```
-$ stack build
+$ nix-shell --pure --run "bazel build //..."
 ```
 
-You can optionally get Stack to download a JDK in a local sandbox
-(using [Nix][nix]) for good build results reproducibility. **This is
-the recommended way to build inline-java.** Alternatively, you'll need
-it installed through your OS distribution's package manager for the
-next steps (and you'll need to tell Stack how to find the JVM header
-files and shared libraries).
+To test:
 
-To use Nix, set the following in your `~/.stack/config.yaml` (or pass
-`--nix` to all Stack commands, see the [Stack manual][stack-nix] for
-more):
-
-```yaml
-nix:
-  enable: true
+```
+$ nix-shell --pure --run "bazel test //..."
 ```
 
-[stack]: https://github.com/commercialhaskell/stack
-[stack-nix]: https://docs.haskellstack.org/en/stable/nix_integration/#configuration
+[bazel]: https://bazel.build
 [nix]: http://nixos.org/nix
 
 ## Building the safe interface
@@ -77,8 +65,10 @@ nix:
 There is [an experimental interface][safe-inline-java] which catches
 common memory management mistakes at compile time. This interface
 currently needs a [fork][linear-types-ghc] of GHC which supports the
-[LinearTypes][linear-types-proposal] language extension. Both the GHC
-fork and the safe interface can be built with:
+[LinearTypes][linear-types-proposal] language extension. The current
+build configuration depends on the [Stack][stack] build tool, but it
+will be transitioned to Bazel eventually. Both the GHC fork and the
+safe interface can be built with:
 
 ```
 $ stack --nix --stack-yaml stack-linear.yaml build inline-java
@@ -88,11 +78,11 @@ For examples of how to use the safe interface you can check
 the [directory server][directory-server] or the
 [wizzardo-http benchmark][wizzardo-http-benchmark].
 
-
 [directory-server]: examples/directory-server
 [linear-types-ghc]: https://github.com/tweag/ghc/tree/linear-types#ghc-branch-with-linear-types
 [linear-types-proposal]: https://github.com/tweag/ghc-proposals/blob/linear-types2/proposals/0000-linear-types.rst
 [safe-inline-java]: https://github.com/tweag/inline-java/blob/master/src/linear-types/Language/Java/Inline/Safe.hs
+[stack]: https://github.com/commercialhaskell/stack
 [wizzardo-http-benchmark]: benchmarks/wizzardo-http
 
 ## Further reading
