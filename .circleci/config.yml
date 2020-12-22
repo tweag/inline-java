@@ -1,93 +1,102 @@
 version: 2
-jobs:
-  build-darwin-brew:
-    macos:
-      xcode: '10.2.1'
-    steps:
-      - checkout
-      - run:
-          name: Prepare system
-          command: |
-            mkdir -p ~/.local/bin
-            curl -Lk https://www.stackage.org/stack/osx-x86_64 | tar xz --strip-components=1 -C ~/.local/bin
-      - run:
-          name: Install software
-          command: |
-            git -C /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core fetch --unshallow
-            git -C /usr/local/Homebrew/Library/Taps/homebrew/homebrew-cask fetch --unshallow
-            brew update
-            brew install --cask adoptopenjdk/openjdk/adoptopenjdk8
-            brew install gradle
-      - run:
-          name: Compute cache key
-          command: |
-            find . -name "*.cabal" -o -name "stack.yaml" -type f | sort | xargs cat > /tmp/stack-deps
-      - restore_cache:
-          keys:
-            - inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
-            - inline-java-stack-dependencies-{{ arch }}-
-      - run:
-          name: Build dependencies
-          command: |
-            ~/.local/bin/stack --no-terminal build -j2 --only-snapshot --prefetch --test --bench
-      - save_cache:
-          key: inline-java-stack-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
-          paths:
-            - ~/.stack
-      - run:
-          name: Build and test
-          command: |
-            . set-java-home.sh
-            # Make libjvm.dylib visible to the runtime linker
-            ln -sf "$JAVA_HOME/jre/lib/server/libjvm.dylib" /usr/local/lib/libjvm.dylib
-            ~/.local/bin/stack --no-terminal build -j2 \
-                --test \
-                --extra-lib-dirs=$JAVA_HOME/jre/lib/server/ \
-                --extra-include-dirs=$JAVA_HOME/include/ \
-                --extra-include-dirs=$JAVA_HOME/include/darwin/
 
-  build-linux-linear:
-    resource_class: xlarge
-    docker:
-        - image: tweag/linear-types:1.0.5
-    working_directory: ~/inline-java
+# NOTE:
+#   Disk cache:
+#       We don't want to keep old artifacts around so we always build from
+#       scratch on master builds and upload the new cache afterwards. Because
+#       Circle doesn't allow skipping a "restore_cache" we create a dummy
+#       "empty" cache that's only ever pulled on master. Alternatively we could
+#       ask Bazel to clean up old items (LRU style):
+#           https://docs.bazel.build/versions/master/remote-caching.html
+#       It also appears that there's ongoing work but the feature is not ready:
+#           https://github.com/bazelbuild/bazel/issues/5139
+
+jobs:
+  build-darwin:
+    macos:
+      xcode: "10.0"
     steps:
       - checkout
       - run:
-          name: Install system dependencies
+          name: Install Nix
           command: |
-            apt-get update && apt-get install -y gradle openjdk-8-jdk
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install xz
+            curl -L https://nixos.org/nix/install | sh
+
       - run:
-          name: Compute cache key
+          name: Install cachix
+          shell: /bin/bash -eilo pipefail
           command: |
-              (find . -name "*.cabal" -o -name "stack-linear.yaml" -type f) | sort | xargs cat > /tmp/stack-deps
+            nix-env -iA cachix -f https://github.com/NixOS/nixpkgs/tarball/db557aab7b690f5e0e3348459f2e4dc8fd0d9298
+
+      - run:
+          name: Run cachix
+          shell: /bin/bash -eilo pipefail
+          command: |
+            cachix use tweag
+            cachix push tweag --watch-store
+          background: true
+
+      - run:
+          name: Configure
+          command: |
+            mkdir -p ~/.cache/bazel/
+
+            cp .bazelrc .bazelrc.orig
+            echo try-import .bazelrc.local > .bazelrc
+
+            echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
+
       - restore_cache:
-          keys:
-            - inline-java-stack-linear-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
-            - inline-java-stack-linear-dependencies-{{ arch }}-
+          keys: # see note about 'Disk cache'
+              - v1-inline-java-empty-{{ .Branch }}-
+              - v1-inline-java-cache-{{ .Branch }}-
+              - v1-inline-java-cache-master-
+
       - run:
-          name: Build dependencies
+          name: Prefetch Stackage snapshot
+          shell: /bin/bash -eilo pipefail
           command: |
-            . env-linear.sh
-            stack --no-terminal build --only-dependencies --prefetch --test -j4 jni jvm inline-java
+            # Retry if needed due to network flakiness.
+            nix-shell --pure --run \
+              'cmd="bazel fetch @stackage//..."; $cmd || $cmd || $cmd'
+      - run:
+          name: Build all
+          shell: /bin/bash -eilo pipefail
+          command: |
+            cp .bazelrc.orig .bazelrc
+            nix-shell --pure --run 'bazel build //...'
+      - run:
+          name: Run tests
+          shell: /bin/bash -eilo pipefail
+          command: |
+
+            # Keep CI awake
+            while true; do echo "."; sleep 60; done &
+
+            nix-shell --pure --run 'bazel test //...'
+
+        # see note about 'Disk cache'
       - save_cache:
-          key: inline-java-stack-linear-dependencies-{{ arch }}-{{ checksum "/tmp/stack-deps" }}
+          key: v1-inline-java-cache-{{ .Branch }}-{{ .BuildNum }}
           paths:
-            - ~/.stack
-            - .stack-work
+              - ~/.cache/bazel/
+
       - run:
-          name: Build project
+          name: Clean up cache
+          shell: /bin/bash -eilo pipefail
           command: |
-            . env-linear.sh
-            stack --no-terminal build -j4 --pedantic --test --no-run-tests --no-run-benchmarks inline-java
-      - run:
-          name: Test
-          command: |
-            . env-linear.sh
-            stack --no-terminal test jni jvm inline-java
+            rm -rf ~/.cache/bazel/
+            mkdir -p ~/.cache/bazel/
+
+      - save_cache:
+          key: v1-inline-java-empty-master-{{ .BuildNum }}
+          paths:
+              - ~/.cache/bazel/
 
 workflows:
   version: 2
   build:
     jobs:
-      - build-darwin-brew
+      - build-darwin:
+          context: org-global # for the cachix token
