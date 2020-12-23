@@ -60,9 +60,8 @@
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
--- XXX This file uses cpphs for preprocessing instead of the system's native
--- CPP, because the OS X has subtly different whitespace behaviour in the
--- presence of concatenation.
+-- XXX This file uses #### for concatenating tokens with a preprocessor in
+-- a portable way. See note cat-tokens in jni/BUILD.bazel.
 
 module Foreign.JNI.Safe
   ( module Foreign.JNI.Safe
@@ -139,10 +138,10 @@ getStaticFieldID jclass = Unsafe.toLinear2 $ \fieldname sig ->
     liftPreludeIO (Unrestricted <$> JNI.getStaticFieldID jclass fieldname sig)
 
 #define GET_FIELD(name, hs_rettype) \
-get/**/name/**/Field :: MonadIO m => J a #-> JFieldID #-> m (J a, Unrestricted hs_rettype); \
-get/**/name/**/Field = Unsafe.toLinear2 $ \obj field -> \
+get####name####Field :: MonadIO m => J a #-> JFieldID #-> m (J a, Unrestricted hs_rettype); \
+get####name####Field = Unsafe.toLinear2 $ \obj field -> \
     liftPreludeIO \
-      ((,) obj . Unrestricted <$> JNI.get/**/name/**/Field (unJ obj) field)
+      ((,) obj . Unrestricted <$> JNI.get####name####Field (unJ obj) field)
 
 getObjectField :: MonadIO m => J a #-> JFieldID #-> m (J a, JObject)
 getObjectField = Unsafe.toLinear2 $ \obj field ->
@@ -158,9 +157,9 @@ GET_FIELD(Float, Float)
 GET_FIELD(Double, Double)
 
 #define GET_STATIC_FIELD(name, hs_rettype) \
-getStatic/**/name/**/Field :: MonadIO m => JNI.JClass -> JFieldID #-> m (Unrestricted hs_rettype); \
-getStatic/**/name/**/Field jclass = Unsafe.toLinear $ \field -> \
-    liftPreludeIOU (JNI.getStatic/**/name/**/Field jclass field)
+getStatic####name####Field :: MonadIO m => JNI.JClass -> JFieldID #-> m (Unrestricted hs_rettype); \
+getStatic####name####Field jclass = Unsafe.toLinear $ \field -> \
+    liftPreludeIOU (JNI.getStatic####name####Field jclass field)
 
 getStaticObjectField :: MonadIO m => JNI.JClass -> JFieldID #-> m JObject
 getStaticObjectField jclass = Unsafe.toLinear $ \field ->
@@ -176,10 +175,10 @@ GET_STATIC_FIELD(Float, Float)
 GET_STATIC_FIELD(Double, Double)
 
 #define SET_FIELD(name, hs_fieldtype) \
-set/**/name/**/Field :: MonadIO m => J a #-> JFieldID #-> hs_fieldtype #-> m (J a); \
-set/**/name/**/Field = Unsafe.toLinear2 $ \obj field -> Unsafe.toLinear $ \v -> \
+set####name####Field :: MonadIO m => J a #-> JFieldID #-> hs_fieldtype #-> m (J a); \
+set####name####Field = Unsafe.toLinear2 $ \obj field -> Unsafe.toLinear $ \v -> \
     liftPreludeIO \
-      (obj <$ JNI.set/**/name/**/Field (unJ obj) field v)
+      (obj <$ JNI.set####name####Field (unJ obj) field v)
 
 setObjectField
   :: MonadIO m
@@ -210,9 +209,9 @@ SET_FIELD(Float, Float)
 SET_FIELD(Double, Double)
 
 #define SET_STATIC_FIELD(name, hs_fieldtype) \
-setStatic/**/name/**/Field :: MonadIO m => JNI.JClass -> JFieldID #-> hs_fieldtype #-> m (); \
-setStatic/**/name/**/Field jclass = Unsafe.toLinear2 $ \field v -> \
-    liftPreludeIO (JNI.setStatic/**/name/**/Field jclass field v)
+setStatic####name####Field :: MonadIO m => JNI.JClass -> JFieldID #-> hs_fieldtype #-> m (); \
+setStatic####name####Field jclass = Unsafe.toLinear2 $ \field v -> \
+    liftPreludeIO (JNI.setStatic####name####Field jclass field v)
 
 setStaticObjectField
   :: MonadIO m
@@ -333,10 +332,10 @@ withLocalFrameWithSize_ capacity linearIO = do
       (Linear.withLinearIO (linearIO Linear.>> Linear.return (Unrestricted ())))
 
 #define CALL_METHOD(name, hs_rettype) \
-call/**/name/**/Method :: MonadIO m => J a #-> JMethodID #-> [JValue] #-> m (J a, Unrestricted hs_rettype); \
-call/**/name/**/Method = Unsafe.toLinear3 $ \obj method args -> \
+call####name####Method :: MonadIO m => J a #-> JMethodID #-> [JValue] #-> m (J a, Unrestricted hs_rettype); \
+call####name####Method = Unsafe.toLinear3 $ \obj method args -> \
     liftPreludeIO Prelude.$ \
-      (,) obj . Unrestricted <$> JNI.call/**/name/**/Method (unJ obj) method (toJNIJValues args) \
+      (,) obj . Unrestricted <$> JNI.call####name####Method (unJ obj) method (toJNIJValues args) \
        Prelude.<* deleteLinearJObjects args
 
 deleteLinearJObjects :: [JValue] -> IO ()
@@ -371,10 +370,10 @@ CALL_METHOD(Float, Float)
 CALL_METHOD(Double, Double)
 
 #define CALL_STATIC_METHOD(name, hs_rettype) \
-callStatic/**/name/**/Method :: MonadIO m => JNI.JClass -> JMethodID #-> [JValue] #-> m (Unrestricted hs_rettype); \
-callStatic/**/name/**/Method cls = Unsafe.toLinear2 $ \method args -> \
+callStatic####name####Method :: MonadIO m => JNI.JClass -> JMethodID #-> [JValue] #-> m (Unrestricted hs_rettype); \
+callStatic####name####Method cls = Unsafe.toLinear2 $ \method args -> \
     liftPreludeIOU Prelude.$ \
-      JNI.callStatic/**/name/**/Method cls method (toJNIJValues args) \
+      JNI.callStatic####name####Method cls method (toJNIJValues args) \
         Prelude.<* deleteLinearJObjects args
 
 callStaticObjectMethod
@@ -402,8 +401,8 @@ newObjectArray :: MonadIO m => Int32 -> JNI.JClass -> m JObjectArray
 newObjectArray sz cls = liftPreludeIO (J <$> JNI.newObjectArray sz cls)
 
 #define NEW_ARRAY(name) \
-new/**/name/**/Array :: MonadIO m => Int32 -> m J/**/name/**/Array; \
-new/**/name/**/Array sz = liftPreludeIO (J <$> JNI.new/**/name/**/Array sz)
+new####name####Array :: MonadIO m => Int32 -> m J####name####Array; \
+new####name####Array sz = liftPreludeIO (J <$> JNI.new####name####Array sz)
 
 NEW_ARRAY(Boolean)
 NEW_ARRAY(Byte)
@@ -426,11 +425,11 @@ getStringLength = Unsafe.toLinear $ \o ->
     liftPreludeIO ((,) o <$> JNI.getStringLength (unJ o))
 
 #define GET_ARRAY_ELEMENTS(name, hs_rettype) \
-get/**/name/**/ArrayElements :: MonadIO m => J/**/name/**/Array #-> m (J/**/name/**/Array, Unrestricted (Ptr hs_rettype)); \
-get/**/name/**/ArrayElements = Unsafe.toLinear $ \a -> \
+get####name####ArrayElements :: MonadIO m => J####name####Array #-> m (J####name####Array, Unrestricted (Ptr hs_rettype)); \
+get####name####ArrayElements = Unsafe.toLinear $ \a -> \
       liftPreludeIO Prelude.$ \
         (,) a . Unrestricted <$> \
-          JNI.get/**/name/**/ArrayElements (unJ a)
+          JNI.get####name####ArrayElements (unJ a)
 
 GET_ARRAY_ELEMENTS(Boolean, Word8)
 GET_ARRAY_ELEMENTS(Byte, CChar)
@@ -446,9 +445,9 @@ getStringChars = Unsafe.toLinear $ \jstr ->
     liftPreludeIO ((,) jstr <$> JNI.getStringChars (unJ jstr))
 
 #define SET_ARRAY_REGION(name, hs_argtype) \
-set/**/name/**/ArrayRegion :: MonadIO m => J/**/name/**/Array #-> Int32 -> Int32 -> Ptr hs_argtype -> m J/**/name/**/Array; \
-set/**/name/**/ArrayRegion = Unsafe.toLinear $ \array start len buf -> \
-    liftPreludeIO (array <$ JNI.set/**/name/**/ArrayRegion (unJ array) start len buf)
+set####name####ArrayRegion :: MonadIO m => J####name####Array #-> Int32 -> Int32 -> Ptr hs_argtype -> m J####name####Array; \
+set####name####ArrayRegion = Unsafe.toLinear $ \array start len buf -> \
+    liftPreludeIO (array <$ JNI.set####name####ArrayRegion (unJ array) start len buf)
 
 SET_ARRAY_REGION(Boolean, Word8)
 SET_ARRAY_REGION(Byte, CChar)
@@ -460,9 +459,9 @@ SET_ARRAY_REGION(Float, Float)
 SET_ARRAY_REGION(Double, Double)
 
 #define RELEASE_ARRAY_ELEMENTS(name, hs_argtype) \
-release/**/name/**/ArrayElements :: MonadIO m => J/**/name/**/Array #-> Ptr hs_argtype #-> m J/**/name/**/Array; \
-release/**/name/**/ArrayElements = Unsafe.toLinear2 $ \array xs -> \
-    liftPreludeIO (array <$ JNI.release/**/name/**/ArrayElements (unJ array) xs)
+release####name####ArrayElements :: MonadIO m => J####name####Array #-> Ptr hs_argtype #-> m J####name####Array; \
+release####name####ArrayElements = Unsafe.toLinear2 $ \array xs -> \
+    liftPreludeIO (array <$ JNI.release####name####ArrayElements (unJ array) xs)
 
 RELEASE_ARRAY_ELEMENTS(Boolean, Word8)
 RELEASE_ARRAY_ELEMENTS(Byte, CChar)

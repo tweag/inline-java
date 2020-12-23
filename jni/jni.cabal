@@ -11,7 +11,7 @@ copyright:           2015-2016 EURL Tweag.
 category:            FFI, JVM, Java
 build-type:          Simple
 cabal-version:       >=1.10
-extra-source-files:  README.md cpphs-cpp
+extra-source-files:  README.md cat-tokens
 
 source-repository head
   type: git
@@ -25,13 +25,10 @@ flag linear-types
 library
   hs-source-dirs: src/common
   cc-options: -std=c11
-  if os(darwin)
-    -- XXX pgmP directive should be redundant. But necessary to workaround
-    -- https://github.com/haskell/cabal/issues/4278.
-    -- Needed for Foreign.JNI.
-    -- XXX we use an auxiliary script here that passes --cpp to cpphs.
-    -- Otherwise we hit https://gitlab.haskell.org/ghc/ghc/-/issues/17185
-    ghc-options: -pgmP./cpphs-cpp
+  -- XXX issues with CPP make more convenient using
+  -- a custom preprocessor to deal with concatenation.
+  -- See note cat-tokens in jni/BUILD.bazel.
+  ghc-options: -F -pgmF./cat-tokens
   extra-libraries: jvm
   exposed-modules:
     Foreign.JNI
@@ -67,7 +64,6 @@ library
   else
     build-depends:
       singletons >=2.6
-  build-tools: cpphs
   default-language: Haskell2010
 
 test-suite spec

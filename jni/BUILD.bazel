@@ -3,9 +3,52 @@ load(
     "haskell_library",
 )
 
+# Note cat-tokens
+#
+# A script to concatenate tokens after CPP preprocessing
+# On OSX we used to rely on cpphs to concatenate tokens in
+# definitions like
+#
+# define GET_FIELD(name, hs_rettype, c_rettype) \
+#   get/**/name/**/Field :: Coercible o (J a) => o -> JFieldID -> IO hs_rettype;
+#
+# The C preprocessor in OSX would otherwise replace the
+# comments with whitespaces.
+#
+# Using cpphs, however, required a couple of hacks to workaround
+# https://github.com/haskell/cabal/issues/4278
+# https://gitlab.haskell.org/ghc/ghc/-/issues/17185
+#
+# And moreover, when using rules_haskell, ghc passes response files to cpphs,
+# which are unsupported.
+# https://github.com/tweag/rules_haskell/pull/836
+#
+# Therefore, we currently resolve concatenation with a custom
+# preprocessor to avoid the pile of hacks. The concatenator operator is ####.
+#
+# define GET_FIELD(name, hs_rettype, c_rettype) \
+#   get####name####Field :: Coercible o (J a) => o -> JFieldID -> IO hs_rettype;
+# 
+genrule(
+    name = "cat-tokens-sh",
+    srcs = [],
+    executable = 1,
+    outs = ["cat-tokens.sh"],
+    tools = ["@sed//:bin"],
+    cmd = """
+cat > $@ <<END
+#!/bin/sh
+( echo "{-# LINE 1 \\"\\$$1\\" #-}" ; $(location @sed//:bin) 's/####//g' \\$$2) > \\$$3
+exit \\$$?
+END
+    """,
+)
+
 haskell_library(
     name = "jni",
     srcs = glob(['src/common/**/*.hs', 'src/common/**/*.hsc']),
+    extra_srcs = ["//jni:cat-tokens-sh"],
+    compiler_flags = ["-F", "-pgmF$(location cat-tokens-sh)"],
     deps = [
         "@openjdk//:lib",
         "@stackage//:async",
@@ -20,5 +63,6 @@ haskell_library(
         "@stackage//:singletons",
         "@stackage//:text",
     ],
+    tools = ["@sed//:bin"],
     visibility = ["//visibility:public"],
 )
