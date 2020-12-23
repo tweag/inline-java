@@ -5,7 +5,8 @@ load(
 
 # Note cat-tokens
 #
-# A script to concatenate tokens after CPP preprocessing
+# This is a script to concatenate tokens after CPP preprocessing.
+#
 # On OSX we used to rely on cpphs to concatenate tokens in
 # definitions like
 #
