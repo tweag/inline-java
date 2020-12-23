@@ -181,7 +181,10 @@ filegroup(
 
 filegroup(
     name = "libjvm",
-    srcs = ["lib/openjdk/lib/server/libjvm.so"],
+    srcs = select(
+      { "@bazel_tools//src/conditions:darwin": ["lib/server/libjvm.dylib"],
+        "@bazel_tools//src/conditions:linux_x86_64": ["lib/openjdk/lib/server/libjvm.so"],
+      }),
     visibility = ["//visibility:public"],
 )
 
