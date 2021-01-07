@@ -1,2 +1,3 @@
 common --host_javabase=@local_jdk//:jdk
+build --host_platform=@rules_haskell//haskell/platforms:linux_x86_64_nixpkgs
 try-import .bazelrc.local

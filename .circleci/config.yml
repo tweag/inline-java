@@ -43,9 +43,7 @@ jobs:
             mkdir -p ~/.cache/bazel/
 
             cp .bazelrc .bazelrc.orig
-            echo try-import .bazelrc.local > .bazelrc
-
-            echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
+            echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc
 
       - restore_cache:
           keys: # see note about 'Disk cache'

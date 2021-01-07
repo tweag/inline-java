@@ -1,7 +1,6 @@
 steps:
   - label: "Run tests (Bazel)"
     command: |
-      echo "build --host_platform=@rules_haskell//haskell/platforms:linux_x86_64_nixpkgs" > .bazelrc.local
       nix-shell --pure --run 'bazel test --test_output=all //...'
     timeout: 30
   - label: "Install linear-types enabled GHC"
