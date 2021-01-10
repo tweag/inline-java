@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 
+* Expose functions in the API to start and stop the finalizer thread.
+  These functions are needed in applications that initialize the JVM
+  through other means than JNI.
+
 ### Removed
 
 ### Changed

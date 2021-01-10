@@ -21,6 +21,8 @@ module Foreign.JNI.Unsafe.Internal
     withJVM
   , newJVM
   , destroyJVM
+  , startFinalizerThread
+  , stopFinalizerThread
     -- ** Class loading
   , defineClass
   , JNINativeMethod(..)
@@ -397,14 +399,6 @@ newJVM options = JVM_ <$> do
     checkBoundness
     startJVM options <* startFinalizerThread
   where
-    startFinalizerThread =
-      BackgroundWorker.create
-          (exitOnError . runInBoundThread . runInAttachedThread)
-      >>= writeIORef finalizerThread
-
-    exitOnError = handle $ \(e :: SomeException) -> do
-      System.Exit.die $ "Haskell jni package: error in finalizer thread: " ++ show e
-
     startJVM options =
       useAsCStrings options $ \cstrs -> do
         withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
@@ -438,8 +432,7 @@ checkBoundness =
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
-    readIORef finalizerThread >>= BackgroundWorker.stop
-    writeIORef finalizerThread uninitializedFinalizerThread
+    stopFinalizerThread
     RWLock.acquireWriteLock globalJVMLock
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
@@ -1047,6 +1040,48 @@ finalizerThread = unsafePerformIO $ newIORef uninitializedFinalizerThread
 
 uninitializedFinalizerThread :: BackgroundWorker
 uninitializedFinalizerThread = error "The finalizer thread is not initialized"
+
+-- | Starts a background thread to delete global references.
+--
+-- Global references have GC finalizers responsible for deleting
+-- them. Because the finalizers run in threads dettached from the
+-- JVM, the finalizers send the references to this auxiliary
+-- thread for deletion.
+--
+-- Call this function only once at the beginning of the program.
+--
+-- This call is not needed if 'newJVM' or 'startJVM' are invoked.
+-- This call is only useful when JNI is used in an application where
+-- the JVM has been initialized by other means.
+--
+-- Call 'stopFinalizerThread' to stop the thread.
+startFinalizerThread :: IO ()
+startFinalizerThread =
+    BackgroundWorker.create
+        (exitOnError . runInBoundThread . runInAttachedThread)
+    >>= writeIORef finalizerThread
+  where
+    exitOnError = handle $ \(e :: SomeException) -> do
+      System.Exit.die $ "Haskell jni package: error in finalizer thread: " ++ show e
+
+-- | Stops the background thread that deletes global references.
+--
+-- Any global references waiting to be deletead are deleted
+-- before stopping the thread. Any new references submitted for
+-- deletion after this call won't be deleted.
+--
+-- Probably the safest way to call this function is to stop first
+-- all threads using global references, and calling the GC in
+-- advance to cause unreachable global references to be submitted
+-- for deletion.
+--
+-- This call is not needed if 'withJVM' or 'destroyJVM' are called
+-- instead. This call is only useful when JNI is used in an
+-- application where the JVM is terminated by other means.
+stopFinalizerThread :: IO ()
+stopFinalizerThread = do
+    readIORef finalizerThread >>= BackgroundWorker.stop
+    writeIORef finalizerThread uninitializedFinalizerThread
 
 -- | Runs a task in a long-living background thread attached to the
 -- JVM. The thread is dedicated to release unused references to java
