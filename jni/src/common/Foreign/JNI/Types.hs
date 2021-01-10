@@ -38,6 +38,7 @@ module Foreign.JNI.Types
   , referenceTypeName
   , Signature
   , signature
+  , primSignature
   , MethodSignature
   , methodSignature
   , JVM(..)
@@ -331,18 +332,21 @@ classSymbolBuilder sym =
 signatureBuilder :: Sing (ty :: JType) -> Builder
 signatureBuilder (SClass sym) = Builder.char7 'L' <> classSymbolBuilder sym <> Builder.char7 ';'
 signatureBuilder (SIface sym) = Builder.char7 'L' <> classSymbolBuilder sym <> Builder.char7 ';'
-signatureBuilder (SPrim "boolean") = Builder.char7 'Z'
-signatureBuilder (SPrim "byte") = Builder.char7 'B'
-signatureBuilder (SPrim "char") = Builder.char7 'C'
-signatureBuilder (SPrim "short") = Builder.char7 'S'
-signatureBuilder (SPrim "int") = Builder.char7 'I'
-signatureBuilder (SPrim "long") = Builder.char7 'J'
-signatureBuilder (SPrim "float") = Builder.char7 'F'
-signatureBuilder (SPrim "double") = Builder.char7 'D'
-signatureBuilder (SPrim sym) = error $ "Unknown primitive: " ++ sym
+signatureBuilder s@(SPrim _) = Builder.char7 (primSignature s)
 signatureBuilder (SArray ty) = Builder.char7 '[' <> signatureBuilder ty
 signatureBuilder (SGeneric ty _) = signatureBuilder ty
 signatureBuilder SVoid = Builder.char7 'V'
+
+primSignature :: Sing ('Prim s) -> Char
+primSignature (SPrim "boolean") = 'Z'
+primSignature (SPrim "byte") = 'B'
+primSignature (SPrim "char") = 'C'
+primSignature (SPrim "short") = 'S'
+primSignature (SPrim "int") = 'I'
+primSignature (SPrim "long") = 'J'
+primSignature (SPrim "float") = 'F'
+primSignature (SPrim "double") = 'D'
+primSignature (SPrim sym) = error $ "Unknown primitive: " ++ sym
 
 -- | Construct a JNI type signature from a Java type.
 signature :: Sing (ty :: JType) -> Signature
