@@ -301,4 +301,25 @@ public class BatchReaders {
         }
         public Class<String> getElemClass() { return String.class; };
     }
+
+    public static final class Tuple2BatchReader<A, B, B1, B2>
+            implements BatchReader<Tuple2<B1, B2>, Tuple2<A, B>> {
+        final BatchReader<B1, A> b0;
+        final BatchReader<B2, B> b1;
+        public Tuple2BatchReader(BatchReader<B1, A> b0, BatchReader<B2, B> b1) {
+            this.b0 = b0;
+            this.b1 = b1;
+        }
+        public int getSize() { return b0.getSize(); }
+        public Tuple2<A, B> get(int i) {
+            return new Tuple2(b0.get(i), b1.get(i));
+        }
+        public void setBatch(Tuple2<B1, B2> t) {
+            b0.setBatch(t._1);
+            b1.setBatch(t._2);
+        }
+        public Class<Tuple2<A, B>> getElemClass() {
+            return (Class<Tuple2<A, B>>) new Tuple2<A, B>(null, null).getClass();
+        };
+    }
 }

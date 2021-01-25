@@ -11,7 +11,7 @@ import qualified Data.Text as Text
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS
 import Language.Java
-import Language.Java.Batching ()
+import Language.Java.Batching.Tuple (Tuple2(..))
 import Language.Java.Inline
 import Test.Hspec
 
@@ -50,3 +50,8 @@ spec = do
         testrr $ V.map (V.map (Text.pack . show)) xs
         testrr $ V.map (V.map (BS.singleton . fromIntegral)) xs
         testrr (V.map V.convert xs :: V.Vector (VS.Vector Int32))
+      it "succeeds on vectors of tuples" $ do
+        let xs :: V.Vector (Tuple2 Int32 Text)
+            xs = V.fromList [ Tuple2 i (Text.pack (show i)) | i <- [1..10] ]
+        testrr xs
+        testrr (V.empty `asTypeOf` xs)

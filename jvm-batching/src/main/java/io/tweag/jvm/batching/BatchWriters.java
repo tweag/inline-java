@@ -434,4 +434,25 @@ public final class BatchWriters {
             return new Tuple2(isnull, b.getBatch());
         }
     }
+
+    public static final class Tuple2BatchWriter<A, B, B1, B2>
+            implements BatchWriter<Tuple2<A, B>, Tuple2<B1, B2>> {
+        final BatchWriter<A, B1> b0;
+        final BatchWriter<B, B2> b1;
+        public Tuple2BatchWriter(BatchWriter<A, B1> b0, BatchWriter<B, B2> b1) {
+            this.b0 = b0;
+            this.b1 = b1;
+        }
+        public void start(int size) {
+            b0.start(size);
+            b1.start(size);
+        }
+        public void set(int i, Tuple2<A, B> t) {
+            b0.set(i, t._1);
+            b1.set(i, t._2);
+        }
+        public Tuple2<B1, B2> getBatch() {
+            return new Tuple2(b0.getBatch(), b1.getBatch());
+        }
+    }
 }
