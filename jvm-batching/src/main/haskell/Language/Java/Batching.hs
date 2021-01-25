@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -514,7 +513,6 @@ withStatic [d|
     newBatchReader _ = [java| new BatchReaders.DoubleBatchReader() |]
     reflectBatch = reflectPrimitiveBatch setDoubleArrayRegion
 
-#if ! (__GLASGOW_HASKELL__ == 800 && __GLASGOW_HASKELL_PATCHLEVEL1__ == 1)
   instance Batchable BS.ByteString where
     type Batch BS.ByteString
       = 'Class "io.tweag.jvm.batching.Tuple2" <>
@@ -649,7 +647,6 @@ withStatic [d|
                      Text.useAsPtr (Text.concat ts) $ \ptr len ->
                        (`VS.unsafeFromForeignPtr0` fromIntegral len)
                          <$> newForeignPtr_ ptr
-#endif
 
   instance Interpretation a => Interpretation (V.Vector a) where
     type Interp (V.Vector a) = 'Array (Interp a)
