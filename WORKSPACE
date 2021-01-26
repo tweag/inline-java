@@ -101,6 +101,7 @@ stack_snapshot(
         "template-haskell",
         "temporary",
         "text",
+        "time",
         "vector",
         "unix",
         # dependencies of th-desugar
