@@ -18,10 +18,10 @@
 -- newtype Object = Object ('J' (''Class' "java.lang.Object"))
 --   deriving (J.Coercible, J.Interpretation, J.Reify, J.Reflect)
 --
--- clone :: Object #-> Linear.IO Object
+-- clone :: Object %1-> Linear.IO Object
 -- clone obj = J.'call' obj "clone" End
 --
--- equals :: Object #-> Object #-> Linear.IO Bool
+-- equals :: Object %1-> Object %1-> Linear.IO Bool
 -- equals obj1 obj2 = J.'call' obj1 "equals" obj2 End
 --
 -- ...
@@ -88,7 +88,7 @@ module Language.Java.Safe
 
 import Control.Exception (evaluate)
 import Control.Monad.IO.Class.Linear (MonadIO)
-import Control.Monad.Linear hiding ((<$>))
+import Control.Functor.Linear hiding ((<$>))
 import Data.ByteString (ByteString)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
@@ -111,9 +111,9 @@ import qualified GHC.TypeLits as TypeError (ErrorMessage(..))
 
 import qualified Language.Java as Java
 import qualified Language.Java.Internal as Java
-import Prelude ((.), (-))
+import Prelude ((.), (-), (<$>), ($!), length, map, zip)
 import qualified Prelude
-import Prelude.Linear hiding ((.))
+import Prelude.Linear hiding ((.), ($!), length, map, zip)
 import qualified Unsafe.Linear as Unsafe
 
 
@@ -123,19 +123,19 @@ import qualified Unsafe.Linear as Unsafe
 -- an instance of this class.
 class SingI (Ty a) => Coercible a where
   type Ty a :: JType
-  coerce :: a #-> JValue
-  unsafeUncoerce :: JValue #-> a
+  coerce :: a %1-> JValue
+  unsafeUncoerce :: JValue %1-> a
 
   default coerce
     :: Coerce.Coercible a (J (Ty a))
     => a
-    #-> JValue
+    %1-> JValue
   coerce x = JObject (Unsafe.toLinear Coerce.coerce x :: J (Ty a))
 
   default unsafeUncoerce
     :: Coerce.Coercible (J (Ty a)) a
     => JValue
-    #-> a
+    %1-> a
   unsafeUncoerce = Unsafe.toLinear $ \case
     JObject obj -> Coerce.coerce (unsafeCast obj :: J (Ty a))
     v -> error Prelude.$
@@ -148,10 +148,10 @@ instance SingI ty => Coercible (J ty) where
 withTypeRep :: Typeable a => (TypeRep -> a) -> a
 withTypeRep f = let x = f (typeOf x) in x
 
-coercePrim :: Java.Coercible a => a #-> JValue
+coercePrim :: Java.Coercible a => a %1-> JValue
 coercePrim x = JValue (Unsafe.toLinear Java.coerce x)
 
-unsafeUncoercePrim :: (Typeable a, Java.Coercible a) => JValue #-> a
+unsafeUncoercePrim :: (Typeable a, Java.Coercible a) => JValue %1-> a
 unsafeUncoercePrim = Unsafe.toLinear $ \case
     JValue v -> Java.unsafeUncoerce v
     val -> withTypeRep
@@ -206,11 +206,11 @@ instance Coercible (Choice.Choice a) where
   unsafeUncoerce v = Unsafe.toLinear Choice.fromBool (unsafeUncoerce v)
 
 instance (IsPrimitiveType (Ty a), Java.Coercible a, Typeable a)
-         => Coercible (Unrestricted a) where
-  type Ty (Unrestricted a) = Java.Ty a
-  coerce (Unrestricted a) = JValue (Java.coerce a)
+         => Coercible (Ur a) where
+  type Ty (Ur a) = Java.Ty a
+  coerce (Ur a) = JValue (Java.coerce a)
   unsafeUncoerce = Unsafe.toLinear $ \v ->
-    Unsafe.toLinear (Unrestricted $!) (unsafeUncoercePrim v)
+    Unsafe.toLinear (Ur $!) (unsafeUncoercePrim v)
 
 instance (IsReferenceType (Java.Ty a), Java.Coercible a, Typeable a)
          => Coercible (UnsafeUnrestrictedReference a) where
@@ -229,7 +229,7 @@ instance (IsReferenceType (Java.Ty a), Java.Coercible a, Typeable a)
 classOf
   :: forall a sym. (Ty a ~ 'Class sym, Coercible a, KnownSymbol sym)
   => a
-  #-> (a, JNI.String)
+  %1-> (a, JNI.String)
 classOf = Unsafe.toLinear $ \x -> (,) x $
   JNI.fromChars (symbolVal (Proxy :: Proxy sym)) `const` coerce x
 
@@ -239,7 +239,7 @@ data End = End
 
 -- | @Variadic_ f@ constraints @f@ to be of the form
 --
--- > f :: a₁ #-> ... #-> aₙ #-> End -> ReturnType f
+-- > f :: a₁ %1-> ... %1-> aₙ %1-> End -> ReturnType f
 --
 -- for any value of @n@, where the context provides
 --
@@ -248,19 +248,19 @@ data End = End
 class Variadic_ f where
   -- | The singletons of the argument types of @f@.
   --
-  -- > sings (Proxy (a₁ #-> ... #-> aₙ #-> End -> r) =
+  -- > sings (Proxy (a₁ %1-> ... %1-> aₙ %1-> End -> r) =
   -- >   [SomeSing (sing @a₁), ... , SomeSing (sing @aₙ)]
   --
   sings :: Proxy f -> [SomeSing JType]
 
   -- | @apply g a₁ ... aₙ End = g [coerce a₁, ... , coerce aₙ]@
-  apply :: ([JValue] #-> ReturnType f) #-> f
+  apply :: ([JValue] %1-> ReturnType f) %1-> f
 
 instance Variadic_ (End -> r) where
   sings _ = []
   apply f End = f []
 
-instance (Coercible a, Variadic_ f) => Variadic_ (a #-> f) where
+instance (Coercible a, Variadic_ f) => Variadic_ (a %1-> f) where
   sings _ = SomeSing (sing @(Ty a)) : sings @f Proxy
   apply f x = apply (\xs -> f (coerce x : xs))
 
@@ -268,7 +268,7 @@ instance (Coercible a, Variadic_ f) => Variadic_ (a #-> f) where
 -- are replaced with the following type error.
 instance
   {-# OVERLAPPABLE #-}
-  TypeError ('TypeError.Text "Expected: a₁ #-> ... #-> aₙ #-> End -> r" 'TypeError.:$$:
+  TypeError ('TypeError.Text "Expected: a₁ %1-> ... %1-> aₙ %1-> End -> r" 'TypeError.:$$:
              'TypeError.Text "Actual: " 'TypeError.:<>: 'TypeError.ShowType x) =>
   Variadic_ x where
   sings = undefined
@@ -278,17 +278,17 @@ instance
 --
 -- In general,
 --
--- > ReturnType (a₁ #-> ... #-> aₙ #-> End -> r) = r
+-- > ReturnType (a₁ %1-> ... %1-> aₙ %1-> End -> r) = r
 --
 -- We keep it as a standalone type family to enable
 -- the definition of the catch-all @Variadic_ x@ instance.
 type family ReturnType f :: Data.Kind.Type where
   ReturnType (End -> r) = r
-  ReturnType (a #-> f) = ReturnType f
+  ReturnType (a %1-> f) = ReturnType f
 
 -- | @VariadicIO f b@ constraints @f@ to be of the form
 --
--- > a₁ #-> ... #-> aₙ #-> End -> IO b
+-- > a₁ %1-> ... %1-> aₙ %1-> End -> IO b
 --
 -- for any value of @n@, where the context provides
 --
@@ -331,7 +331,7 @@ newArray sz = liftPreludeIO (J <$> Java.newArray sz)
 toArray
   :: (SingI ty, IsReferenceType ty, MonadIO m)
   => [J ty]
-  #-> m ([J ty], J ('Array ty))
+  %1-> m ([J ty], J ('Array ty))
 toArray = Unsafe.toLinear $ \xs ->
   liftPreludeIO ((,) xs . J <$> Java.toArray (Coerce.coerce xs))
 
@@ -356,7 +356,7 @@ call
      , Variadic f (m b)
      )
   => a -- ^ Any object or value 'Coercible' to one
-  #-> JNI.String -- ^ Method name
+  %1-> JNI.String -- ^ Method name
   -> f
 {-# INLINE call #-}
 call = Unsafe.toLinear $ \obj mname -> apply $ Unsafe.toLinear $ \args -> do
@@ -410,12 +410,12 @@ getStaticField cname fname =
 -- | Inject a value (of primitive or reference type) to a 'JValue'. This
 -- datatype is useful for e.g. passing arguments as a list of homogeneous type.
 -- Synonym for 'coerce'.
-jvalue :: (ty ~ Ty a, Coercible a) => a #-> JValue
+jvalue :: (ty ~ Ty a, Coercible a) => a %1-> JValue
 jvalue = coerce
 
 -- | If @ty@ is a reference type, then it should be possible to get an object
 -- from a value.
-jobject :: (ty ~ Ty a, Coercible a, IsReferenceType ty) => a #-> J ty
+jobject :: (ty ~ Ty a, Coercible a, IsReferenceType ty) => a %1-> J ty
 jobject = Unsafe.toLinear $ \x ->
   case coerce x of
     JObject jobj -> unsafeCast jobj
@@ -434,17 +434,17 @@ class (SingI (Interp a), IsReferenceType (Interp a)) => Interpretation (a :: k) 
 class Interpretation a => Reify a where
   -- | Invariant: The result and the argument share no direct JVM object
   -- references.
-  reify :: MonadIO m => J (Interp a) #-> m (J (Interp a), Unrestricted a)
+  reify :: MonadIO m => J (Interp a) %1-> m (J (Interp a), Ur a)
 
   default reify
     :: (Java.Coercible a, Interp a ~ Java.Ty a, MonadIO m)
     => J (Interp a)
-    #-> m (J (Interp a), Unrestricted a)
+    %1-> m (J (Interp a), Ur a)
   reify = Unsafe.toLinear $ \x -> fmap ((,) x) $
       liftPreludeIOU Prelude.$
         Java.unsafeUncoerce . Java.JObject <$> JNI.newLocalRef (unJ x)
 
-reify_ :: (Reify a, MonadIO m) => J (Interp a) #-> m (Unrestricted a)
+reify_ :: (Reify a, MonadIO m) => J (Interp a) %1-> m (Ur a)
 reify_ _j = reify _j >>= \(_j, a) -> a <$ deleteLocalRef _j
 
 -- | Inject a concrete Haskell value into the space of Java objects. That is to
@@ -468,9 +468,9 @@ instance Interpretation (Java.J ty) => Reflect (Java.J ty)
 javaReify
   :: (Java.Interp a ~ Interp a, Java.Reify a, MonadIO m)
   => J (Interp a)
-  #-> m (J (Interp a), Unrestricted a)
+  %1-> m (J (Interp a), Ur a)
 javaReify = Unsafe.toLinear $ \j ->
-    liftPreludeIO ((,) j . Unrestricted <$> Java.reify (unJ j))
+    liftPreludeIO ((,) j . Ur <$> Java.reify (unJ j))
 
 javaReflect
   :: (Java.Interp a ~ Interp a, Java.Reflect a, MonadIO m)
@@ -565,22 +565,22 @@ instance Interpretation a => Interpretation [a] where
 
 instance Reify a => Reify [a] where
   reify _jobj =
-      getArrayLength _jobj >>= \(_jobj, Unrestricted n) ->
+      getArrayLength _jobj >>= \(_jobj, Ur n) ->
       foldM
         (\(_jobj, uxs) i ->
           getObjectArrayElement _jobj i >>= \(_jobj, jx) ->
           reify_ jx >>= \ux ->
           return (_jobj, Unrestricted.lift2 (:) ux uxs)
         )
-        (_jobj, Unrestricted []) [n Prelude.- 1, n Prelude.- 2..0]
+        (_jobj, Ur []) [n Prelude.- 1, n Prelude.- 2..0]
 
 instance Reflect a => Reflect [a] where
   reflect xs =
       let n = fromIntegral (length xs)
        in newArray n >>= \array ->
       foldM
-        (\array0 (Unrestricted (i, x)) ->
+        (\array0 (Ur (i, x)) ->
             reflect x >>= \jx ->
             setObjectArrayElement_ array0 i jx
         )
-        array (map Unrestricted (zip [0..n Prelude.- 1] xs))
+        array (map Ur (zip [0..n Prelude.- 1] xs))

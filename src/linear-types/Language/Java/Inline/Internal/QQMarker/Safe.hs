@@ -40,9 +40,9 @@ qqMarker
   -> Proxy antiqs
   -> Proxy line
   -> args_tuple
-  #-> Proxy args_tys
-  -> (args_tuple #-> m b)
-  #-> m b
+  %1-> Proxy args_tys
+  -> (args_tuple %1-> m b)
+  %1-> m b
 qqMarker = withFrozenCallStack $
     error
       "A quasiquotation marker was not removed. Please, report this as a bug."

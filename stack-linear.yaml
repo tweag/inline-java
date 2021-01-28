@@ -1,7 +1,7 @@
 require-stack-version: ">= 1.6"
 
-resolver: lts-16.5
-compiler: ghc-8.11
+resolver: nightly-2021-01-27
+compiler: ghc-9.0.0.20201227
 skip-ghc-check: true
 system-ghc: true
 allow-newer: true
@@ -25,25 +25,10 @@ flags:
     linear-types: true
 
 extra-deps:
-# TODO: remove those dependencies once the fixed version is available
-# In particular: syb, conduit, and alex have been forked and manually patched,
-# not to be maintained.
-- git: https://github.com/nbacquey/conduit
-  commit: 1c6290f4dc9f11d3a3c1633f0cb79fe36073d19c
-  subdirs:
-  - conduit
-- git: https://github.com/nbacquey/alex
-  commit: 40dd1b544a0e4b87e30400b80d3f0cf0943eb839
-- git: https://github.com/nbacquey/syb
-  commit: 4c35f5fbb72d9eccb9e3b6b6d8f158f6a7174133
 - git: https://github.com/tweag/distributed-closure
   commit: b92e75ec81e646703c7bde4f578a7352ee34f1ad
 - git: https://github.com/tweag/linear-base
-  commit: b3cd9de6d057d3a667972f6386f9f33b50b678e2
-- git: https://github.com/facundominguez/quickcheck.git
-  commit: a498e7b41131cf7955b9e154ab26d37d1be10304
-- git: https://github.com/facundominguez/language-java.git
-  commit: f454458b0b8b1bdba8f8155d5e6ba9655d6a072c
+  commit: e257762b09336fd13afb68c1d9ca5b77d318c8f2
 
 nix:
   shell-file: shell-stack-linear-types.nix

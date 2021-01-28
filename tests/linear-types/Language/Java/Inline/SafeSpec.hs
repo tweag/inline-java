@@ -16,7 +16,7 @@
 
 module Language.Java.Inline.SafeSpec(spec) where
 
-import qualified Control.Monad.Linear as Linear
+import qualified Control.Functor.Linear as Linear
 import Data.Int
 import Foreign.JNI (JVMException)
 import Foreign.JNI.Safe
