@@ -2,6 +2,7 @@ load(
     "@rules_haskell//haskell:defs.bzl",
     "haskell_library",
 )
+load("@config_settings//:info.bzl", "ghc_version")
 
 # Note cat-tokens
 #
@@ -47,7 +48,8 @@ END
 
 haskell_library(
     name = "jni",
-    srcs = glob(['src/common/**/*.hs', 'src/common/**/*.hsc']),
+    srcs = glob(['src/common/**/*.hs', 'src/common/**/*.hsc']) +
+           (glob(['src/linear-types/**/*.hs']) if ghc_version == "9.0.1" else []),
     extra_srcs = ["//jni:cat-tokens-sh"],
     compiler_flags = ["-F", "-pgmF$(location cat-tokens-sh)"],
     deps = [
@@ -61,8 +63,10 @@ haskell_library(
         "@stackage//:deepseq",
         "@stackage//:inline-c",
         "@stackage//:stm",
-        "@stackage//:singletons",
         "@stackage//:text",
+    ] + [
+        "@stackage//:linear-base" if ghc_version == "9.0.1" else
+        "@stackage//:singletons"
     ],
     tools = ["@sed//:bin"],
     visibility = ["//visibility:public"],

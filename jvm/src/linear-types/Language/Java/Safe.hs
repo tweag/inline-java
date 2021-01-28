@@ -57,7 +57,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-orphans -Wno-redundant-constraints #-}
 
 module Language.Java.Safe
   ( module Foreign.JNI.Types.Safe
@@ -205,14 +205,13 @@ instance Coercible (Choice.Choice a) where
   coerce c = coerce (Unsafe.toLinear Choice.toBool c)
   unsafeUncoerce v = Unsafe.toLinear Choice.fromBool (unsafeUncoerce v)
 
-instance (IsPrimitiveType (Ty a), Java.Coercible a, Typeable a)
-         => Coercible (Ur a) where
+instance (Java.Coercible a, Typeable a) => Coercible (Ur a) where
   type Ty (Ur a) = Java.Ty a
   coerce (Ur a) = JValue (Java.coerce a)
   unsafeUncoerce = Unsafe.toLinear $ \v ->
     Unsafe.toLinear (Ur $!) (unsafeUncoercePrim v)
 
-instance (IsReferenceType (Java.Ty a), Java.Coercible a, Typeable a)
+instance (Java.Coercible a, Typeable a)
          => Coercible (UnsafeUnrestrictedReference a) where
   type Ty (UnsafeUnrestrictedReference a) = Java.Ty a
   coerce (UnsafeUnrestrictedReference a) = JValue (Java.coerce a)
@@ -345,9 +344,8 @@ toArray = Unsafe.toLinear $ \xs ->
 -- appropriately on the class instance and/or on the arguments to invoke the
 -- right method.
 call
-  :: forall a b ty1 ty2 m f.
+  :: forall a b ty1 m f.
      ( ty1 ~ Ty a
-     , ty2 ~ Ty b
      , IsReferenceType ty1
      , Coercible a
      , Coercible b
@@ -410,12 +408,12 @@ getStaticField cname fname =
 -- | Inject a value (of primitive or reference type) to a 'JValue'. This
 -- datatype is useful for e.g. passing arguments as a list of homogeneous type.
 -- Synonym for 'coerce'.
-jvalue :: (ty ~ Ty a, Coercible a) => a %1-> JValue
+jvalue :: Coercible a => a %1-> JValue
 jvalue = coerce
 
 -- | If @ty@ is a reference type, then it should be possible to get an object
 -- from a value.
-jobject :: (ty ~ Ty a, Coercible a, IsReferenceType ty) => a %1-> J ty
+jobject :: Coercible a => a %1-> J ty
 jobject = Unsafe.toLinear $ \x ->
   case coerce x of
     JObject jobj -> unsafeCast jobj
@@ -437,7 +435,7 @@ class Interpretation a => Reify a where
   reify :: MonadIO m => J (Interp a) %1-> m (J (Interp a), Ur a)
 
   default reify
-    :: (Java.Coercible a, Interp a ~ Java.Ty a, MonadIO m)
+    :: (Java.Coercible a, MonadIO m)
     => J (Interp a)
     %1-> m (J (Interp a), Ur a)
   reify = Unsafe.toLinear $ \x -> fmap ((,) x) $

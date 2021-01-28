@@ -2,10 +2,14 @@ load(
     "@rules_haskell//haskell:defs.bzl",
     "haskell_test",
 )
+load("@config_settings//:info.bzl", "ghc_version")
 
 haskell_test(
     name = "spec",
-    srcs = glob(["common/**/*.hs", "no-linear-types/**/*.hs"]),
+    srcs = glob(['common/**/*.hs']) +
+           (glob(['linear-types/**/*.hs']) if ghc_version == "9.0.1" else
+            glob(['no-linear-types/**/*.hs'])
+           ),
     extra_srcs = ["@openjdk//:rpath"],
     compiler_flags = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
@@ -23,7 +27,8 @@ haskell_test(
         "@stackage//:quickcheck-unicode",
         "@stackage//:unix",
         "@stackage//:vector",
-    ],
+    ] +
+    (["@stackage//:linear-base"] if ghc_version == "9.0.1" else []),
     size = "small",
     plugins = ["//:inline-java-plugin"],
     tools = ["@hspec-discover//:bin"],

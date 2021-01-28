@@ -2,6 +2,7 @@ load(
   "@rules_haskell//haskell:defs.bzl",
   "haskell_test",
 )
+load("@config_settings//:info.bzl", "ghc_version")
 
 haskell_test(
     name = "spec",
@@ -18,6 +19,6 @@ haskell_test(
         "//jni",
         "@stackage//:base",
         "@stackage//:hspec",
-        "@stackage//:singletons",
-    ],
+    ] +
+    ([] if ghc_version == "9.0.1" else ["@stackage//:singletons"]),
 )

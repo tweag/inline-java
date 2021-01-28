@@ -5,6 +5,7 @@ load(
     "ghc_plugin",
     "haskell_library",
 )
+load("@config_settings//:info.bzl", "ghc_version")
 
 cc_library(
     name = "bctable",
@@ -19,10 +20,15 @@ haskell_library(
     # at the same location when building with bazel as with stack.
     srcs = glob(['src/common/**/*.hs',
                  'src/common/**/*.hsc',
-                 'src/no-linear-types/**/*.hs',
                  'cbits/bctable.h',
-                 'src/ghc-8.10/**/*.hs',
-                 ]),
+                 ]) +
+            (glob(['src/no-linear-types/**/*.hs',
+                   'src/ghc-8.10/**/*.hs',
+                  ]) if ghc_version == "8.10.1" else
+             glob(['src/linear-types/**/*.hs',
+                   'src/ghc-8.11/**/*.hs',
+                  ])
+            ),
     visibility = ["//visibility:public"],
     deps = [
         "//jni",
@@ -41,7 +47,8 @@ haskell_library(
         "@stackage//:template-haskell",
         "@stackage//:temporary",
         "@stackage//:text",
-    ],
+    ] +
+    (["@stackage//:linear-base"] if ghc_version == "9.0.1" else []),
 )
 
 ghc_plugin(

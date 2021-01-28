@@ -4,9 +4,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_haskell",
-    sha256 = "0f9f404d23b30ba77b43d2d2ea392413859e009faf65e3d03d343c275fc90f28",
-    strip_prefix = "rules_haskell-5834cbb0fb89da28016cf76fe31370a199c80a69",
-    urls = ["https://github.com/tweag/rules_haskell/archive/5834cbb0fb89da28016cf76fe31370a199c80a69.tar.gz"],
+    sha256 = "f54eac4fd769de1c0146ab7dbb507129d6d27e2c533b42ed34baca3841f0329f",
+    strip_prefix = "rules_haskell-aafcd4c3fc622e8c336b6905b0bc4a21aac09dbb",
+    urls = ["https://github.com/tweag/rules_haskell/archive/aafcd4c3fc622e8c336b6905b0bc4a21aac09dbb.tar.gz"],
 )
 
 load("@rules_haskell//haskell:repositories.bzl", "haskell_repositories")
@@ -29,6 +29,12 @@ nixpkgs_python_configure(repository = "@nixpkgs")
 nixpkgs_package(
     name = "alex",
     attribute_path = "haskellPackages.alex",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "stack",
+    attribute_path = "stack_no_global_hints",
     repository = "@nixpkgs",
 )
 
@@ -67,6 +73,10 @@ haskell_cabal_library(
     strip_prefix = "singletons-2.7",
     urls = ["http://hackage.haskell.org/package/singletons-2.7/singletons-2.7.tar.gz"],
 )
+
+load("//:config_settings/setup.bzl", "config_settings")
+config_settings(name = "config_settings")
+load("@config_settings//:info.bzl", "ghc_version")
 
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
@@ -119,12 +129,14 @@ stack_snapshot(
         "ghc-boot-th",
         "pretty",
         "transformers",
-    ],
+    ] + (["linear-base"] if ghc_version == "9.0.1" else []),
     vendored_packages =
       { "singletons": "@singletons//:singletons"
       , "th-desugar": "@th-desugar//:th-desugar"
-      },
-    snapshot = "lts-16.5",
+      } if ghc_version == "8.10.1" else {},
+    snapshot = "lts-16.5" if ghc_version == "8.10.1" else None,
+    local_snapshot = "//:snapshot-9.0.1.yaml" if ghc_version == "9.0.1" else None,
+    stack = "@stack//:bin/stack" if ghc_version == "9.0.1" else None,
 )
 
 load("@rules_haskell//haskell:nixpkgs.bzl", "haskell_register_ghc_nixpkgs")
@@ -144,10 +156,11 @@ filegroup(
 )
 
 haskell_register_ghc_nixpkgs(
-    attribute_path = "haskell.compiler.ghc8101",
+    attribute_path = "haskell.compiler.ghc901"
+        if ghc_version == "9.0.1" else "haskell.compiler.ghc8101",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = "8.10.1",
+    version = ghc_version if ghc_version == "8.10.1" else "9.0.0.20201227",
     compiler_flags = [
         "-Werror",
         "-Wall",
