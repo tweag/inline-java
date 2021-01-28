@@ -71,7 +71,7 @@ will be transitioned to Bazel eventually. Both the GHC fork and the
 safe interface can be built with:
 
 ```
-$ stack --nix --stack-yaml stack-linear.yaml build inline-java
+$ nix-shell --pure --run "stack --nix --stack-yaml stack-linear.yaml build inline-java"
 ```
 
 For examples of how to use the safe interface you can check
