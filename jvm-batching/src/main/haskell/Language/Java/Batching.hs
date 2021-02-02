@@ -159,7 +159,8 @@ import Control.Monad (forM_, foldM)
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Unsafe      as BS
 import Data.Int
-import Data.Singletons (SingI, Proxy(..))
+import Data.Proxy (Proxy(..))
+import Data.Singletons (SingI)
 import qualified Data.Text as Text
 import qualified Data.Text.Foreign as Text
 import qualified Data.Vector as V

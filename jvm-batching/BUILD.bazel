@@ -3,6 +3,7 @@ load(
   "haskell_library",
   "haskell_test",
 )
+load("@config_settings//:info.bzl", "ghc_version")
 
 java_library(
     name = "jar",
@@ -24,9 +25,8 @@ haskell_library(
         "@stackage//:bytestring",
         "@stackage//:distributed-closure",
         "@stackage//:exceptions",
-        "@stackage//:singletons",
         "@stackage//:text",
         "@stackage//:vector",
-    ],
-    tags = ["skip_with_ghc_9_0_1"],
+    ] +
+    (["@stackage//:singletons"] if ghc_version == "8.10.1" else []),
 )

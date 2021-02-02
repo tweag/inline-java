@@ -25,5 +25,4 @@ haskell_test(
         "@stackage//:streaming",
         "@stackage//:text",
     ],
-    tags = ["skip_with_ghc_9_0_1"],
 )
