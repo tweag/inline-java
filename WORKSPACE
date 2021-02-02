@@ -33,8 +33,8 @@ nixpkgs_package(
 )
 
 nixpkgs_package(
-    name = "stack",
-    attribute_path = "stack_no_global_hints",
+    name = "stack_ignore_global_hints",
+    attribute_path = "stack_ignore_global_hints",
     repository = "@nixpkgs",
 )
 
@@ -136,7 +136,7 @@ stack_snapshot(
       } if ghc_version == "8.10.1" else {},
     snapshot = "lts-16.5" if ghc_version == "8.10.1" else None,
     local_snapshot = "//:snapshot-9.0.1.yaml" if ghc_version == "9.0.1" else None,
-    stack = "@stack//:bin/stack" if ghc_version == "9.0.1" else None,
+    stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
 )
 
 load("@rules_haskell//haskell:nixpkgs.bzl", "haskell_register_ghc_nixpkgs")
