@@ -1,0 +1,22 @@
+load(
+  "@rules_haskell//haskell:defs.bzl",
+  "haskell_binary",
+)
+
+haskell_binary(
+    name = "hello-java",
+    srcs = ['hello-java.hs'],
+    extra_srcs = ["@openjdk//:rpath"],
+    compiler_flags = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",
+        "-threaded",
+    ],
+    deps = [
+        "//jvm",
+        "//jni",
+        "//:inline-java",
+        "@stackage//:base",
+        "@stackage//:text",
+    ],
+    plugins = ["//:inline-java-plugin"],
+)
