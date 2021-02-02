@@ -21,4 +21,5 @@ haskell_binary(
         "@stackage//:split",
         "@stackage//:vector",
     ],
+    tags = ["skip_with_ghc_9_0_1"],
 )

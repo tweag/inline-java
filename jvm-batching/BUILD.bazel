@@ -28,4 +28,5 @@ haskell_library(
         "@stackage//:text",
         "@stackage//:vector",
     ],
+    tags = ["skip_with_ghc_9_0_1"],
 )

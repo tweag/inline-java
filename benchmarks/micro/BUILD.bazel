@@ -23,4 +23,5 @@ haskell_binary(
     ] +
     (["@stackage//:singletons"] if ghc_version == "8.10.1" else []),
     plugins = ["//:inline-java-plugin"],
+    tags = ["skip_with_ghc_9_0_1"],
 )
