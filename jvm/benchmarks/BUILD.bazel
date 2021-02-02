@@ -2,6 +2,7 @@ load(
   "@rules_haskell//haskell:defs.bzl",
   "haskell_binary",
 )
+load("@config_settings//:info.bzl", "ghc_version")
 
 haskell_binary(
     name = "bench",
@@ -17,7 +18,8 @@ haskell_binary(
         "@stackage//:base",
         "@stackage//:criterion",
         "@stackage//:deepseq",
-        "@stackage//:singletons",
         "@stackage//:text",
-    ],
+    ] +
+    (["@stackage//:singletons"] if ghc_version == "8.10.1" else []),
+    tags = ["skip_with_ghc_9_0_1"],
 )

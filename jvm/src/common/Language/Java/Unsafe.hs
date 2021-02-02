@@ -140,6 +140,8 @@ import GHC.TypeLits (KnownSymbol, TypeError, symbolVal)
 import qualified GHC.TypeLits as TypeError (ErrorMessage(..))
 import Language.Java.Internal
 import System.IO.Unsafe (unsafeDupablePerformIO)
+import Unsafe.Coerce (unsafeCoerce)
+
 
 data Pop a where
   PopValue :: a -> Pop a
@@ -764,12 +766,12 @@ withStatic [d|
     type Interp (IOVector W8Bool) = 'Array ('Prim "boolean")
 
   instance Reify (IOVector W8Bool) where
-    reify = fmap (Coerce.coerce :: IOVector Word8 -> IOVector W8Bool) .
+    reify = fmap (unsafeCoerce :: IOVector Word8 -> IOVector W8Bool) .
             reifyMVector getBooleanArrayElements releaseBooleanArrayElements
 
   instance Reflect (IOVector W8Bool) where
     reflect = reflectMVector newBooleanArray setBooleanArrayRegion .
-              (Coerce.coerce :: IOVector W8Bool -> IOVector Word8)
+              (unsafeCoerce :: IOVector W8Bool -> IOVector Word8)
 
   instance Interpretation (IOVector Word16) where
     type Interp (IOVector Word16) = 'Array ('Prim "char")

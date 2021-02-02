@@ -1,5 +1,5 @@
 steps:
-  - label: "Run tests (Bazel)"
+  - label: "Run tests"
     command: |
       nix-shell --pure --run 'bazel test --test_output=all //...'
     timeout: 30
@@ -8,8 +8,8 @@ steps:
       nix-shell shell-linear-types.nix --command ''
     timeout: 120
     key: "install-linear-ghc"
-  - label: "Run tests (linear-types + Stack)"
+  - label: "Run tests (linear-types)"
     command: |
-        nix-shell --pure --run 'stack --nix --stack-yaml stack-linear.yaml build --pedantic --test jni jvm inline-java'
+        nix-shell --pure --run 'bazel test --test_output=all //... --config ghc_9_0_1' shell-linear-types.nix
     timeout: 60
     depends_on: "install-linear-ghc"

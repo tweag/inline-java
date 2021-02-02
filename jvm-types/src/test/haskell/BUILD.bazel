@@ -26,4 +26,5 @@ haskell_test(
         "@stackage//:time",
         "@stackage//:vector",
     ],
+    tags = ["skip_with_ghc_9_0_1"],
 )

@@ -1,1 +1,2 @@
-{-# OPTIONS_GHC -F -pgmF hspec-discover -optF --module-name=SafeSpec #-}
+{-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -F -pgmF HSPEC_DISCOVER -optF --module-name=SafeSpec #-}
