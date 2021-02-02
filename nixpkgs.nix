@@ -21,6 +21,6 @@ let pkgs = import (fetchTarball "https://github.com/tweag/nixpkgs/archive/763181
       done
       # Passing --system-ghc is necessary to pick the unreleased
       # compiler from the PATH.
-      exec ${pkgs.stack}/bin/stack --system-ghc ''${args[@]}
+      exec ${pkgs.stack}/bin/stack --no-nix ''${args[@]}
       '';
  in pkgs // { stack_no_global_hints = stackWrapper; }
