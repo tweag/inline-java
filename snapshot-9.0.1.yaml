@@ -8,8 +8,8 @@ packages:
   commit: d7b742dc129790778f7b6d3347af80c8d69f8fcd
 - github: haskell/vector
   commit: d919ffc72043af0066674aeaa997919e22d2a00f
-- github: facundominguez/async
-  commit: c7c61ba7c6af4bde27eed21d44b3770264bca824
+- github: simonmar/async
+  commit: 83c2cfe727b9a17ec1cb7228455ee650fde1bc77
 - github: facundominguez/hashable
   commit: a03e06b79e5de3ad6d39522e08d1db830dc2a145
 - github: haskell/primitive
