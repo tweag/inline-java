@@ -14,7 +14,7 @@
 module Data.Singletons where
 
 import Data.Kind (Type)
-import GHC.TypeLits (KnownSymbol)
+import GHC.TypeLits (KnownNat, KnownSymbol)
 
 type family Sing :: k -> Data.Kind.Type
 
@@ -55,3 +55,8 @@ instance (forall (z :: k). ShowSing' z) => ShowSing k
 
 class    Show (Sing z) => ShowSing' (z :: k)
 instance Show (Sing z) => ShowSing' z
+
+data SNat n = KnownNat n => SNat
+type instance Sing = SNat
+instance KnownNat n => SingI n where
+  sing = SNat
