@@ -1,17 +1,16 @@
 # inline-java classpath example
 
 This example shows how to write inline code that refers to external
-Java libraries. The trick is to set the `CLASSPATH` properly both at
-compile time and at runtime. We get the information we need directly
-from `gradle` using a `Setup.hs` hook.
+Java libraries. 
 
-## Running the example
-
-Using stack:
+To build:
 
 ```
-# Installs build-time dependencies in an easily accessible location.
-$ gradle installDist
+$ nix-shell --pure --run 'bazel build //examples/classpath'
+```
 
-$ stack exec -- classpath
+To run:
+
+```
+$ nix-shell --pure --run 'bazel run //examples/classpath'
 ```

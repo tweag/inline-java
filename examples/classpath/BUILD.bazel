@@ -1,0 +1,30 @@
+load(
+  "@rules_haskell//haskell:defs.bzl",
+  "haskell_binary",
+)
+
+haskell_binary(
+    name = "classpath",
+    srcs = ['Main.hs'],
+    extra_srcs = ["@openjdk//:rpath"],
+    compiler_flags = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",
+        "-threaded",
+    ],
+    deps = [
+        "//jvm",
+        "//jni",
+        "//:inline-java",
+        "@stackage//:base",
+        "@maven//:org_apache_commons_commons_collections4_4_1",
+        "@stackage//:directory",
+        "@stackage//:split",
+        "@stackage//:template-haskell",
+        "@stackage//:text",
+    ],
+    data = [
+        "@maven//:org_apache_commons_commons_collections4_4_1",
+    ],
+    plugins = ["//:inline-java-plugin"],
+    tags = ["skip_with_ghc_9_0_1"],
+)
