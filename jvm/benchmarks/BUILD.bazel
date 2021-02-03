@@ -20,6 +20,6 @@ haskell_binary(
         "@stackage//:deepseq",
         "@stackage//:text",
     ] +
-    (["@stackage//:singletons"] if ghc_version == "8.10.1" else []),
+    (["@stackage//:singletons"] if ghc_version == "8.10.2" else []),
     tags = ["skip_with_ghc_9_0_1"],
 )

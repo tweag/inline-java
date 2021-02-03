@@ -28,5 +28,5 @@ haskell_library(
         "@stackage//:time",
         "@stackage//:vector",
     ] +
-    (["@stackage//:singletons"] if ghc_version == "8.10.1" else []),
+    (["@stackage//:singletons"] if ghc_version == "8.10.2" else []),
 )

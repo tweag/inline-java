@@ -38,42 +38,6 @@ nixpkgs_package(
     repository = "@nixpkgs",
 )
 
-http_archive(
-    name = "th-desugar",
-    build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
-load("@stackage//:packages.bzl", "packages")
-haskell_cabal_library(
-    name = "th-desugar",
-    version = packages["th-desugar"].version,
-    srcs = glob(["**"]),
-    deps = packages["th-desugar"].deps,
-    visibility = ["//visibility:public"],
-)
-    """,
-    sha256 = "14e29e035b96d7c35bb1503426736e610465f75939bd89df1386f2a0c26ce82a",
-    strip_prefix = "th-desugar-1.11",
-    urls = ["http://hackage.haskell.org/package/th-desugar-1.11/th-desugar-1.11.tar.gz"],
-)
-
-http_archive(
-    name = "singletons",
-    build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
-load("@stackage//:packages.bzl", "packages")
-haskell_cabal_library(
-    name = "singletons",
-    version = packages["singletons"].version,
-    srcs = glob(["**"]),
-    deps = packages["singletons"].deps,
-    visibility = ["//visibility:public"],
-)
-    """,
-    sha256 = "e12bd6e695eaf444eb6b1fd07372818aaff8703aa71265f677f3af3cb412e22b",
-    strip_prefix = "singletons-2.7",
-    urls = ["http://hackage.haskell.org/package/singletons-2.7/singletons-2.7.tar.gz"],
-)
-
 load("//:config_settings/setup.bzl", "config_settings")
 config_settings(name = "config_settings")
 load("@config_settings//:info.bzl", "ghc_version")
@@ -129,12 +93,8 @@ stack_snapshot(
         "ghc-boot-th",
         "pretty",
         "transformers",
-    ] + (["linear-base"] if ghc_version == "9.0.1" else []),
-    vendored_packages =
-      { "singletons": "@singletons//:singletons"
-      , "th-desugar": "@th-desugar//:th-desugar"
-      } if ghc_version == "8.10.1" else {},
-    snapshot = "lts-16.5" if ghc_version == "8.10.1" else None,
+    ] + (["linear-base"] if ghc_version == "9.0.1" else ["singletons"]),
+    snapshot = "nightly-2020-11-11" if ghc_version == "8.10.2" else None,
     local_snapshot = "//:snapshot-9.0.1.yaml" if ghc_version == "9.0.1" else None,
     stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
 )
@@ -157,10 +117,10 @@ filegroup(
 
 haskell_register_ghc_nixpkgs(
     attribute_path = "haskell.compiler.ghc901"
-        if ghc_version == "9.0.1" else "haskell.compiler.ghc8101",
+        if ghc_version == "9.0.1" else "haskell.compiler.ghc8102",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = ghc_version if ghc_version == "8.10.1" else "9.0.0.20201227",
+    version = ghc_version if ghc_version == "8.10.2" else "9.0.0.20201227",
     compiler_flags = [
         "-Werror",
         "-Wall",

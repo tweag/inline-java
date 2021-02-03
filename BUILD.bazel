@@ -24,7 +24,7 @@ haskell_library(
                  ]) +
             (glob(['src/no-linear-types/**/*.hs',
                    'src/ghc-8.10/**/*.hs',
-                  ]) if ghc_version == "8.10.1" else
+                  ]) if ghc_version == "8.10.2" else
              glob(['src/linear-types/**/*.hs',
                    'src/ghc-8.11/**/*.hs',
                   ])
