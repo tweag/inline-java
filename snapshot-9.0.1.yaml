@@ -16,3 +16,9 @@ packages:
   commit: 87b50ced840b3b1adbd61fe709b2e042f06e6ff3
 - github: tweag/linear-base
   commit: 5af88c64aa5d8ac338098c033ee21616fce087ff
+- github: facundominguez/split
+  commit: 53239e6e289147417dfb6a2859354fd052b88909
+- github: facundominguez/zlib
+  commit: a33a4e6a0bbba4853c4723bc117e9c65789057a6
+- github: facundominguez/vector-algorithms
+  commit: 3dc14d76d1384da05e584d06c116160bbf3e2f08

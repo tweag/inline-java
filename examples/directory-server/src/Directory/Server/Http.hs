@@ -21,7 +21,7 @@ module Directory.Server.Http
 import Control.Exception (SomeException, catch)
 import qualified Control.Monad
 import qualified Control.Monad.IO.Class.Linear as Linear
-import qualified Control.Monad.Linear as Linear
+import qualified Control.Functor.Linear as Linear
 import Data.Int
 import Data.Singletons
 import qualified Foreign.JNI as JNI
@@ -33,7 +33,7 @@ import qualified Language.Java.Inline.Unsafe as Unsafe
 import Language.Java.Inline.Safe
 import Language.Java.Safe
 import Prelude
-import Prelude.Linear (Unrestricted(..))
+import Prelude.Linear (Ur(..))
 import System.IO.Unsafe (unsafePerformIO)
 
 imports "com.sun.net.httpserver.*"
@@ -95,10 +95,10 @@ data FunPtrTable = FunPtrTable
 
 createHandler :: Linear.MonadIO m => (JHttpExchange -> IO ()) -> m JHttpHandler
 createHandler handle = Linear.do
-    Unrestricted handlePtr <- liftPreludeIOU (newStablePtr handle)
+    Ur handlePtr <- liftPreludeIOU (newStablePtr handle)
     let longHandlePtr :: Int64
         longHandlePtr = fromIntegral $ ptrToIntPtr $ castStablePtrToPtr handlePtr
-    Unrestricted (longTablePtr :: Int64) <- liftPreludeIOU $
+    Ur (longTablePtr :: Int64) <- liftPreludeIOU $
       fromIntegral . ptrToIntPtr . castStablePtrToPtr <$>
         newStablePtr FunPtrTable {..}
     jHandler <-

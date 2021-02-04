@@ -1,0 +1,30 @@
+load(
+  "@rules_haskell//haskell:defs.bzl",
+  "haskell_binary",
+)
+
+haskell_binary(
+    name = "directory-server",
+    srcs = glob(['src/**/*.hs']),
+    extra_srcs = ["@openjdk//:rpath"],
+    compiler_flags = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",
+        "-threaded",
+    ],
+    deps = [
+        "//jvm",
+        "//jni",
+        "//:inline-java",
+        "@stackage//:base",
+        "@stackage//:directory",
+        "@stackage//:exceptions",
+        "@stackage//:filepath",
+        "@stackage//:linear-base",
+        "@stackage//:monad-logger",
+        "@stackage//:mtl",
+        "@stackage//:text",
+        "@stackage//:unix",
+    ],
+    plugins = ["//:inline-java-plugin"],
+    tags = ["only_with_ghc_9_0_1"],
+)

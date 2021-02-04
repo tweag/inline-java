@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE RankNTypes #-}
@@ -7,15 +8,15 @@ module Directory.Server.Monad where
 
 import qualified Control.Monad.Catch as Catch
 import qualified Control.Monad.IO.Class.Linear as Linear
-import Control.Monad.Lift.Linear
-import qualified Control.Monad.Linear as Linear
+import qualified Control.Functor.Linear as Linear
 import Control.Monad.Logger
 import Control.Monad.Reader
 import qualified Data.Functor.Linear as Data
+import Data.Kind (Type)
 import Directory.Server.Monad.Classes
 import Foreign.JNI.Safe
 import Prelude
-import Prelude.Linear (Unrestricted(..))
+import Prelude.Linear (Ur(..))
 import qualified Prelude.Linear as Linear hiding (IO)
 import qualified System.Directory as Directory
 import qualified System.IO.Linear as Linear
@@ -48,8 +49,8 @@ newtype LServer a = LServer { unLServer :: Server a }
 
 instance Linear.MonadIO LServer where
   liftIO = Unsafe.toLinear (\a -> LServer (liftIO (Linear.withLinearIO (unsafeUnrestrict a)))) where
-    unsafeUnrestrict :: Linear.IO a -> Linear.IO (Unrestricted a)
-    unsafeUnrestrict action = action Linear.>>= Unsafe.toLinear (\a -> Linear.return (Unrestricted a))
+    unsafeUnrestrict :: Linear.IO a -> Linear.IO (Ur a)
+    unsafeUnrestrict action = action Linear.>>= Unsafe.toLinear (\a -> Linear.return (Ur a))
 
 
 runLServer :: Environment -> LServer () -> IO ()
@@ -61,20 +62,20 @@ instance Data.Functor LServer where
     LServer (fmap (\x -> f x) m)
 
 instance Linear.Functor LServer where
-  fmap = Unsafe.toLinear2 Linear.$ \(f :: a #-> b) (LServer m) ->
+  fmap = Unsafe.toLinear2 Linear.$ \(f :: a %1-> b) (LServer m) ->
     LServer (fmap (\x -> f x) m)
 
 instance Data.Applicative LServer where
   pure = LServer . pure
   (<*>) = Unsafe.toLinear2 Linear.$ \(LServer f) (LServer a) ->
-    LServer (fmap (\(g :: a #-> b) -> (\x -> g x)) f <*> a)
+    LServer (fmap (\(g :: a %1-> b) -> (\x -> g x)) f <*> a)
 
 instance Linear.Applicative LServer where
   pure = Unsafe.toLinear (LServer . pure)
   (<*>) = (Data.<*>)
 
 instance Linear.Monad LServer where
-  (>>=) = Unsafe.toLinear2 Linear.$ \(LServer m) (f :: a #-> LServer b) ->
+  (>>=) = Unsafe.toLinear2 Linear.$ \(LServer m) (f :: a %1-> LServer b) ->
     LServer $ m >>= \x -> case f x of
       LServer n -> n
   (>>) = Unsafe.toLinear2 Linear.$ \(LServer m0) (LServer m1) ->
@@ -92,7 +93,13 @@ instance MonadMask LServer where
         case f (Unmask (Unsafe.toLinear (LServer . u . unLServer))) of
           LServer n -> n
 
+class (Linear.Monad m, Prelude.Monad (LiftedM m)) => MonadLift m where
+  type LiftedM m :: Type -> Type
+  lift :: LiftedM m a -> m a
+  lift m = liftU m Linear.>>= \(Ur a) -> Linear.return a
+  liftU :: LiftedM m a -> m (Ur a)
+
 instance MonadLift LServer where
   type LiftedM LServer = Server
   lift = LServer
-  liftU = LServer . fmap Unrestricted
+  liftU = LServer . fmap Ur

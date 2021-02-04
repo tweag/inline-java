@@ -10,8 +10,7 @@ import Control.Concurrent
 import Control.Monad (guard, join)
 import qualified Control.Monad.Catch as Catch
 import Control.Monad.Reader (ask, asks)
-import Control.Monad.Lift.Linear
-import qualified Control.Monad.Linear as Linear
+import qualified Control.Functor.Linear as Linear
 import Control.Monad.Logger
 import Data.Int
 import Data.IORef
@@ -27,15 +26,15 @@ import Directory.Server.Monad.Classes
 import Directory.Server.Http
 import Directory.Server.Monad
 import Prelude
-import Prelude.Linear (Unrestricted(..))
+import Prelude.Linear (Ur(..))
 import System.FilePath
 import System.Posix.Signals (Handler(Catch), Signal, installHandler, sigINT, sigTERM)
 
 
 server :: Int -> LServer ()
 server port = Linear.do
-    Unrestricted mvStop <- liftPreludeIOU newEmptyMVar
-    Unrestricted env <- liftU ask
+    Ur mvStop <- liftPreludeIOU newEmptyMVar
+    Ur env <- liftU ask
     UnsafeUnrestrictedReference httpServer <-
       startHttpServer (fromIntegral port) (runHandler env)
     lift
@@ -67,13 +66,13 @@ data Response = Response
   , responseMsg :: Text
   }
 
-handleRequest :: JHttpExchange #-> LServer ()
+handleRequest :: JHttpExchange %1-> LServer ()
 handleRequest _httpExchange = Linear.do
-    Unrestricted root <- liftU $ asks envRootDirectory
+    Ur root <- liftU $ asks envRootDirectory
     (httpExchange, httpExchange2) <- newLocalRef _httpExchange
-    Unrestricted tpath <-
+    Ur tpath <-
       [java| $httpExchange2.getRequestURI().getPath() |] Linear.>>= reify_
-    Unrestricted (Response code msg) <-
+    Ur (Response code msg) <-
       liftU $ listContents root (Text.unpack tpath)
     jmsg <- reflect msg
     [java| {

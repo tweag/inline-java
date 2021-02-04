@@ -65,6 +65,7 @@ stack_snapshot(
         "hspec",
         "inline-c",
         "language-java",
+        "monad-logger",
         "mtl",
         "process",
         "QuickCheck",
@@ -94,6 +95,7 @@ stack_snapshot(
         "pretty",
         "transformers",
     ] + (["linear-base"] if ghc_version == "9.0.1" else ["singletons"]),
+    extra_deps = { "zlib" : ["@zlib.dev//:zlib"] } if ghc_version == "9.0.1" else {},
     snapshot = "nightly-2020-11-11" if ghc_version == "8.10.2" else None,
     local_snapshot = "//:snapshot-9.0.1.yaml" if ghc_version == "9.0.1" else None,
     stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
@@ -140,6 +142,33 @@ nixpkgs_package(
     name = "hspec-discover",
     attribute_path = "haskellPackages.hspec-discover",
     repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "nixpkgs_zlib",
+    attribute_path = "zlib",
+    repository = "@nixpkgs",
+)
+
+nixpkgs_package(
+    name = "zlib.dev",
+    repository = "@nixpkgs",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_library")
+filegroup(
+    name = "include",
+    srcs = glob(["include/*.h"]),
+    visibility = ["//visibility:public"],
+)
+cc_library(
+    name = "zlib",
+    srcs = ["@nixpkgs_zlib//:lib"],
+    hdrs = [":include"],
+    linkstatic = 1,
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)
+""",
 )
 
 nixpkgs_package(
