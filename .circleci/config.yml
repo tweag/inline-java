@@ -42,9 +42,6 @@ jobs:
           command: |
             mkdir -p ~/.cache/bazel/
 
-            cp .bazelrc .bazelrc.orig
-            echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc
-
       - restore_cache:
           keys: # see note about 'Disk cache'
               - v1-inline-java-empty-{{ .Branch }}-
@@ -62,7 +59,6 @@ jobs:
           name: Build all
           shell: /bin/bash -eilo pipefail
           command: |
-            cp .bazelrc.orig .bazelrc
             nix-shell --pure --run 'bazel build //...'
       - run:
           name: Run tests

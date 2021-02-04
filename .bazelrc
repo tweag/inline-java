@@ -1,5 +1,5 @@
-common --host_javabase=@local_jdk//:jdk
-build --host_platform=@rules_haskell//haskell/platforms:linux_x86_64_nixpkgs
+build --host_javabase=@local_jdk//:jdk
+build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
 build --build_tag_filters=-only_with_ghc_9_0_1
 build --test_tag_filters=-only_with_ghc_9_0_1
 
