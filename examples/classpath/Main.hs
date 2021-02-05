@@ -13,7 +13,7 @@ import qualified Data.Text.IO as Text
 import Foreign.JNI (showException, withJVM)
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Java.Inline
-import System.Directory
+import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
 
 
@@ -26,9 +26,7 @@ main = do
               -- We canonicalize the paths because the jars
               -- are located under symbolic links that do not
               -- survive the compilation.
-              cd <- getCurrentDirectory
-              let ps = [ cd <> "/" <> p | p <- splitOn ":" cp ]
-              mapM canonicalizePath ps
+              mapM canonicalizePath $ splitOn ":" cp
             TH.lift (intercalate ":" cps)
           ) of
           cp -> [ "-Djava.class.path=" <> fromString cp ]

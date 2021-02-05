@@ -26,5 +26,4 @@ haskell_binary(
         "@maven//:org_apache_commons_commons_collections4_4_1",
     ],
     plugins = ["//:inline-java-plugin"],
-    tags = ["skip_with_ghc_9_0_1"],
 )
