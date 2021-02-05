@@ -3,9 +3,9 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -17,10 +17,9 @@ module Wizzardo.Http.Handler
   , createHandler
   ) where
 
+import qualified Control.Functor.Linear as Linear
 import qualified Control.Monad
 import qualified Control.Monad.IO.Class.Linear as Linear
-import qualified Control.Monad.Linear.Builder as Linear
-import Data.String (fromString)
 import qualified Foreign.JNI.Types as NonLinear
 import Language.Java.Function (createBiFunction)
 import Language.Java.Inline.Safe
@@ -44,8 +43,7 @@ createHandler
      -> IO ()
      )
   -> m JHandler
-createHandler handle =
-    let Linear.Builder{..} = Linear.monadBuilder in do
+createHandler handle = Linear.do
     f <- createBiFunction $ \req resp ->
       handle
         (UnsafeUnrestrictedReference req)

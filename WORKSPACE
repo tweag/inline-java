@@ -48,6 +48,7 @@ stack_snapshot(
     name = "stackage",
     packages = [
         "Cabal",
+        "aeson",
         "async",
         "base",
         "bytestring",
@@ -227,6 +228,11 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 maven_install(
     artifacts = [
         "org.apache.commons:commons-collections4:4.1",
+        "com.wizzardo:http:0.3",
+        "com.wizzardo:epoll:0.3.4",
+        "com.wizzardo:reactive-pg-client:0.10.2.1",
+        "com.wizzardo.tools:tools-collections:0.23",
+        "com.wizzardo.tools:tools-interfaces:0.23",
     ],
     repositories = [
         "https://maven.google.com",

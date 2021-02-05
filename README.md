@@ -72,11 +72,9 @@ Both the GHC fork and the safe interface can be built with:
 $ nix-shell --pure --run "bazel build //:inline-java --config ghc_9_0_1" shell-linear-types.nix
 ```
 
-For an example of how to use the safe interface you can check
-the [directory server][directory-server].
-
-There is also a benchmark which makes use of the safe interface but it
-is outdated at this time ([wizzardo-http benchmark][wizzardo-http-benchmark]).
+For examples of how to use the safe interface you can check
+the [directory server][directory-server] and the
+[wizzardo-http benchmark][wizzardo-http-benchmark].
 
 [directory-server]: examples/directory-server
 [linear-types-ghc]: https://github.com/tweag/ghc/tree/linear-types#ghc-branch-with-linear-types

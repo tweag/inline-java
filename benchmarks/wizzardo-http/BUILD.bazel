@@ -1,0 +1,44 @@
+load(
+  "@rules_haskell//haskell:defs.bzl",
+  "haskell_binary",
+)
+
+java_library(
+    name = "wizzardo-http-benchmark_java",
+    srcs = glob(['src/main/**/*.java']),
+)    
+
+haskell_binary(
+    name = "wizzardo-http-benchmark",
+    srcs = glob(['src/main/**/*.hs']),
+    extra_srcs = ["@openjdk//:rpath"],
+    compiler_flags = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",
+        "-threaded",
+    ],
+    deps = [
+        "//jvm",
+        "//jni",
+        "//:inline-java",
+        "wizzardo-http-benchmark_java",
+        "@stackage//:aeson",
+        "@stackage//:base",
+        "@stackage//:bytestring",
+        "@stackage//:directory",
+        "@stackage//:exceptions",
+        "@stackage//:filepath",
+        "@stackage//:linear-base",
+        "@stackage//:monad-logger",
+        "@stackage//:mtl",
+        "@stackage//:split",
+        "@stackage//:template-haskell",
+        "@stackage//:text",
+        "@maven//:com_wizzardo_http_0_3",
+        "@maven//:com_wizzardo_epoll_0_3_4",
+        "@maven//:com_wizzardo_tools_tools_collections_0_23",
+        "@maven//:com_wizzardo_tools_tools_interfaces_0_23",
+        "@maven//:com_wizzardo_reactive_pg_client_0_10_2_1",
+    ],
+    plugins = ["//:inline-java-plugin"],
+    tags = ["only_with_ghc_9_0_1"],
+)

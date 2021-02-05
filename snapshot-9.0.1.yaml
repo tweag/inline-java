@@ -22,3 +22,14 @@ packages:
   commit: a33a4e6a0bbba4853c4723bc117e9c65789057a6
 - github: facundominguez/vector-algorithms
   commit: 3dc14d76d1384da05e584d06c116160bbf3e2f08
+- github: facundominguez/data-fix
+  commit: d903232e99085c2b84b08b59d9127954ca259766
+- github: facundominguez/time-compat
+  commit: 66406a573a1a881be7cebf5940314a7bac9168f0
+- github: facundominguez/assoc
+  commit: e87d228527c361576e27453e18e3eaa3ee65157e
+- github: facundominguez/these
+  commit: e1012fc85c76e987e6967da83d89b59731bbc3e2
+  subdir: these
+- github: facundominguez/aeson
+  commit: 16bbf86a7523bed8deb754e4519adf3d2f64db57
