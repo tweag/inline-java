@@ -156,6 +156,7 @@ the context class loader is just `null`.
 
 ```Haskell
 loader <- [java| Thread.currentThread().getContextClassLoader() |]
+            `Language.Java.withLocalRef` Foreign.JNI.newGlobalRef
 ...
 forkOS $ runInAttachedThread $ do
   [java| { Thread.currentThread().setContextClassLoader($loader); } |]
