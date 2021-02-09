@@ -3,6 +3,17 @@ load(
   "haskell_binary",
 )
 
+java_deps = [
+    "@maven//:org_apache_commons_commons_collections4_4_1",
+    ]
+
+java_binary(
+    name = "jar",
+    main_class = "bogus",
+    visibility = ["//visibility:public"],
+    runtime_deps = java_deps,
+)
+
 haskell_binary(
     name = "classpath",
     srcs = ['Main.hs'],
@@ -15,15 +26,12 @@ haskell_binary(
         "//jvm",
         "//jni",
         "//:inline-java",
+        "@rules_haskell//tools/runfiles",
         "@stackage//:base",
-        "@maven//:org_apache_commons_commons_collections4_4_1",
-        "@stackage//:directory",
-        "@stackage//:split",
-        "@stackage//:template-haskell",
         "@stackage//:text",
-    ],
+    ] + java_deps,
     data = [
-        "@maven//:org_apache_commons_commons_collections4_4_1",
+        ":jar_deploy.jar",
     ],
     plugins = ["//:inline-java-plugin"],
 )
