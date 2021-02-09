@@ -45,7 +45,7 @@ haskell_binary(
         "@stackage//:mtl",
         "@stackage//:text",
     ] + java_deps,
-	data = [":jar_deploy.jar"],
+    data = [":jar_deploy.jar"],
     plugins = ["//:inline-java-plugin"],
     tags = ["only_with_ghc_9_0_1"],
 )
