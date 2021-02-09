@@ -1,12 +1,22 @@
 env:
-  BAZEL_ARGS: --repository_cache=~/bazel-repository-cache --disk_cache=~/bazel-disk-cache
+  BAZEL_REPO_CACHE: ~/bazel-repository-cache
+  BAZEL_DISK_CACHE: ~/bazel-disk-cache
+  BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
 steps:
   - label: "Run tests"
     command: |
+      if [[ "$BUILDKITE_BRANCH" == master ]]
+      then
+          rm -rf $BAZEL_REPO_CACHE $BAZEL_DISK_CACHE
+      fi
       nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
     timeout: 30
   - label: "Install linear-types enabled GHC"
     command: |
+      if [[ "$BUILDKITE_BRANCH" == master ]]
+      then
+          rm -rf $BAZEL_REPO_CACHE $BAZEL_DISK_CACHE
+      fi
       nix-shell shell-linear-types.nix --command ''
     timeout: 120
     key: "install-linear-ghc"
