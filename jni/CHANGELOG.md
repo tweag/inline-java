@@ -7,14 +7,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Next
 
 ### Added
+### Changed
+### Removed
+
+## [0.9.0] - 2021-03-17
+
+### Added
 
 * Expose functions in the API to start and stop the finalizer thread.
   These functions are needed in applications that initialize the JVM
   through other means than JNI.
-
-### Removed
+* Support for building with ghc-9.0.1.
 
 ### Changed
+
+* Removed Cabal support in favor of Bazel.
 
 ## [0.8.0] - 2020-11-30
 

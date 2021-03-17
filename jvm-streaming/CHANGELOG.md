@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Removed
 ### Changed
 
+## [0.5.0] - 2021-03-17
+
+### Added
+
+* Support for building with ghc-9.0.1.
+
+### Changed
+
+* Removed Cabal support in favor of Bazel.
+
 ## [0.4.0] - 2020-11-30
 
 ### Changed
