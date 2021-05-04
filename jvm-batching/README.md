@@ -15,7 +15,7 @@ instance (Interpretation a, BatchReflect a) => Reflect (V.Vector a) where
 ```
 
 See the documentation in
-[Language.Hava.Batching](src/main/haskell/Language/Java/Batching.hs)
+[Language.Java.Batching](src/main/haskell/Language/Java/Batching.hs)
 for an overview on how the implementation works.
 
 To use it as a dependency add `:jvm-batching` and `jvm-batching:jar` to
