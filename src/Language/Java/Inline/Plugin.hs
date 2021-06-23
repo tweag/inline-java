@@ -95,8 +95,13 @@ plugin = defaultPlugin
     bctable_header :: String
     bctable_header = $(do
         loc <- TH.location
-        let root = iterate takeDirectory (TH.loc_filename loc) !! 6
+        let parents = iterate takeDirectory (TH.loc_filename loc)
+            depth = 5
+            almostRoot = parents !! (depth - 1)
+            root = parents !! depth
             f = root </> "cbits/bctable.h"
+        when (root == almostRoot) $
+          fail "root reached prematurely"
         TH.addDependentFile f
         TH.lift =<< TH.runIO (readFile f)
       )
