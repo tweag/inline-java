@@ -18,7 +18,6 @@ import Data.Char (chr, ord)
 import Data.List (find, intersperse, isSuffixOf)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import qualified FastString.Extras
 import Foreign.JNI.Types (JType(..))
 import GhcPlugins.Extras
 import qualified Language.Haskell.TH as TH
@@ -268,9 +267,9 @@ toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
     go :: Type -> Maybe [BS.ByteString]
     go (TyConApp c [LitTy (StrTyLit fs)])
       | Just n <- nameClass, tyConName c == n =
-        Just [substDollar $ FastString.Extras.bytesFS fs]
+        Just [substDollar $ bytesFS fs]
       | Just n <- nameIface, tyConName c == n =
-        Just [substDollar $ FastString.Extras.bytesFS fs]
+        Just [substDollar $ bytesFS fs]
     go (TyConApp c [t])
       | Just n <- nameArray, tyConName c == n =
         (++ ["[]"]) <$> go t
@@ -284,7 +283,7 @@ toJavaType JTypeNames {..} t0 = BS.concat <$> go t0
         Just ["void"]
     go (TyConApp c [LitTy (StrTyLit fs)])
       | Just n <- namePrim, tyConName c == n =
-        Just [FastString.Extras.bytesFS fs]
+        Just [bytesFS fs]
     go _ = Nothing
 
     listGo :: Type -> Maybe [[BS.ByteString]]
@@ -375,9 +374,9 @@ collectQQMarkers qqMarkerNames p0 = do
       tell $ Endo $ (:) $ QQOcc
         { qqOccResTy = tyres
         , qqOccArgTys = tyargs
-        , qqOccInput = FastString.Extras.bytesFS fs_input
-        , qqOccMName = FastString.Extras.bytesFS fs_mname
-        , qqOccAntiQs = FastString.Extras.bytesFS fs_antiqs
+        , qqOccInput = bytesFS fs_input
+        , qqOccMName = bytesFS fs_mname
+        , qqOccAntiQs = bytesFS fs_antiqs
         , qqOccLineNumber = lineNumber
         }
       return (App e args)
