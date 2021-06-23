@@ -737,7 +737,7 @@ pushLocalFrame (coerce -> capacity) = withJNIEnv $ \env ->
     -- We ignore the output as it is always 0 on success and throws an
     -- exception otherwise.
     throwIfException env $ void $
-    [CU.block| jint {
+    [CU.block| void {
       (*$(JNIEnv *env))->PushLocalFrame($(JNIEnv *env),
                                         $(jint capacity)); } |]
 
