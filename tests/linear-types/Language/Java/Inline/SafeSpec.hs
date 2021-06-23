@@ -9,10 +9,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 -- Test that inline-java produces code without warnings or errors.
---
--- -O0 is necessary to workaround a bug in ghc-8.9.20190613
--- https://github.com/tweag/ghc/issues/384
-{-# OPTIONS_GHC -dcore-lint -Wall -Werror -Wno-name-shadowing -O0 #-}
+{-# OPTIONS_GHC -dcore-lint -Wall -Werror -Wno-name-shadowing #-}
 
 module Language.Java.Inline.SafeSpec(spec) where
 
