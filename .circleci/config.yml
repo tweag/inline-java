@@ -19,9 +19,7 @@ jobs:
       - checkout
       - run:
           name: Install Nix
-          command: |
-            HOMEBREW_NO_AUTO_UPDATE=1 brew install xz
-            curl -L https://nixos.org/nix/install | sh
+          command: curl -L https://nixos.org/nix/install | sh
 
       - run:
           name: Install cachix
