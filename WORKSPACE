@@ -99,7 +99,7 @@ stack_snapshot(
     extra_deps = { "zlib" : ["@zlib.dev//:zlib"] } if ghc_version == "9.0.1" else {},
     snapshot = "nightly-2020-11-11" if ghc_version == "8.10.2" else None,
     local_snapshot = "//:snapshot-9.0.1.yaml" if ghc_version == "9.0.1" else None,
-    stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
+    # stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
 )
 
 load("@rules_haskell//haskell:nixpkgs.bzl", "haskell_register_ghc_nixpkgs")
@@ -123,7 +123,7 @@ haskell_register_ghc_nixpkgs(
         if ghc_version == "9.0.1" else "haskell.compiler.ghc8102",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = ghc_version if ghc_version == "8.10.2" else "9.0.0.20201227",
+    version = ghc_version if ghc_version == "8.10.2" else "9.0.1",
     compiler_flags = [
         "-Werror",
         "-Wall",
