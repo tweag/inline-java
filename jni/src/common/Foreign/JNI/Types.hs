@@ -79,7 +79,6 @@ import Data.Char (chr, ord)
 import Data.Constraint (Dict(..))
 import Data.Int
 import qualified Data.Map as Map
-import Data.Singletons
 import Data.Word
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
@@ -98,6 +97,7 @@ import Foreign.Storable (Storable(..))
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Language.C.Types (TypeSpecifier(TypeName))
 import Language.C.Inline.Context (Context(..), fptrCtx)
+import Prelude.Singletons (Sing, SingI(sing), SomeSing(..))
 import System.IO.Unsafe (unsafePerformIO)
 
 -- | A JVM instance.
@@ -128,7 +128,7 @@ data JType
 
 -- | The class of Java types that are "unboxed".
 class SingI ty => IsPrimitiveType (ty :: JType)
-instance KnownSymbol sym => IsPrimitiveType ('Prim sym)
+instance (SingI sym, KnownSymbol sym) => IsPrimitiveType ('Prim sym)
 
 class IsReferenceType (ty :: JType)
 instance IsReferenceType ('Class sym)

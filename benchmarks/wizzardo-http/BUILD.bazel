@@ -43,9 +43,9 @@ haskell_binary(
         "@stackage//:linear-base",
         "@stackage//:monad-logger",
         "@stackage//:mtl",
+        "@stackage//:singletons",
         "@stackage//:text",
     ] + java_deps,
     data = [":jar_deploy.jar"],
     plugins = ["//:inline-java-plugin"],
-    tags = ["only_with_ghc_9_0_1"],
 )

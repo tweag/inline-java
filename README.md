@@ -60,26 +60,21 @@ $ nix-shell --pure --run "bazel test //..."
 [bazel]: https://bazel.build
 [nix]: http://nixos.org/nix
 
-## Building the safe interface
+## Using the safe interface
 
 There is [an experimental interface][safe-inline-java] which catches
-common memory management mistakes at compile time. This interface
-currently needs a [fork][linear-types-ghc] of GHC which supports the
+common memory management mistakes at compile time via the
 [LinearTypes][linear-types-proposal] language extension.
-Both the GHC fork and the safe interface can be built with:
 
-```
-$ nix-shell --pure --run "bazel build //:inline-java --config ghc_9_0_1" shell-linear-types.nix
-```
-
-For examples of how to use the safe interface you can check
-the [directory server][directory-server] and the
+For examples of how to use the safe interface you can check the
+[tests][tests], the [directory server][directory-server] example and the
 [wizzardo-http benchmark][wizzardo-http-benchmark].
 
 [directory-server]: examples/directory-server
 [linear-types-ghc]: https://github.com/tweag/ghc/tree/linear-types#ghc-branch-with-linear-types
 [linear-types-proposal]: https://github.com/tweag/ghc-proposals/blob/linear-types2/proposals/0000-linear-types.rst
 [safe-inline-java]: https://github.com/tweag/inline-java/blob/master/src/linear-types/Language/Java/Inline/Safe.hs
+[tests]: tests/linear-types/Language/Java/Inline/SafeSpec.hs
 [wizzardo-http-benchmark]: benchmarks/wizzardo-http
 
 ## Further reading

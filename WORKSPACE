@@ -32,15 +32,15 @@ nixpkgs_package(
     repository = "@nixpkgs",
 )
 
-nixpkgs_package(
-    name = "stack_ignore_global_hints",
-    attribute_path = "stack_ignore_global_hints",
-    repository = "@nixpkgs",
-)
-
-load("//:config_settings/setup.bzl", "config_settings")
-config_settings(name = "config_settings")
-load("@config_settings//:info.bzl", "ghc_version")
+#nixpkgs_package(
+#    name = "stack_ignore_global_hints",
+#    attribute_path = "stack_ignore_global_hints",
+#    repository = "@nixpkgs",
+#)
+#
+#load("//:config_settings/setup.bzl", "config_settings")
+#config_settings(name = "config_settings")
+#load("@config_settings//:info.bzl", "ghc_version")
 
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
@@ -83,8 +83,11 @@ stack_snapshot(
         # dependencies of th-desugar
         "fail",
         "ghc-prim",
+        "linear-base",
         "ordered-containers",
         "semigroups",
+        "singletons",
+        "singletons-base",
         "stm",
         "syb",
         "th-abstraction",
@@ -95,10 +98,9 @@ stack_snapshot(
         "ghc-boot-th",
         "pretty",
         "transformers",
-    ] + (["linear-base"] if ghc_version == "9.0.1" else ["singletons"]),
-    extra_deps = { "zlib" : ["@zlib.dev//:zlib"] } if ghc_version == "9.0.1" else {},
-    snapshot = "nightly-2020-11-11" if ghc_version == "8.10.2" else None,
-    local_snapshot = "//:snapshot-9.0.1.yaml" if ghc_version == "9.0.1" else None,
+    ],
+    extra_deps = { "zlib" : ["@zlib.dev//:zlib"] },
+    local_snapshot = "//:snapshot-9.0.1.yaml",
     # stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
 )
 
@@ -119,11 +121,10 @@ filegroup(
 )
 
 haskell_register_ghc_nixpkgs(
-    attribute_path = "haskell.compiler.ghc901"
-        if ghc_version == "9.0.1" else "haskell.compiler.ghc8102",
+    attribute_path = "haskell.compiler.ghc901",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = ghc_version if ghc_version == "8.10.2" else "9.0.1",
+    version = "9.0.1",
     compiler_flags = [
         "-Werror",
         "-Wall",

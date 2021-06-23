@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Changed
 ### Removed
 
+* Support for building with ghc-8.10
+
 ## [0.9.0] - 2021-03-17
 
 ### Added

@@ -2,7 +2,6 @@ load(
   "@rules_haskell//haskell:defs.bzl",
   "haskell_library",
 )
-load("@config_settings//:info.bzl", "ghc_version")
 
 haskell_library(
     name = "jvm-streaming",
@@ -17,8 +16,8 @@ haskell_library(
         "//:inline-java",
         "@stackage//:base",
         "@stackage//:distributed-closure",
+        "@stackage//:singletons",
         "@stackage//:streaming",
         "@stackage//:vector",
-    ] +
-    (["@stackage//:singletons"] if ghc_version == "8.10.2" else []),
+    ],
 )

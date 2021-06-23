@@ -2,14 +2,13 @@ load(
   "@rules_haskell//haskell:defs.bzl",
   "haskell_library",
 )
-load("@config_settings//:info.bzl", "ghc_version")
 
 haskell_library(
     name = "jvm",
-    srcs = glob(['src/common/**/*.hs']) +
-			([] if ghc_version == "8.10.2" else
-			 glob(['src/linear-types/**/*.hs'])
-			),
+    srcs = glob([
+             'src/common/**/*.hs',
+			 'src/linear-types/**/*.hs',
+           ]),
     deps = [
         "//jni",
         "@stackage//:base",
@@ -18,12 +17,12 @@ haskell_library(
         "@stackage//:choice",
         "@stackage//:distributed-closure",
         "@stackage//:exceptions",
+        "@stackage//:linear-base",
+        "@stackage//:singletons",
         "@stackage//:template-haskell",
         "@stackage//:text",
         "@stackage//:vector",
     ] + [
-        "@stackage//:linear-base" if ghc_version == "9.0.1" else
-        "@stackage//:singletons"
 	],
     visibility = ["//visibility:public"],
 )
