@@ -14,12 +14,12 @@ version: 2
 jobs:
   build-darwin:
     macos:
-      xcode: "10.0"
+      xcode: "12.5.0"
     steps:
       - checkout
       - run:
           name: Install Nix
-          command: curl -L https://nixos.org/nix/install | sh
+          command: sh <(curl -L https://nixos.org/nix/install) --darwin-use-unencrypted-nix-store-volume
 
       - run:
           name: Install cachix
