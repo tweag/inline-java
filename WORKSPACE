@@ -4,9 +4,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_haskell",
-    sha256 = "34b29933ed5580e0203ca69948fe7b8126b75c4df02d1d43b4d9c1120656d548",
-    strip_prefix = "rules_haskell-d162b8161a6cd26d40e08d37385c2d1272997a6c",
-    urls = ["https://github.com/tweag/rules_haskell/archive/d162b8161a6cd26d40e08d37385c2d1272997a6c.tar.gz"],
+#    sha256 = "34b29933ed5580e0203ca69948fe7b8126b75c4df02d1d43b4d9c1120656d548",
+    strip_prefix = "rules_haskell-9b855ada6901d2881f03e49ff62597a1baf065d3",
+    urls = ["https://github.com/tweag/rules_haskell/archive/9b855ada6901d2881f03e49ff62597a1baf065d3.tar.gz"],
 )
 
 load("@rules_haskell//haskell:repositories.bzl", "haskell_repositories")
