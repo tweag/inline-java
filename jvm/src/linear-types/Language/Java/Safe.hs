@@ -86,6 +86,7 @@ module Language.Java.Safe
   , sing
   ) where
 
+import Control.Distributed.Closure.TH
 import Control.Exception (evaluate)
 import Control.Monad.IO.Class.Linear (MonadIO)
 import Control.Functor.Linear hiding ((<$>))
@@ -459,10 +460,6 @@ class Interpretation a => Reflect a where
     -> m (J (Interp a))
   reflect x = liftPreludeIO (J <$> JNI.newLocalRef (Java.jobject x))
 
-instance (SingI ty, IsReferenceType ty) => Interpretation (Java.J ty) where type Interp (Java.J ty) = ty
-instance Interpretation (Java.J ty) => Reify (Java.J ty)
-instance Interpretation (Java.J ty) => Reflect (Java.J ty)
-
 javaReify
   :: (Java.Interp a ~ Interp a, Java.Reify a, MonadIO m)
   => J (Interp a)
@@ -476,109 +473,117 @@ javaReflect
   -> m (J (Interp a))
 javaReflect a = fmap J $ liftPreludeIO (Java.reflect a)
 
-instance Interpretation () where type Interp () = Java.Interp ()
-instance Reify () where reify = javaReify
-instance Reflect () where reflect = javaReflect
+withStatic [d|
 
-instance Interpretation ByteString where type Interp ByteString = Java.Interp ByteString
-instance Reify ByteString where reify = javaReify
-instance Reflect ByteString where reflect = javaReflect
+  instance (SingI ty, IsReferenceType ty) => Interpretation (Java.J ty) where type Interp (Java.J ty) = ty
+  instance Interpretation (Java.J ty) => Reify (Java.J ty)
+  instance Interpretation (Java.J ty) => Reflect (Java.J ty)
 
-instance Interpretation Bool where type Interp Bool = Java.Interp Bool
-instance Reify Bool where reify = javaReify
-instance Reflect Bool where reflect = javaReflect
 
-instance Interpretation CChar where type Interp CChar = Java.Interp CChar
-instance Reify CChar where reify = javaReify
-instance Reflect CChar where reflect = javaReflect
+  instance Interpretation () where type Interp () = Java.Interp ()
+  instance Reify () where reify = javaReify
+  instance Reflect () where reflect = javaReflect
 
-instance Interpretation Int16 where type Interp Int16 = Java.Interp Int16
-instance Reify Int16 where reify = javaReify
-instance Reflect Int16 where reflect = javaReflect
+  instance Interpretation ByteString where type Interp ByteString = Java.Interp ByteString
+  instance Reify ByteString where reify = javaReify
+  instance Reflect ByteString where reflect = javaReflect
 
-instance Interpretation Word16 where type Interp Word16 = Java.Interp Word16
-instance Reify Word16 where reify = javaReify
-instance Reflect Word16 where reflect = javaReflect
+  instance Interpretation Bool where type Interp Bool = Java.Interp Bool
+  instance Reify Bool where reify = javaReify
+  instance Reflect Bool where reflect = javaReflect
 
-instance Interpretation Int32 where type Interp Int32 = Java.Interp Int32
-instance Reify Int32 where reify = javaReify
-instance Reflect Int32 where reflect = javaReflect
+  instance Interpretation CChar where type Interp CChar = Java.Interp CChar
+  instance Reify CChar where reify = javaReify
+  instance Reflect CChar where reflect = javaReflect
 
-instance Interpretation Int64 where type Interp Int64 = Java.Interp Int64
-instance Reify Int64 where reify = javaReify
-instance Reflect Int64 where reflect = javaReflect
+  instance Interpretation Int16 where type Interp Int16 = Java.Interp Int16
+  instance Reify Int16 where reify = javaReify
+  instance Reflect Int16 where reflect = javaReflect
 
-instance Interpretation Float where type Interp Float = Java.Interp Float
-instance Reify Float where reify = javaReify
-instance Reflect Float where reflect = javaReflect
+  instance Interpretation Word16 where type Interp Word16 = Java.Interp Word16
+  instance Reify Word16 where reify = javaReify
+  instance Reflect Word16 where reflect = javaReflect
 
-instance Interpretation Double where type Interp Double = Java.Interp Double
-instance Reify Double where reify = javaReify
-instance Reflect Double where reflect = javaReflect
+  instance Interpretation Int32 where type Interp Int32 = Java.Interp Int32
+  instance Reify Int32 where reify = javaReify
+  instance Reflect Int32 where reflect = javaReflect
 
-instance Interpretation Text where type Interp Text = Java.Interp Text
-instance Reify Text where reify = javaReify
-instance Reflect Text where reflect = javaReflect
+  instance Interpretation Int64 where type Interp Int64 = Java.Interp Int64
+  instance Reify Int64 where reify = javaReify
+  instance Reflect Int64 where reflect = javaReflect
 
-instance Interpretation (IOVector Word16) where
-  type Interp (IOVector Word16) = Java.Interp (IOVector Word16)
-instance Reify (IOVector Word16) where reify = javaReify
-instance Reflect (IOVector Word16) where reflect = javaReflect
+  instance Interpretation Float where type Interp Float = Java.Interp Float
+  instance Reify Float where reify = javaReify
+  instance Reflect Float where reflect = javaReflect
 
-instance Interpretation (IOVector Int16) where
-  type Interp (IOVector Int16) = Java.Interp (IOVector Int16)
-instance Reify (IOVector Int16) where reify = javaReify
-instance Reflect (IOVector Int16) where reflect = javaReflect
+  instance Interpretation Double where type Interp Double = Java.Interp Double
+  instance Reify Double where reify = javaReify
+  instance Reflect Double where reflect = javaReflect
 
-instance Interpretation (IOVector Int32) where
-  type Interp (IOVector Int32) = Java.Interp (IOVector Int32)
-instance Reify (IOVector Int32) where reify = javaReify
-instance Reflect (IOVector Int32) where reflect = javaReflect
+  instance Interpretation Text where type Interp Text = Java.Interp Text
+  instance Reify Text where reify = javaReify
+  instance Reflect Text where reflect = javaReflect
 
-instance Interpretation (IOVector Int64) where
-  type Interp (IOVector Int64) = Java.Interp (IOVector Int64)
-instance Reify (IOVector Int64) where reify = javaReify
-instance Reflect (IOVector Int64) where reflect = javaReflect
+  instance Interpretation (IOVector Word16) where
+    type Interp (IOVector Word16) = Java.Interp (IOVector Word16)
+  instance Reify (IOVector Word16) where reify = javaReify
+  instance Reflect (IOVector Word16) where reflect = javaReflect
 
-instance Interpretation (IOVector Float) where
-  type Interp (IOVector Float) = Java.Interp (IOVector Float)
-instance Reify (IOVector Float) where reify = javaReify
-instance Reflect (IOVector Float) where reflect = javaReflect
+  instance Interpretation (IOVector Int16) where
+    type Interp (IOVector Int16) = Java.Interp (IOVector Int16)
+  instance Reify (IOVector Int16) where reify = javaReify
+  instance Reflect (IOVector Int16) where reflect = javaReflect
 
-instance Interpretation (IOVector Double) where
-  type Interp (IOVector Double) = Java.Interp (IOVector Double)
-instance Reify (IOVector Double) where reify = javaReify
-instance Reflect (IOVector Double) where reflect = javaReflect
+  instance Interpretation (IOVector Int32) where
+    type Interp (IOVector Int32) = Java.Interp (IOVector Int32)
+  instance Reify (IOVector Int32) where reify = javaReify
+  instance Reflect (IOVector Int32) where reflect = javaReflect
 
-instance (SingI (Interp (Vector a)), IsReferenceType (Interp (Vector a)))
-  => Interpretation (Vector a) where
-  type Interp (Vector a) = Java.Interp (Vector a)
-instance Java.Reify (Vector a) => Reify (Vector a) where
-  reify = javaReify
-instance Java.Reflect (Vector a) => Reflect (Vector a) where
-  reflect = javaReflect
+  instance Interpretation (IOVector Int64) where
+    type Interp (IOVector Int64) = Java.Interp (IOVector Int64)
+  instance Reify (IOVector Int64) where reify = javaReify
+  instance Reflect (IOVector Int64) where reflect = javaReflect
 
-instance Interpretation a => Interpretation [a] where
-  type Interp [a] = 'Array (Interp a)
+  instance Interpretation (IOVector Float) where
+    type Interp (IOVector Float) = Java.Interp (IOVector Float)
+  instance Reify (IOVector Float) where reify = javaReify
+  instance Reflect (IOVector Float) where reflect = javaReflect
 
-instance Reify a => Reify [a] where
-  reify _jobj =
-      getArrayLength _jobj >>= \(_jobj, Ur n) ->
-      foldM
-        (\(_jobj, uxs) i ->
-          getObjectArrayElement _jobj i >>= \(_jobj, jx) ->
-          reify_ jx >>= \ux ->
-          return (_jobj, Unrestricted.lift2 (:) ux uxs)
-        )
-        (_jobj, Ur []) [n Prelude.- 1, n Prelude.- 2..0]
+  instance Interpretation (IOVector Double) where
+    type Interp (IOVector Double) = Java.Interp (IOVector Double)
+  instance Reify (IOVector Double) where reify = javaReify
+  instance Reflect (IOVector Double) where reflect = javaReflect
 
-instance Reflect a => Reflect [a] where
-  reflect xs =
-      let n = fromIntegral (length xs)
-       in newArray n >>= \array ->
-      foldM
-        (\array0 (Ur (i, x)) ->
-            reflect x >>= \jx ->
-            setObjectArrayElement_ array0 i jx
-        )
-        array (map Ur (zip [0..n Prelude.- 1] xs))
+  instance (SingI (Interp (Vector a)), IsReferenceType (Interp (Vector a)))
+    => Interpretation (Vector a) where
+    type Interp (Vector a) = Java.Interp (Vector a)
+  instance Java.Reify (Vector a) => Reify (Vector a) where
+    reify = javaReify
+  instance Java.Reflect (Vector a) => Reflect (Vector a) where
+    reflect = javaReflect
+
+  instance Interpretation a => Interpretation [a] where
+    type Interp [a] = 'Array (Interp a)
+
+  instance Reify a => Reify [a] where
+    reify _jobj =
+        getArrayLength _jobj >>= \(_jobj, Ur n) ->
+        foldM
+          (\(_jobj, uxs) i ->
+            getObjectArrayElement _jobj i >>= \(_jobj, jx) ->
+            reify_ jx >>= \ux ->
+            return (_jobj, Unrestricted.lift2 (:) ux uxs)
+          )
+          (_jobj, Ur []) [n Prelude.- 1, n Prelude.- 2..0]
+
+  instance Reflect a => Reflect [a] where
+    reflect xs =
+        let n = fromIntegral (length xs)
+         in newArray n >>= \array ->
+        foldM
+          (\array0 (Ur (i, x)) ->
+              reflect x >>= \jx ->
+              setObjectArrayElement_ array0 i jx
+          )
+          array (map Ur (zip [0..n Prelude.- 1] xs))
+  |]
