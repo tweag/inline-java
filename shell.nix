@@ -13,7 +13,7 @@ mkShell {
   LANG="C.UTF-8";
 
   buildInputs = [
-    bazel
+    bazel_4
     git
     gnused
     nix

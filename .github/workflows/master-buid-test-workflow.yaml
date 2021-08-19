@@ -1,0 +1,42 @@
+name: master-build-test-workflow
+on: 
+  push:
+    branches:
+      - "master"
+jobs:
+  master-build-test-darwin:
+    runs-on: macos-10.15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - uses: cachix/install-nix-action@v13
+        with:
+          nix_path: nixpkgs=channel:nixos-21.05
+
+      - name: Setup temporary cache
+        run: |
+            mkdir -p $HOME/.cache/bazel
+            mkdir -p $HOME/.cache/repo-cache
+
+      - name: Setup .bazelrc
+        run: |
+            echo "common --repository_cache=$HOME/.cache/repo-cache" >> .bazelrc
+            echo "common --disk_cache=$HOME/.cache/bazel" >> .bazelrc
+
+      - name: Prefetch Stackage snapshot
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          command: |
+            nix-shell --pure --run \
+              'cmd="bazel fetch @stackage//... "; $cmd || $cmd || $cmd'
+
+      - name: Build all
+        run: |
+            nix-shell --pure --run 'bazel build //...'
+
+      - name: Run tests
+        run: |
+            nix-shell --pure --run 'bazel test --test_output=all //...'
