@@ -72,6 +72,7 @@ import Control.Exception hiding (throw)
 import Control.Monad
 import Control.Monad.IO.Class.Linear (MonadIO(liftIO))
 import qualified Control.Functor.Linear as Linear
+import Data.Coerce
 import Data.Functor
 import Data.Int
 import Data.Word
@@ -300,13 +301,13 @@ deleteGlobalRefNonFinalized o = liftPreludeIO (JNI.deleteGlobalRef o)
 
 -- NB: Cannot add a finalizer to local references because it may
 -- run in a thread where the reference is not valid.
-newLocalRef :: MonadIO m => J ty %1-> m (J ty, J ty)
+newLocalRef :: (MonadIO m, Coercible o (J ty)) => o %1-> m (o, o)
 newLocalRef = Unsafe.toLinear $ \o ->
-    liftPreludeIO ((,) o . J <$> JNI.newLocalRef (unJ o))
+  liftPreludeIO ((,) o . coerce . J <$> JNI.newLocalRef (unJ . coerce $ o))
 
-deleteLocalRef :: MonadIO m => J ty %1-> m ()
+deleteLocalRef :: (MonadIO m, Coercible o (J ty)) => o %1-> m ()
 deleteLocalRef = Unsafe.toLinear $ \o ->
-    liftPreludeIO (JNI.deleteLocalRef (unJ o))
+  liftPreludeIO (JNI.deleteLocalRef (unJ . coerce $ o))
 
 -- | Runs the given computation in a local frame, which ensures that
 -- if it throws an exception, all live local references created during

@@ -17,6 +17,7 @@ import qualified Control.Functor.Linear as Linear
 import Data.Int
 import Foreign.JNI (JVMException)
 import Foreign.JNI.Safe
+import qualified Foreign.JNI.Types (J(..))
 import Language.Java.Safe
 import Language.Java.Inline.Safe
 import Prelude hiding ((>>=), (>>))
