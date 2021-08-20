@@ -363,12 +363,13 @@ call = Unsafe.toLinear $ \obj mname -> apply $ Unsafe.toLinear $ \args -> do
       fromJNIJValue <$>
         Java.callToJValue
           @ty1
-          (sing @ty1)
+          (sing @(Ty b))
           (Coerce.coerce obj)
           mname
           (sings @f Proxy)
           (toJNIJValues args)
         Prelude.<* deleteLinearJObjects args
+    <* deleteLocalRef obj
 
 strictUnsafeUncoerce :: Coercible a => IO JValue -> IO a
 strictUnsafeUncoerce m = m Prelude.>>= \x -> evaluate (unsafeUncoerce x)
