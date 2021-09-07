@@ -4,7 +4,7 @@ on:
     branches-ignore:
       - "master"
 jobs:
-  build-test-darwin:
+  build-test:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -26,7 +26,7 @@ jobs:
 
       - name: Setup .bazelrc
         run: |
-            echo "common --disk_cache=~/.cache/bazel" >> ${{ github.workspace }}"/.bazelrc
+            echo "common --disk_cache=~/.cache/bazel" >> ${{ github.workspace }}/.bazelrc.local
 
       - name: Prefetch Stackage snapshot
         # Retry if needed due to network flakiness.

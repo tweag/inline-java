@@ -20,12 +20,10 @@ jobs:
       - name: Setup temporary cache
         run: |
             mkdir -p $HOME/.cache/bazel
-            mkdir -p $HOME/.cache/repo-cache
 
       - name: Setup .bazelrc
         run: |
-            echo "common --repository_cache=$HOME/.cache/repo-cache" >> .bazelrc
-            echo "common --disk_cache=$HOME/.cache/bazel" >> .bazelrc
+            echo "common --disk_cache=$HOME/.cache/bazel" >> .bazelrc.local
 
       - name: Prefetch Stackage snapshot
         uses: nick-invision/retry@v2
