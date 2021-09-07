@@ -14,7 +14,6 @@ jobs:
         uses: actions/cache@v2.1.6
         with:
           path: |
-            ~/.cache/repo-cache
             ~/.cache/bazel
           key: ${{ runner.os }}-inline-java-bazel
 
@@ -27,18 +26,17 @@ jobs:
 
       - name: Setup .bazelrc
         run: |
-            echo "common --repository_cache=~/.cache/repo-cache" >> ${{ github.workspace }}"/.bazelrc
             echo "common --disk_cache=~/.cache/bazel" >> ${{ github.workspace }}"/.bazelrc
 
       - name: Prefetch Stackage snapshot
         # Retry if needed due to network flakiness.
         run: |
           nix-shell --pure --run \
-            'cmd="bazel fetch @stackage//... --repository_cache=~/.cache/repo-cache --disk_cache=~/.cache/bazel"; $cmd || $cmd || $cmd'
+            'cmd="bazel fetch @stackage//... --disk_cache=~/.cache/bazel"; $cmd || $cmd || $cmd'
 
       - name: Build all
         run: |
-            nix-shell --pure --run 'bazel build //... --repository_cache=~/.cache/repo-cache --disk_cache=~/.cache/bazel'
+            nix-shell --pure --run 'bazel build //... --disk_cache=~/.cache/bazel'
 
       - name: Run tests
         run: |
