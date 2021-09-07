@@ -35,7 +35,8 @@ jobs:
             echo ===
             echo "build --bes_results_url=https://app.buildbuddy.io/invocation/" > ${{ github.workspace }}/.bazelrc.local
             echo "build --bes_backend=grpcs://cloud.buildbuddy.io" >> ${{ github.workspace }}/.bazelrc.local
-            echo "common --disk_cache=~/.cache/bazel" >> ${{ github.workspace }}/.bazelrc.local
+            echo "build --remote_cache=grpcs://cloud.buildbuddy.io" >> ${{ github.workspace }}/.bazelrc.local
+            echo "build --remote_timeout=3600" >> ${{ github.workspace }}/.bazelrc.local
             echo ===
             ls -lah ${{ github.workspace }}
             cat ${{ github.workspace }}/.bazelrc.local
@@ -45,11 +46,11 @@ jobs:
         # Retry if needed due to network flakiness.
         run: |
           nix-shell --pure --run \
-            'cmd="bazel fetch @stackage//... --disk_cache=~/.cache/bazel"; $cmd || $cmd || $cmd'
+            'cmd="bazel fetch @stackage//... "; $cmd || $cmd || $cmd'
 
       - name: Build all
         run: |
-            nix-shell --pure --run 'bazel build //... --disk_cache=~/.cache/bazel'
+            nix-shell --pure --run 'bazel build //... '
 
       - name: Run tests
         run: |
