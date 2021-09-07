@@ -4,8 +4,11 @@ on:
     branches:
       - "master"
 jobs:
-  master-build-test-darwin:
-    runs-on: macos-10.15
+  master-build-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-10.15]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
