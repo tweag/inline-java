@@ -33,7 +33,13 @@ jobs:
             echo ===
             ls -lah $HOME/work/inline-java/inline-java
             echo ===
+            echo "build --bes_results_url=https://app.buildbuddy.io/invocation/" > ${{ github.workspace }}/.bazelrc.local
+            echo "build --bes_backend=grpcs://cloud.buildbuddy.io" >> ${{ github.workspace }}/.bazelrc.local
             echo "common --disk_cache=~/.cache/bazel" >> ${{ github.workspace }}/.bazelrc.local
+            echo ===
+            ls -lah ${{ github.workspace }}
+            cat ${{ github.workspace }}/.bazelrc.local
+            echo ===
 
       - name: Prefetch Stackage snapshot
         # Retry if needed due to network flakiness.
