@@ -16,7 +16,7 @@ jobs:
           path: |
             ~/.cache/repo-cache
             ~/.cache/bazel
-          key: ${{ runner.os }}-bazel
+          key: ${{ runner.os }}-inline-java-bazel
 
       - uses: cachix/install-nix-action@v13
         with:
