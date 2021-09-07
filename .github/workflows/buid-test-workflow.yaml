@@ -27,9 +27,12 @@ jobs:
 
       - name: Setup .bazelrc
         run: |
-            ls $HOME
+            ls -lah $HOME
+            echo ===
             ls ~/.cache/bazel
-            ls $HOME/work/inline-java/inline-java
+            echo ===
+            ls -lah $HOME/work/inline-java/inline-java
+            echo ===
             echo "common --disk_cache=~/.cache/bazel" >> ${{ github.workspace }}/.bazelrc.local
 
       - name: Prefetch Stackage snapshot
