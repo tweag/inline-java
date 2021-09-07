@@ -9,7 +9,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Cache
         uses: actions/cache@v2.1.6
@@ -27,6 +27,9 @@ jobs:
 
       - name: Setup .bazelrc
         run: |
+            ls /home/runner/work/inline-java/inline-java
+            ls /home/runner
+            ls ~/.cache/bazel
             echo "common --disk_cache=~/.cache/bazel" >> ${{ github.workspace }}/.bazelrc.local
 
       - name: Prefetch Stackage snapshot
