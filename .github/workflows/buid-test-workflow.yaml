@@ -5,7 +5,10 @@ on:
       - "master"
 jobs:
   build-test-darwin:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-10.15]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Cache
         uses: actions/cache@v2.1.6
