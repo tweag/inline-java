@@ -68,6 +68,7 @@ module Language.Java.Safe
   , new
   , newArray
   , toArray
+  , fromArray
   , call
   , callStatic
   , getStaticField
@@ -334,6 +335,23 @@ toArray
   %1-> m ([J ty], J ('Array ty))
 toArray = Unsafe.toLinear $ \xs ->
   liftPreludeIO ((,) xs . J <$> Java.toArray (Coerce.coerce xs))
+
+-- | Gets a list of references out of an array.
+-- This is similar to the reify instance for Array, but we don't
+-- reify the inner objects
+fromArray
+  :: (SingI ty, IsReferenceType ty, MonadIO m)
+  => J ('Array ty)
+  %1 -> m [J ty]
+fromArray arr =
+  getArrayLength arr >>= \(arr', Ur n) ->
+    foldM (\(arr'', jxs) i ->
+            getObjectArrayElement arr'' i >>= \(arr''', jx) ->
+              return (arr''', jx : jxs))
+          (arr', [])
+          [n Prelude.- 1, n Prelude.- 2..0]
+      >>= \(arr'', jxs) ->
+        deleteLocalRef arr'' >> pure jxs
 
 -- | The Swiss Army knife for calling Java methods. Give it an object or
 -- any data type coercible to one, the name of a method, and a list of
