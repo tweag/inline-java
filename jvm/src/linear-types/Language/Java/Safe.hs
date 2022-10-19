@@ -240,7 +240,7 @@ data End = End
 
 -- | @Variadic_ f@ constraints @f@ to be of the form
 --
--- > f :: a₁ %1-> ... %1-> aₙ %1-> End -> ReturnType f
+-- > a₁ %1-> ... %1-> aₙ %1-> End -> ReturnType f
 --
 -- for any value of @n@, where the context provides
 --
@@ -287,9 +287,9 @@ type family ReturnType f :: Data.Kind.Type where
   ReturnType (End -> r) = r
   ReturnType (a %1-> f) = ReturnType f
 
--- | @VariadicIO f b@ constraints @f@ to be of the form
+-- | @Variadic f r@ constraints @f@ to be of the form
 --
--- > a₁ %1-> ... %1-> aₙ %1-> End -> IO b
+-- > a₁ %1-> ... %1-> aₙ %1-> End -> r
 --
 -- for any value of @n@, where the context provides
 --
