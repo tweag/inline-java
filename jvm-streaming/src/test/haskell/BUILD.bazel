@@ -6,6 +6,7 @@ load(
 haskell_test(
     name = "spec",
     srcs = glob(["**/*.hs"], exclude = ["Main.hs"]),
+    main_file = "MainBazel.hs",
     extra_srcs = ["@openjdk//:rpath"],
     compiler_flags = [
         "-optl-Wl,@$(location @openjdk//:rpath)",

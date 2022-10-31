@@ -4,13 +4,13 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_haskell",
-    sha256 = "c6561e914c66064540e8078929e54d7ff819c928f93f2b2aeeae0cc600b49d93",
-    strip_prefix = "rules_haskell-9b855ada6901d2881f03e49ff62597a1baf065d3",
-    urls = ["https://github.com/tweag/rules_haskell/archive/9b855ada6901d2881f03e49ff62597a1baf065d3.tar.gz"],
+    sha256 = "2b36e26fde296dc9fbaeed087c898fdce23af0247592e897c317d19345b0e259",
+    strip_prefix = "rules_haskell-7a7f8545789dc4f3bc0780d5725e1337bb494ea6",
+    urls = ["https://github.com/tweag/rules_haskell/archive/7a7f8545789dc4f3bc0780d5725e1337bb494ea6.zip"],
 )
 
-load("@rules_haskell//haskell:repositories.bzl", "haskell_repositories")
-haskell_repositories()
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
+rules_haskell_dependencies()
 
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
@@ -100,7 +100,17 @@ stack_snapshot(
         "transformers",
     ],
     extra_deps = { "zlib" : ["@zlib.dev//:zlib"] },
-    local_snapshot = "//:snapshot-9.0.1.yaml",
+    components_dependencies = {
+        "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
+    },
+    components =
+        {
+            "attoparsec": [
+                "lib",
+                "lib:attoparsec-internal",
+            ],
+        },
+    local_snapshot = "//:snapshot-9.0.2.yaml",
     # stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
 )
 
@@ -121,10 +131,10 @@ filegroup(
 )
 
 haskell_register_ghc_nixpkgs(
-    attribute_path = "haskell.compiler.ghc901",
+    attribute_path = "haskell.compiler.ghc902",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = "9.0.1",
+    version = "9.0.2",
     compiler_flags = [
         "-Werror",
         "-Wall",
