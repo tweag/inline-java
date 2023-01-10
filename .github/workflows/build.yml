@@ -1,0 +1,15 @@
+name: Build
+on: push
+jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    env:
+      BAZEL_REPO_CACHE: ~/bazel-repository-cache
+      BAZEL_DISK_CACHE: ~/bazel-disk-cache
+      BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v18
+      - run: |
+          nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
