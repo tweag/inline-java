@@ -1,9 +1,0 @@
-env:
-  BAZEL_REPO_CACHE: ~/bazel-repository-cache
-  BAZEL_DISK_CACHE: ~/bazel-disk-cache
-  BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
-steps:
-  - label: "Run tests"
-    command: |
-      nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
-    timeout: 30
