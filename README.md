@@ -1,6 +1,5 @@
 # inline-java: Call any JVM function from Haskell
 
-[![CircleCI](https://circleci.com/gh/tweag/inline-java.svg?style=svg)](https://circleci.com/gh/tweag/inline-java)
 [![Build](https://github.com/tweag/inline-java/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/tweag/inline-java/actions/workflows/build.yml)
 
 The Haskell standard includes a native foreign function interface
