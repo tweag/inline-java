@@ -5,11 +5,33 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     env:
-      BAZEL_REPO_CACHE: ~/bazel-repository-cache
-      BAZEL_DISK_CACHE: ~/bazel-disk-cache
+      BAZEL_REPO_CACHE: ~/repo-cache
+      BAZEL_DISK_CACHE: ~/disk-cache
       BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
     steps:
       - uses: actions/checkout@v3
       - uses: cachix/install-nix-action@v18
+      - name: Configure
+        run: |
+          mkdir -p ~/repo-cache ~/disk-cache
+          echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
+      - name: Mount Bazel cache
+        uses: actions/cache/restore@v3
+        if: github.ref != 'refs/heads/master'
+        id: restore-cache
+        with:
+          path: |
+            ~/repo-cache
+            ~/disk-cache
+          key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
       - run: |
           nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
+      - uses: actions/cache/save@v3
+        if: github.ref == 'refs/heads/master'
+        with:
+          path: |
+            ~/repo-cache
+            ~/disk-cache
+          key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
