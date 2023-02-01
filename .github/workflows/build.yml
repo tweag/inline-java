@@ -1,5 +1,9 @@
 name: Build
 on: push
+env:
+  # Bump this number to invalidate the GH actions cache
+  cache-version: 0
+
 jobs:
   run-tests:
     name: Run Tests
