@@ -52,13 +52,15 @@ jobs:
     #     nix_path: nixpkgs=./nixpkgs.nix
 
     - name: Install cachix
-      shell: bash -ei pipefail
+      shell: bash
       run: |
+        set -e -o pipefail
         nix-env -iA cachix -f https://github.com/NixOS/nixpkgs/tarball/db557aab7b690f5e0e3348459f2e4dc8fd0d9298
 
     - name: Run cachix
-      shell: bash -ei pipefail
+      shell: bash
       run: |
+        set -e -o pipefail
         cachix use tweag
         cachix push tweag --watch-store &
 
@@ -68,20 +70,23 @@ jobs:
 
     # Add caching restoration step here
     - name: Prefetch Stackage snapshot
-      shell: bash -ei pipefail
+      shell: bash
       run: |
+        set -e -o pipefail
         # Retry if needed due to network flakiness.
         nix-shell --pure --run \
           'cmd="bazel fetch @stackage//... --repository_cache=/Users/distiller/repo-cache --disk_cache=/Users/distiller/disk-cache"; $cmd || $cmd || $cmd'
 
     - name: Build all
-      shell: bash -ei pipefail
+      shell: bash
       run: |
+        set -e -o pipefail
         nix-shell --pure --run 'bazel build //... --repository_cache=/Users/distiller/repo-cache --disk_cache=/Users/distiller/disk-cache'
 
     - name: Run tests
-      shell: bash -ei pipefail
+      shell: bash
       run: |
+        set -e -o pipefail
         # Keep CI awake
         while true; do echo "."; sleep 60; done &
 
