@@ -44,19 +44,23 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Install Nix
-      run: sh <(curl -L https://nixos.org/nix/install) --darwin-use-unencrypted-nix-store-volume
-    # - name: Install NixOS
-    #   uses: cachix/install-nix-action@v18
-    #   with:
-    #     nix_path: nixpkgs=./nixpkgs.nix
+    # - name: Install Nix
+      # run: sh <(curl -L https://nixos.org/nix/install) --darwin-use-unencrypted-nix-store-volume
+    - name: Install NixOS
+      uses: cachix/install-nix-action@v18
+      with:
+        nix_path: nixpkgs=./nixpkgs.nix
 
+    # - name: Install cachix
+      # shell: bash
+      # run: |
+        # set -e -o pipefail
+        # nix-env -iA cachix -f https://github.com/NixOS/nixpkgs/tarball/db557aab7b690f5e0e3348459f2e4dc8fd0d9298
     - name: Install cachix
-      shell: bash
-      run: |
-        set -e -o pipefail
-        nix-env -iA cachix -f https://github.com/NixOS/nixpkgs/tarball/db557aab7b690f5e0e3348459f2e4dc8fd0d9298
-
+      uses: cachix/cachix-action@v10
+      with:
+          name: tweag
+          
     - name: Run cachix
       shell: bash
       run: |
