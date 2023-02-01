@@ -1,13 +1,13 @@
-name: Build
-on: push
+name: Build & test
+on: [push]
+env:
+  BAZEL_REPO_CACHE: ~/repo-cache
+  BAZEL_DISK_CACHE: ~/disk-cache
+  BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
 jobs:
-  run-tests:
-    name: Run Tests
+  run-tests-with-ubuntu:
+    name: Run Tests with ubuntu runner
     runs-on: ubuntu-latest
-    env:
-      BAZEL_REPO_CACHE: ~/repo-cache
-      BAZEL_DISK_CACHE: ~/disk-cache
-      BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
     steps:
       - uses: actions/checkout@v3
       - uses: cachix/install-nix-action@v18
@@ -35,3 +35,51 @@ jobs:
             ~/repo-cache
             ~/disk-cache
           key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  run-tests-with-macos:
+    name: Run Tests with macos runner
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Install Nix
+      run: sh <(curl -L https://nixos.org/nix/install) --darwin-use-unencrypted-nix-store-volume
+
+    - name: Install cachix
+      shell: /bin/bash -eilo pipefail
+      run: |
+        nix-env -iA cachix -f https://github.com/NixOS/nixpkgs/tarball/db557aab7b690f5e0e3348459f2e4dc8fd0d9298
+
+    - name: Run cachix
+      shell: /bin/bash -eilo pipefail
+      run: |
+        cachix use tweag
+        cachix push tweag --watch-store &
+
+    - name: Configure
+      run: |
+        mkdir -p ~/repo-cache ~/disk-cache
+
+    # Add caching restoration step here
+    - name: Prefetch Stackage snapshot
+      shell: /bin/bash -eilo pipefail
+      run: |
+        # Retry if needed due to network flakiness.
+        nix-shell --pure --run \
+          'cmd="bazel fetch @stackage//... --repository_cache=/Users/distiller/repo-cache --disk_cache=/Users/distiller/disk-cache"; $cmd || $cmd || $cmd'
+
+    - name: Build all
+      shell: /bin/bash -eilo pipefail
+      run: |
+        nix-shell --pure --run 'bazel build //... --repository_cache=/Users/distiller/repo-cache --disk_cache=/Users/distiller/disk-cache'
+
+    - name: Run tests
+      shell: /bin/bash -eilo pipefail
+      run: |
+        # Keep CI awake
+        while true; do echo "."; sleep 60; done &
+
+        nix-shell --pure --run 'bazel test //... --repository_cache=/Users/distiller/repo-cache --disk_cache=/Users/distiller/disk-cache'
+
