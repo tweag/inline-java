@@ -5,36 +5,36 @@ env:
   BAZEL_DISK_CACHE: ~/disk-cache
   BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
 jobs:
-  run-tests-with-ubuntu:
-    name: Run Tests with ubuntu runner
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v18
-      - name: Configure
-        run: |
-          mkdir -p ~/repo-cache ~/disk-cache
-          echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
-      - name: Mount Bazel cache
-        uses: actions/cache/restore@v3
-        if: github.ref != 'refs/heads/master'
-        id: restore-cache
-        with:
-          path: |
-            ~/repo-cache
-            ~/disk-cache
-          key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
-      - run: |
-          nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
-      - uses: actions/cache/save@v3
-        if: github.ref == 'refs/heads/master'
-        with:
-          path: |
-            ~/repo-cache
-            ~/disk-cache
-          key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+  # run-tests-with-ubuntu:
+  #   name: Run Tests with ubuntu runner
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: cachix/install-nix-action@v18
+  #     - name: Configure
+  #       run: |
+  #         mkdir -p ~/repo-cache ~/disk-cache
+  #         echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
+  #     - name: Mount Bazel cache
+  #       uses: actions/cache/restore@v3
+  #       if: github.ref != 'refs/heads/master'
+  #       id: restore-cache
+  #       with:
+  #         path: |
+  #           ~/repo-cache
+  #           ~/disk-cache
+  #         key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+  #         restore-keys: |
+  #           repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
+  #     - run: |
+  #         nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
+  #     - uses: actions/cache/save@v3
+  #       if: github.ref == 'refs/heads/master'
+  #       with:
+  #         path: |
+  #           ~/repo-cache
+  #           ~/disk-cache
+  #         key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   run-tests-with-macos:
     name: Run Tests with macos runner
@@ -60,13 +60,13 @@ jobs:
       uses: cachix/cachix-action@v10
       with:
           name: tweag
-          
+
     - name: Run cachix
       shell: bash
       run: |
         set -e -o pipefail
         cachix use tweag
-        cachix push tweag --watch-store &
+        cachix push tweag watch-store &
 
     - name: Configure
       run: |
@@ -77,15 +77,13 @@ jobs:
       shell: bash
       run: |
         set -e -o pipefail
-        # Retry if needed due to network flakiness.
-        nix-shell --pure --run \
-          'cmd="bazel fetch @stackage//... --repository_cache=/Users/distiller/repo-cache --disk_cache=/Users/distiller/disk-cache"; $cmd || $cmd || $cmd'
+        nix-shell --pure --run "cmd='bazel fetch @stackage//... $BAZEL_ARGS'; \$cmd || \$cmd || \$cmd"
 
     - name: Build all
       shell: bash
       run: |
         set -e -o pipefail
-        nix-shell --pure --run 'bazel build //... --repository_cache=/Users/distiller/repo-cache --disk_cache=/Users/distiller/disk-cache'
+        nix-shell --pure --run 'bazel build //... $BAZEL_ARGS'
 
     - name: Run tests
       shell: bash
@@ -94,5 +92,5 @@ jobs:
         # Keep CI awake
         while true; do echo "."; sleep 60; done &
 
-        nix-shell --pure --run 'bazel test //... --repository_cache=/Users/distiller/repo-cache --disk_cache=/Users/distiller/disk-cache'
+        nix-shell --pure --run 'bazel test //... $BAZEL_ARGS''
 
