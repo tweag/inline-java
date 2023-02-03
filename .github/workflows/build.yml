@@ -91,6 +91,5 @@ jobs:
         set -e -o pipefail
         # Keep CI awake
         while true; do echo "."; sleep 60; done &
-
-        nix-shell --pure --run 'bazel test //... $BAZEL_ARGS''
+        nix-shell --pure --run 'bazel test //... $BAZEL_ARGS'
 
