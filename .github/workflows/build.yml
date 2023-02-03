@@ -38,7 +38,7 @@ jobs:
 
   run-tests-with-macos:
     name: Run Tests with macos runner
-    runs-on: macos-latest
+    runs-on: macos-11
 
     steps:
     - name: Checkout
