@@ -4,6 +4,9 @@ env:
   BAZEL_REPO_CACHE: ~/repo-cache
   BAZEL_DISK_CACHE: ~/disk-cache
   BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
+  # Bump this number to invalidate the GH actions cache
+  cache-version: 0
+
 jobs:
   run-tests-with-ubuntu:
     name: Run Tests with ubuntu runner
