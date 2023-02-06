@@ -5,36 +5,36 @@ env:
   BAZEL_DISK_CACHE: ~/disk-cache
   BAZEL_ARGS: --repository_cache=$BAZEL_REPO_CACHE --disk_cache=$BAZEL_DISK_CACHE
 jobs:
-  # run-tests-with-ubuntu:
-  #   name: Run Tests with ubuntu runner
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: cachix/install-nix-action@v18
-  #     - name: Configure
-  #       run: |
-  #         mkdir -p ~/repo-cache ~/disk-cache
-  #         echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
-  #     - name: Mount Bazel cache
-  #       uses: actions/cache/restore@v3
-  #       if: github.ref != 'refs/heads/master'
-  #       id: restore-cache
-  #       with:
-  #         path: |
-  #           ~/repo-cache
-  #           ~/disk-cache
-  #         key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
-  #         restore-keys: |
-  #           repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
-  #     - run: |
-  #         nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
-  #     - uses: actions/cache/save@v3
-  #       if: github.ref == 'refs/heads/master'
-  #       with:
-  #         path: |
-  #           ~/repo-cache
-  #           ~/disk-cache
-  #         key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+  run-tests-with-ubuntu:
+    name: Run Tests with ubuntu runner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v18
+      - name: Configure
+        run: |
+          mkdir -p ~/repo-cache ~/disk-cache
+          echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
+      - name: Mount Bazel cache
+        uses: actions/cache/restore@v3
+        if: github.ref != 'refs/heads/master'
+        id: restore-cache
+        with:
+          path: |
+            ~/repo-cache
+            ~/disk-cache
+          key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
+      - run: |
+          nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
+      - uses: actions/cache/save@v3
+        if: github.ref == 'refs/heads/master'
+        with:
+          path: |
+            ~/repo-cache
+            ~/disk-cache
+          key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   run-tests-with-macos:
     name: Run Tests with macos runner
@@ -44,18 +44,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    # - name: Install Nix
-      # run: sh <(curl -L https://nixos.org/nix/install) --darwin-use-unencrypted-nix-store-volume
     - name: Install NixOS
       uses: cachix/install-nix-action@v18
       with:
         nix_path: nixpkgs=./nixpkgs.nix
 
-    # - name: Install cachix
-      # shell: bash
-      # run: |
-        # set -e -o pipefail
-        # nix-env -iA cachix -f https://github.com/NixOS/nixpkgs/tarball/db557aab7b690f5e0e3348459f2e4dc8fd0d9298
     - name: Install cachix
       uses: cachix/cachix-action@v10
       with:
@@ -72,7 +65,6 @@ jobs:
       run: |
         mkdir -p ~/repo-cache ~/disk-cache
 
-    # Add caching restoration step here
     - name: Prefetch Stackage snapshot
       shell: bash
       run: |
