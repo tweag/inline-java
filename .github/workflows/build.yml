@@ -75,9 +75,9 @@ jobs:
         path: |
           ~/repo-cache
           ~/disk-cache
-        key: repo-cache-${{ runner.os }}-nixpkgs-darwin-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+        key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
-          repo-cache-${{ runner.os }}-nixpkgs-darwin-${{ env.cache-version }}-    
+          repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-    
 
     - name: Prefetch Stackage snapshot
       shell: bash
@@ -105,5 +105,5 @@ jobs:
         path: |
           ~/repo-cache
           ~/disk-cache
-        key: repo-cache-${{ runner.os }}-nixpkgs-darwin-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+        key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
 
