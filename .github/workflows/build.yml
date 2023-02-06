@@ -65,6 +65,7 @@ jobs:
     - name: Configure
       run: |
         mkdir -p ~/repo-cache ~/disk-cache
+        echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
 
     - name: Mount Bazel cache
       uses: actions/cache/restore@v3
@@ -105,4 +106,4 @@ jobs:
           ~/repo-cache
           ~/disk-cache
         key: repo-cache-${{ runner.os }}-nixpkgs-darwin-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
-  
+
