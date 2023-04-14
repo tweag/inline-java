@@ -50,18 +50,6 @@ jobs:
       with:
         nix_path: nixpkgs=./nixpkgs.nix
 
-    - name: Install cachix
-      uses: cachix/cachix-action@v10
-      with:
-          name: tweag
-
-    - name: Run cachix
-      shell: bash
-      run: |
-        set -e -o pipefail
-        cachix use tweag
-        cachix push tweag watch-store &
-
     - name: Configure
       run: |
         mkdir -p ~/repo-cache ~/disk-cache
