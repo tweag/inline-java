@@ -8,6 +8,7 @@
 module Main where
 
 import qualified Bazel.Runfiles as Runfiles
+import Control.Exception (handle, throwIO)
 import Control.Monad.IO.Class.Linear (MonadIO)
 import qualified Control.Functor.Linear as Linear
 import Data.Aeson
@@ -15,13 +16,17 @@ import qualified Data.ByteString.Char8 as ByteString.Char8
 import Data.ByteString.Lazy (toStrict)
 import Data.String (fromString)
 import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 import DbHandler (createDbHandler)
+import qualified Foreign.JNI
 import Foreign.JNI.Safe (newGlobalRef_, withJVM, withLocalFrame_)
 import Language.Java.Inline.Safe
 import Language.Java.Safe (UnsafeUnrestrictedReference(..), reflect)
 import System.Environment (getArgs)
+import System.IO (stderr)
 import qualified System.IO.Linear as Linear
 import Wizzardo.Http.Handler (JHandler, createHandler)
+import qualified Prelude
 import Prelude (IO, (<>), map, ($))
 import Prelude.Linear (Ur(..))
 
@@ -44,7 +49,7 @@ main = do
           , "-XX:+UseParallelGC"
           , "-XX:+AggressiveOpts"
           ]
-    withJVM (cpArg : otherJVMArgs) $ withLocalFrame_ $ Linear.do
+    withJVM (cpArg : otherJVMArgs) $ showJVMExceptions $ withLocalFrame_ $ Linear.do
       jsonHandler <- createJsonHandler
       jPlainTextHandler <- createPlainTextHandler
       jDbHandler <- createDbHandler
@@ -69,6 +74,9 @@ main = do
         });
         application.start();
        } |]
+  where
+    showJVMExceptions = handle $ \e ->
+      Foreign.JNI.showException e Prelude.>>= Text.hPutStrLn stderr Prelude.>> throwIO e
 
 createJsonHandler :: MonadIO m => m JHandler
 createJsonHandler = createHandler $ \_req resp -> Linear.withLinearIO $ Linear.do
