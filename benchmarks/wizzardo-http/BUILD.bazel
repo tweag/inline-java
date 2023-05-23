@@ -31,6 +31,7 @@ haskell_binary(
     compiler_flags = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-threaded",
+        "-rtsopts",
     ],
     deps = [
         "//jvm",
