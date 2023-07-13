@@ -239,7 +239,7 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 maven_install(
     artifacts = [
         "org.apache.commons:commons-collections4:4.1",
-        "com.wizzardo:http:0.3",
+        "com.wizzardo:http:0.4",
         "com.wizzardo:epoll:0.3.4",
         "com.wizzardo:reactive-pg-client:0.10.2.1",
         "com.wizzardo.tools:tools-collections:0.23",

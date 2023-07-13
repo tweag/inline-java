@@ -392,8 +392,10 @@ useAsCStrings :: [ByteString] -> ([Ptr CChar] -> IO a) -> IO a
 useAsCStrings strs m =
   foldr (\str k cstrs -> BS.useAsCString str $ \cstr -> k (cstr:cstrs)) m strs []
 
--- | Create a new JVM, with the given arguments. /Can only be called once/. Best
--- practice: use 'withJVM' instead. Only useful for GHCi.
+-- | Create a new JVM, with the given arguments. /Can only be called once per
+-- process due to limitations of the JNI implementation/ (see documentation
+-- of JNI_CreateJavaVM and JNI_DestroyJavaVM). Best practice: use 'withJVM'
+-- instead. Only useful for GHCi.
 newJVM :: [ByteString] -> IO JVM
 newJVM options = JVM_ <$> do
     checkBoundness
@@ -440,7 +442,9 @@ destroyJVM (JVM_ jvm) = do
     } |]
 
 -- | Create a new JVM, with the given arguments. Destroy it once the given
--- action completes. /Can only be called once/. Best practice: use it to wrap
+-- action completes. /Can only be called once per process due to
+-- limitations of the JNI implementation/ (see documentation of
+-- JNI_CreateJavaVM and JNI_DestroyJavaVM). Best practice: use it to wrap
 -- your @main@ function.
 withJVM :: [ByteString] -> IO a -> IO a
 withJVM options action = bracket (newJVM options) destroyJVM (const action)

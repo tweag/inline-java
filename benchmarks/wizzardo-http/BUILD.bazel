@@ -10,7 +10,7 @@ java_library(
 
 java_deps = [
     "wizzardo-http-benchmark_java",
-    "@maven//:com_wizzardo_http_0_3",
+    "@maven//:com_wizzardo_http_0_4",
     "@maven//:com_wizzardo_epoll_0_3_4",
     "@maven//:com_wizzardo_tools_tools_collections_0_23",
     "@maven//:com_wizzardo_tools_tools_interfaces_0_23",
