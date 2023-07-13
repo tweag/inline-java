@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v18
+      - uses: cachix/install-nix-action@v22
       - name: Configure
         run: |
           mkdir -p ~/repo-cache ~/disk-cache
@@ -46,7 +46,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Install NixOS
-      uses: cachix/install-nix-action@v18
+      uses: cachix/install-nix-action@v22
       with:
         nix_path: nixpkgs=./nixpkgs.nix
 
