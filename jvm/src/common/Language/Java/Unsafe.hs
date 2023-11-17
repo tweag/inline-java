@@ -111,6 +111,7 @@ import Control.Exception (Exception, throw, finally)
 import Control.Monad
 import Control.Monad.Catch (MonadCatch, MonadMask, bracket, onException)
 import Control.Monad.IO.Class
+import qualified Data.ByteString as BS
 import Data.Char (chr, ord)
 import qualified Data.Choice as Choice
 import qualified Data.Coerce as Coerce
@@ -124,13 +125,14 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Unsafe as BS
 import Data.Kind (Type)
 import Data.Singletons (SingI(..), SomeSing(..))
+import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Foreign as Text
 import Data.Text (Text)
 import qualified Data.Vector.Storable as Vector
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable.Mutable as MVector
 import Data.Vector.Storable.Mutable (IOVector)
-import Foreign (Ptr, Storable, withForeignPtr)
+import Foreign (Ptr, Storable, withForeignPtr, castPtr)
 import Foreign.Concurrent (newForeignPtr)
 import Foreign.C (CChar)
 import Foreign.JNI hiding (throw)
@@ -750,14 +752,14 @@ withStatic [d|
     reify jobj = do
         sz <- getStringLength jobj
         cs <- getStringChars jobj
-        txt <- Text.fromPtr cs (fromIntegral sz)
+        txt <- Text.decodeUtf16LEWith (\_ _ -> Just '?') <$> BS.packCStringLen (castPtr cs, fromIntegral sz * 2)
         releaseStringChars jobj cs
         return txt
 
   instance Reflect Text where
     reflect x =
-        Text.useAsPtr x $ \ptr len ->
-          newString ptr (fromIntegral len)
+        BS.useAsCStringLen (Text.encodeUtf16LE x) $ \(ptr, len) ->
+          newString (castPtr ptr) (fromIntegral len `div` 2)
 
   newtype W8Bool = W8Bool { fromW8Bool :: Word8 }
     deriving (Enum, Eq, Integral, Num, Ord, Real, Show, Storable)
