@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Next
 
 ### Added
+
+* Support to build with text >= 2 ([#200](https://github.com/tweag/inline-java/pull/200))
+
 ### Changed
 ### Removed
 
