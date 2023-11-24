@@ -121,12 +121,10 @@ import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, TypeRep, typeOf)
 import Data.Word
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Unsafe as BS
 import Data.Kind (Type)
 import Data.Singletons (SingI(..), SomeSing(..))
 import qualified Data.Text.Encoding as Text
-import qualified Data.Text.Foreign as Text
 import Data.Text (Text)
 import qualified Data.Vector.Storable as Vector
 import Data.Vector.Storable (Vector)

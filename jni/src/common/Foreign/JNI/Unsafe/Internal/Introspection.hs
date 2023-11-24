@@ -19,7 +19,6 @@ import Data.Maybe (catMaybes)
 import Data.Singletons
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import qualified Data.Text.Foreign as Text
 import Foreign.Ptr
 import Foreign.JNI.Unsafe.Internal
 import Foreign.JNI.Types
