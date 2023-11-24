@@ -13,12 +13,13 @@ module Foreign.JNI.Unsafe.Internal.Introspection
 
 import Control.Exception (bracket)
 import Control.Monad (forM)
+import Data.ByteString as BS
 import Data.Coerce
 import Data.Maybe (catMaybes)
 import Data.Singletons
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
-import qualified Data.Text.Foreign as Text
+import Foreign.Ptr
 import Foreign.JNI.Unsafe.Internal
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
@@ -101,7 +102,7 @@ toText obj = bracket
   (releaseStringChars obj) $
   \cs -> do
     sz <- fromIntegral <$> getStringLength obj
-    txt <- Text.fromPtr cs sz
+    txt <- Text.decodeUtf16LEWith (\_ _ -> Just '?') <$> BS.packCStringLen (castPtr cs, sz * 2)
     return txt
 
 -- | @getClassName c@ yields the name of class @c@
