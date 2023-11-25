@@ -69,9 +69,10 @@ jobs:
 
     - name: Prefetch Stackage snapshot
       shell: bash
+      # Pure shells don't work in macos when /usr/bin/security is used for SSL checks
       run: |
         set -e -o pipefail
-        nix-shell --pure --run "cmd='bazel fetch @stackage//... $BAZEL_ARGS'; \$cmd || \$cmd || \$cmd"
+        nix-shell --run "cmd='bazel fetch @stackage//... $BAZEL_ARGS'; \$cmd || \$cmd || \$cmd"
 
     - name: Build all
       shell: bash
