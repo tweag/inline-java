@@ -37,6 +37,36 @@ jobs:
             ~/disk-cache
           key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+  run-tests-with-stack:
+    name: Run Tests with stack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v22
+      - name: Configure
+        run: |
+          mkdir -p ~/repo-cache ~/disk-cache
+          echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
+      - name: Get Stack snapshot install directory
+        id: stack-snapshot
+        # NOTE: `stack path` must run at least once prior to caching to ensure the directory
+        # exists and is populated.
+        run: |
+          stack --nix path --snapshot-install-root
+          echo "dir=$(stack --nix path --snapshot-install-root)" > "${GITHUB_OUTPUT}"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.stack-snapshot.outputs.dir }}
+          key: ${{ runner.os }}-stack-${{ hashFiles('**/*.cabal') }}
+          restore-keys: ${{ runner.os }}-stack-
+      - name: Build
+        run: |
+          stack --nix build
+      - name: Test
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          stack --nix test
+
   run-tests-with-darwin:
     name: Run Tests with darwin runner
     runs-on: macos-11
