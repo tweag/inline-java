@@ -154,12 +154,6 @@ haskell_register_ghc_nixpkgs(
 )
 
 nixpkgs_package(
-    name = "sed",
-    attribute_path = "gnused",
-    repository = "@nixpkgs",
-)
-
-nixpkgs_package(
     name = "hspec-discover",
     attribute_path = "haskellPackages.hspec-discover",
     repository = "@nixpkgs",

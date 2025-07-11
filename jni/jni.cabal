@@ -10,8 +10,8 @@ maintainer:          m@tweag.io
 copyright:           2015-2016 EURL Tweag.
 category:            FFI, JVM, Java
 build-type:          Simple
-cabal-version:       >=2.0
-extra-source-files:  README.md cat-tokens.sh
+cabal-version:       2.0
+extra-source-files:  README.md
 
 source-repository head
   type: git
@@ -21,10 +21,6 @@ source-repository head
 library
   hs-source-dirs: src/common src/linear-types
   cc-options: -std=c11
-  -- XXX issues with CPP make more convenient using
-  -- a custom preprocessor to deal with concatenation.
-  -- See note cat-tokens in jni/BUILD.bazel.
-  ghc-options: -F -pgmF./cat-tokens.sh
   extra-libraries: jvm
   exposed-modules:
     Foreign.JNI
@@ -52,6 +48,20 @@ library
     singletons-base ==3.0,
     stm >= 2.3,
     text >= 1.2.3
+  default-language: Haskell2010
+  -- XXX issues with CPP make more convenient using
+  -- a custom preprocessor to deal with concatenation.
+  -- See jni/cat-tokens/Main.hs.
+  cpp-options: -DJNI_CAT_TOKENS_PATH=cat-tokens
+  build-tool-depends:
+    jni:cat-tokens
+
+executable cat-tokens
+  hs-source-dirs: cat-tokens
+  main-is: Main.hs
+  build-depends:
+    base,
+    bytestring
   default-language: Haskell2010
 
 test-suite spec
