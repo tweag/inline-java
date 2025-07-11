@@ -1,6 +1,7 @@
 exports_files(["nixpkgs.nix"])
 
-#gazelle:exclude {benchmarks,examples,jvm-streaming,jvm-batching}
+# gazelle:exclude {benchmarks,examples,jvm-streaming,jvm-batching}
+# gazelle:resolve gazelle_cabal jvm @openjdk//:lib
 
 load(
     "@rules_haskell//haskell:defs.bzl",
