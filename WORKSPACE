@@ -64,6 +64,7 @@ stack_snapshot(
         "filepath",
         "ghc",
         "hspec",
+        "hspec-discover",
         "inline-c",
         "language-java",
         "monad-logger",
@@ -112,6 +113,10 @@ stack_snapshot(
             "attoparsec": [
                 "lib",
                 "lib:attoparsec-internal",
+            ],
+            "hspec-discover": [
+                "lib",
+                "exe",
             ],
         },
     local_snapshot = "//:snapshot-9.0.2.yaml",

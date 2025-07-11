@@ -1,6 +1,7 @@
 load(
     "@rules_haskell//haskell:defs.bzl",
     "haskell_library",
+    "haskell_test",
 )
 
 # Note cat-tokens
@@ -45,19 +46,33 @@ END
     tools = ["@sed//:bin"],
 )
 
+# rule generated from jni/jni.cabal by gazelle_cabal
 haskell_library(
     name = "jni",
-    srcs = glob([
-        "src/common/**/*.hs",
-        "src/common/**/*.hsc",
-        "src/linear-types/**/*.hs",
-    ]),
-    compiler_flags = [
+    srcs = [
+        "src/common/Foreign/JNI.hs",
+        "src/common/Foreign/JNI/Internal.hs",
+        "src/common/Foreign/JNI/Internal/BackgroundWorker.hs",
+        "src/common/Foreign/JNI/Internal/RWLock.hs",
+        "src/common/Foreign/JNI/NativeMethod.hsc",
+        "src/common/Foreign/JNI/String.hs",
+        "src/common/Foreign/JNI/Types.hs",
+        "src/common/Foreign/JNI/Unsafe.hs",
+        "src/common/Foreign/JNI/Unsafe/Internal.hs",
+        "src/common/Foreign/JNI/Unsafe/Internal/Introspection.hs",
+        "src/linear-types/Foreign/JNI/Safe.hs",
+        "src/linear-types/Foreign/JNI/Types/Safe.hs",
+    ],
+    extra_srcs = ["//jni:cat-tokens-sh"],
+    # keep
+    ghcopts = [
+        "-DVERSION_jni=\"0.8.0\"",
         "-F",
         "-pgmF$(location cat-tokens-sh)",
     ],
-    extra_srcs = ["//jni:cat-tokens-sh"],
+    # keep
     tools = ["@sed//:bin"],
+    version = "0.8.0",
     visibility = ["//visibility:public"],
     deps = [
         "@openjdk//:lib",
@@ -73,5 +88,35 @@ haskell_library(
         "@stackage//:singletons-base",
         "@stackage//:stm",
         "@stackage//:text",
+    ],
+)
+
+# rule generated from jni/jni.cabal by gazelle_cabal
+haskell_test(
+    name = "spec",
+    timeout = "short",
+    srcs = [
+        "tests/Foreign/JNISpec.hs",
+        "tests/Main.hs",
+        "tests/Spec.hs",
+    ],
+    # keep
+    extra_srcs = ["@openjdk//:rpath"],
+    ghcopts = [
+        "-DVERSION_jni=\"0.8.0\"",
+        "-threaded",
+        "-lpthread",
+        "-DHSPEC_DISCOVER_HSPEC_DISCOVER_PATH=$(location @stackage-exe//hspec-discover)",
+        "-optl-Wl,@$(location @openjdk//:rpath)",  # keep
+    ],
+    main_file = "tests/Main.hs",
+    tools = ["@stackage-exe//hspec-discover"],
+    version = "0.8.0",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":jni",
+        "@stackage//:base",
+        "@stackage//:hspec",
+        "@stackage//:singletons-base",
     ],
 )
