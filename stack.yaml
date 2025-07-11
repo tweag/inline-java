@@ -1,0 +1,12 @@
+resolver: lts-19.30
+
+packages:
+- jni
+
+extra-deps:
+- github: tweag/linear-base
+  commit: ec0b5aa6dc89f1d7c7e368b7387e363a5062e52d
+
+nix:
+  shell-file: ./shell-stack.nix
+  path: ["nixpkgs=./nixpkgs.nix"]
