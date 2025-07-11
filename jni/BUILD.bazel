@@ -29,13 +29,11 @@ load(
 #
 # define GET_FIELD(name, hs_rettype, c_rettype) \
 #   get####name####Field :: Coercible o (J a) => o -> JFieldID -> IO hs_rettype;
-# 
+#
 genrule(
     name = "cat-tokens-sh",
     srcs = [],
-    executable = 1,
     outs = ["cat-tokens.sh"],
-    tools = ["@sed//:bin"],
     cmd = """
 cat > $@ <<END
 #!/bin/sh
@@ -43,24 +41,32 @@ cat > $@ <<END
 exit \\$$?
 END
     """,
+    executable = 1,
+    tools = ["@sed//:bin"],
 )
 
 haskell_library(
     name = "jni",
     srcs = glob([
-			 'src/common/**/*.hs', 'src/common/**/*.hsc',
-             'src/linear-types/**/*.hs',
-           ]),
+        "src/common/**/*.hs",
+        "src/common/**/*.hsc",
+        "src/linear-types/**/*.hs",
+    ]),
+    compiler_flags = [
+        "-F",
+        "-pgmF$(location cat-tokens-sh)",
+    ],
     extra_srcs = ["//jni:cat-tokens-sh"],
-    compiler_flags = ["-F", "-pgmF$(location cat-tokens-sh)"],
+    tools = ["@sed//:bin"],
+    visibility = ["//visibility:public"],
     deps = [
         "@openjdk//:lib",
         "@stackage//:async",
         "@stackage//:base",
         "@stackage//:bytestring",
         "@stackage//:choice",
-        "@stackage//:containers",
         "@stackage//:constraints",
+        "@stackage//:containers",
         "@stackage//:deepseq",
         "@stackage//:inline-c",
         "@stackage//:linear-base",
@@ -68,6 +74,4 @@ haskell_library(
         "@stackage//:stm",
         "@stackage//:text",
     ],
-    tools = ["@sed//:bin"],
-    visibility = ["//visibility:public"],
 )

@@ -1,14 +1,15 @@
 load(
-  "@rules_haskell//haskell:defs.bzl",
-  "haskell_library",
+    "@rules_haskell//haskell:defs.bzl",
+    "haskell_library",
 )
 
 haskell_library(
     name = "jvm",
     srcs = glob([
-             'src/common/**/*.hs',
-			 'src/linear-types/**/*.hs',
-           ]),
+        "src/common/**/*.hs",
+        "src/linear-types/**/*.hs",
+    ]),
+    visibility = ["//visibility:public"],
     deps = [
         "//jni",
         "@stackage//:base",
@@ -23,6 +24,5 @@ haskell_library(
         "@stackage//:text",
         "@stackage//:vector",
     ] + [
-	],
-    visibility = ["//visibility:public"],
+    ],
 )

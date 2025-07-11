@@ -1,18 +1,18 @@
 load(
-  "@rules_haskell//haskell:defs.bzl",
-  "haskell_test",
+    "@rules_haskell//haskell:defs.bzl",
+    "haskell_test",
 )
 
 haskell_test(
     name = "spec",
-    srcs = glob(['**/*.hs']),
-    extra_srcs = ["@openjdk//:rpath"],
+    timeout = "short",
+    srcs = glob(["**/*.hs"]),
     compiler_flags = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-DHSPEC_DISCOVER=$(location @hspec-discover//:bin)",
         "-threaded",
     ],
-    timeout = "short",
+    extra_srcs = ["@openjdk//:rpath"],
     tools = ["@hspec-discover//:bin"],
     deps = [
         "//jni",

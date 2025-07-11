@@ -1,26 +1,26 @@
 load(
-  "@rules_haskell//haskell:defs.bzl",
-  "haskell_library",
+    "@rules_haskell//haskell:defs.bzl",
+    "haskell_library",
 )
 
 java_library(
     name = "jar",
     srcs = glob(["src/main/java/**/*.java"]),
-    deps = ["//jvm-batching:jar"],
     visibility = ["//visibility:public"],
+    deps = ["//jvm-batching:jar"],
 )
 
 haskell_library(
     name = "jvm-types",
-    srcs = glob(['src/main/haskell/**/*.hs']),
-    visibility = ["//visibility:public"],
+    srcs = glob(["src/main/haskell/**/*.hs"]),
     plugins = ["//:inline-java-plugin"],
+    visibility = ["//visibility:public"],
     deps = [
         ":jar",
+        "//:inline-java",
         "//jni",
         "//jvm",
         "//jvm-batching",
-        "//:inline-java",
         "@stackage//:base",
         "@stackage//:distributed-closure",
         "@stackage//:singletons",
