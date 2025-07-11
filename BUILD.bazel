@@ -1,5 +1,7 @@
 exports_files(["nixpkgs.nix"])
 
+#gazelle:exclude {benchmarks,examples,jvm-streaming,jvm-batching}
+
 load(
     "@rules_haskell//haskell:defs.bzl",
     "ghc_plugin",
@@ -51,4 +53,21 @@ ghc_plugin(
     tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
     visibility = ["//visibility:public"],
     deps = [":inline-java"],
+)
+
+load(
+    "@bazel_gazelle//:def.bzl",
+    "DEFAULT_LANGUAGES",
+    "gazelle",
+    "gazelle_binary",
+)
+
+gazelle(
+    name = "gazelle",
+    gazelle = ":gazelle_binary",
+)
+
+gazelle_binary(
+    name = "gazelle_binary",
+    languages = DEFAULT_LANGUAGES + ["@io_tweag_gazelle_cabal//gazelle_cabal"],
 )
