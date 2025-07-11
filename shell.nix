@@ -40,7 +40,7 @@ mkShell {
       elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
         ARCH="linux"
       fi
-      echo "[!] It looks like you are using a ''${ARCH} nix-based system. In order to build this project, you need to add the two following host_platform entries to your .bazelrc.local file."
+      echo "[!] It looks like you are using a ''${ARCH} nix-based system. In order to build this project, you need to add the following host_platform entry to your .bazelrc.local file."
       echo ""
       echo "build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host"
     fi
