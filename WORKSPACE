@@ -2,45 +2,61 @@ workspace(name = "io_tweag_inline_java")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+
 http_archive(
     name = "rules_haskell",
-    sha256 = "2b36e26fde296dc9fbaeed087c898fdce23af0247592e897c317d19345b0e259",
-    strip_prefix = "rules_haskell-7a7f8545789dc4f3bc0780d5725e1337bb494ea6",
-    urls = ["https://github.com/tweag/rules_haskell/archive/7a7f8545789dc4f3bc0780d5725e1337bb494ea6.zip"],
+    sha256 = "4cae22bc84f327bf3cb7605021c3663160ff6bc8a0b7b6266062366bcbd19e79",
+    strip_prefix = "rules_haskell-1.0",
+    urls = ["https://github.com/tweag/rules_haskell/releases/download/v1.0/rules_haskell-1.0.tar.gz"],
 )
 
 load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 rules_haskell_dependencies()
 
-load(
-    "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
-    "nixpkgs_local_repository",
-    "nixpkgs_package",
-    "nixpkgs_python_configure",
+
+
+http_archive(
+    name = "io_tweag_rules_nixpkgs",
+    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
+    strip_prefix = "rules_nixpkgs-0.13.0",
+    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
 )
+
+http_archive(
+    name = "rules_nixpkgs_core",
+    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
+    strip_prefix = "rules_nixpkgs-0.13.0/core",
+    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
+)
+
+
+[
+    http_archive(
+        name = "rules_nixpkgs_" + toolchain,
+        sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
+        strip_prefix = "rules_nixpkgs-0.13.0/toolchains/" + toolchain,
+        urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
+    )
+    for toolchain in [
+        "go",
+    ]
+]
+
+
+load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_local_repository")
 
 nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//:nixpkgs.nix",
 )
 
-nixpkgs_python_configure(repository = "@nixpkgs")
-
-nixpkgs_package(
-    name = "alex",
-    attribute_path = "haskellPackages.alex",
-    repository = "@nixpkgs",
+load(
+    "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
+    "nixpkgs_package",
+    "nixpkgs_python_configure",
 )
 
-#nixpkgs_package(
-#    name = "stack_ignore_global_hints",
-#    attribute_path = "stack_ignore_global_hints",
-#    repository = "@nixpkgs",
-#)
-#
-#load("//:config_settings/setup.bzl", "config_settings")
-#config_settings(name = "config_settings")
-#load("@config_settings//:info.bzl", "ghc_version")
+nixpkgs_python_configure(repository = "@nixpkgs")
 
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
@@ -144,7 +160,7 @@ haskell_register_ghc_nixpkgs(
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
     version = "9.0.2",
-    compiler_flags = [
+    ghcopts = [
         "-Werror",
         "-Wall",
         "-Wcompat",
@@ -257,47 +273,42 @@ maven_install(
 # gazelle setup
 
 http_archive(
-    name = "rules_nixpkgs_go",
-    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
-    strip_prefix = "rules_nixpkgs-0.13.0/toolchains/go",
-    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
-)
-
-http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "f2dcd210c7095febe54b804bb1cd3a58fe8435a909db2ec04e31542631cf715c",
+    sha256 = "130739704540caa14e77c54810b9f01d6d9ae897d53eedceb40fd6b75efc3c23",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.31.0/rules_go-v0.31.0.zip",
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.31.0/rules_go-v0.31.0.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.54.1/rules_go-v0.54.1.zip",
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.54.1/rules_go-v0.54.1.zip",
     ],
 )
 
+load("@rules_nixpkgs_go//:go.bzl", "nixpkgs_go_configure")
+
+nixpkgs_go_configure(repository = "@nixpkgs")
+
+
 http_archive(
     name = "bazel_gazelle",
-    sha256 = "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
+    sha256 = "49b14c691ceec841f445f8642d28336e99457d1db162092fd5082351ea302f1d",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.44.0/bazel-gazelle-v0.44.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.44.0/bazel-gazelle-v0.44.0.tar.gz",
     ],
 )
 
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 
-############################################################
-# Define your own dependencies here using go_repository.
-# Else, dependencies declared by rules_go/gazelle will be used.
-# The first declaration of an external repository "wins".
-############################################################
-
-load("@rules_nixpkgs_go//:go.bzl", "nixpkgs_go_configure")
-
-nixpkgs_go_configure(
-    repository = "@nixpkgs",
-)
-
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 go_rules_dependencies()
+
+
+# go_repository added due to: https://github.com/bazelbuild/bazel-gazelle/issues/1217
+go_repository(
+    name = "org_golang_x_xerrors",
+    importpath = "golang.org/x/xerrors",
+    sum = "h1:go1bK/D/BFZV2I8cIQd1NKEZ+0owSTG1fDTci4IqFcE=",
+    version = "v0.0.0-20200804184101-5ec99f83aff1",
+)
 
 gazelle_dependencies()
 
@@ -313,9 +324,3 @@ load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 load("@io_tweag_gazelle_cabal//:defs.bzl", "gazelle_cabal_dependencies")
 gazelle_cabal_dependencies()
 
-go_repository(
-    name = "org_golang_x_xerrors",
-    importpath = "golang.org/x/xerrors",
-    sum = "h1:go1bK/D/BFZV2I8cIQd1NKEZ+0owSTG1fDTci4IqFcE=",
-    version = "v0.0.0-20200804184101-5ec99f83aff1",
-)

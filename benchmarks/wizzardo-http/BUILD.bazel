@@ -28,7 +28,7 @@ haskell_binary(
     name = "wizzardo-http-benchmark",
     srcs = glob(['src/main/**/*.hs']),
     extra_srcs = ["@openjdk//:rpath"],
-    compiler_flags = [
+    ghcopts = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-threaded",
         "-rtsopts",

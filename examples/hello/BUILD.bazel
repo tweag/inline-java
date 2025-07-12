@@ -7,7 +7,7 @@ haskell_binary(
     name = "hello-java",
     srcs = ['hello-java.hs'],
     extra_srcs = ["@openjdk//:rpath"],
-    compiler_flags = [
+    ghcopts = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-threaded",
     ],
