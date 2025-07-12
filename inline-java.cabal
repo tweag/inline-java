@@ -1,0 +1,99 @@
+name:                inline-java
+version:             0.10.0
+synopsis:            Java interop via inline Java code in Haskell modules.
+description:         Please see README.md.
+homepage:            http://github.com/tweag/inline-java#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Tweag I/O
+maintainer:          m@tweag.io
+copyright:           2015-2016 EURL Tweag.
+category:            FFI, JVM, Java
+build-type:          Simple
+cabal-version:       2.0
+extra-source-files:
+  CHANGELOG.md
+  README.md
+
+source-repository head
+  type:     git
+  location: https://github.com/tweag/inline-java
+
+library
+  hs-source-dirs: src
+  c-sources: cbits/bctable.c
+  cc-options: -std=c99 -Wall -Werror
+  include-dirs: cbits/
+  includes: bctable.h
+  install-includes: bctable.h
+  exposed-modules:
+    Language.Java.Inline
+    Language.Java.Inline.Safe
+    Language.Java.Inline.Internal
+    Language.Java.Inline.Internal.Magic
+    Language.Java.Inline.Internal.QQMarker
+    Language.Java.Inline.Internal.QQMarker.Names
+    Language.Java.Inline.Internal.QQMarker.Safe
+    Language.Java.Inline.Plugin
+    Language.Java.Inline.Unsafe
+  other-modules:
+    GhcPlugins.Extras
+  build-depends:
+    base >=4.14.0.0 && <5,
+    bytestring >=0.10,
+    Cabal >=1.24.2,
+    directory >=1.2,
+    filepath >=1,
+    ghc >=9.0.2 && <9.2,
+    jni >=0.8 && <0.9,
+    jvm >=0.6 && <0.7,
+    language-java >=0.2,
+    linear-base ==0.1.1,
+    mtl >=2.2.1,
+    process >=1.2,
+    text >=1.2,
+    template-haskell >=2.10,
+    temporary >=1.2
+  default-language: Haskell2010
+
+test-suite spec
+  type:
+    exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: Main.hs
+  other-modules:
+    SafeSpec
+    Spec
+    Language.Java.Inline.SafeSpec
+    Language.Java.InlineSpec
+  build-depends:
+    base,
+    jni,
+    jvm,
+    hspec,
+    inline-java,
+    linear-base,
+    QuickCheck,
+    quickcheck-unicode,
+    text,
+    vector
+  default-language: Haskell2010
+  ghc-options: -threaded
+  cpp-options: -DHSPEC_DISCOVER_HSPEC_DISCOVER_PATH=hspec-discover
+  build-tool-depends:
+    hspec-discover:hspec-discover
+
+benchmark micro-benchmarks
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: benchmarks/micro
+  build-depends:
+    base >=4.8 && <5,
+    criterion,
+    deepseq >=1.4.2,
+    inline-java,
+    jni,
+    jvm,
+    singletons
+  default-language: Haskell2010
+  ghc-options: -threaded

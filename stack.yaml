@@ -3,6 +3,7 @@ resolver: lts-19.30
 packages:
 - jni
 - jvm
+- .
 
 extra-deps:
 - github: tweag/distributed-closure
