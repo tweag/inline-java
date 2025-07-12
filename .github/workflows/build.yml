@@ -7,7 +7,7 @@ env:
 
 jobs:
   run-tests-with-ubuntu:
-    name: Run Tests with ubuntu runner
+    name: with bazel
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -38,7 +38,7 @@ jobs:
           key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   run-tests-with-stack:
-    name: Run Tests with stack
+    name: with stack
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -68,7 +68,7 @@ jobs:
           stack --nix test
 
   run-tests-with-darwin:
-    name: Run Tests with darwin runner
+    name: with bazel in darwin
     runs-on: macos-11
 
     steps:
