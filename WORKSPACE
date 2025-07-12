@@ -64,6 +64,7 @@ stack_snapshot(
         "filepath",
         "ghc",
         "hspec",
+        "hspec-discover",
         "inline-c",
         "language-java",
         "monad-logger",
@@ -98,6 +99,10 @@ stack_snapshot(
         "ghc-boot-th",
         "pretty",
         "transformers",
+        # gazelle_cabal dependencies
+        "json", # keep
+        "path", # keep
+        "path-io", # keep
     ],
     extra_deps = { "zlib" : ["@zlib.dev//:zlib"] },
     components_dependencies = {
@@ -108,6 +113,10 @@ stack_snapshot(
             "attoparsec": [
                 "lib",
                 "lib:attoparsec-internal",
+            ],
+            "hspec-discover": [
+                "lib",
+                "exe",
             ],
         },
     local_snapshot = "//:snapshot-9.0.2.yaml",
@@ -142,12 +151,6 @@ haskell_register_ghc_nixpkgs(
         "-Wincomplete-record-updates",
         "-Wredundant-constraints",
     ],
-)
-
-nixpkgs_package(
-    name = "sed",
-    attribute_path = "gnused",
-    repository = "@nixpkgs",
 )
 
 nixpkgs_package(
@@ -249,4 +252,70 @@ maven_install(
         "https://maven.google.com",
         "https://repo1.maven.org/maven2",
     ],
+)
+
+# gazelle setup
+
+http_archive(
+    name = "rules_nixpkgs_go",
+    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
+    strip_prefix = "rules_nixpkgs-0.13.0/toolchains/go",
+    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
+)
+
+http_archive(
+    name = "io_bazel_rules_go",
+    sha256 = "f2dcd210c7095febe54b804bb1cd3a58fe8435a909db2ec04e31542631cf715c",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.31.0/rules_go-v0.31.0.zip",
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.31.0/rules_go-v0.31.0.zip",
+    ],
+)
+
+http_archive(
+    name = "bazel_gazelle",
+    sha256 = "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+    ],
+)
+
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
+
+############################################################
+# Define your own dependencies here using go_repository.
+# Else, dependencies declared by rules_go/gazelle will be used.
+# The first declaration of an external repository "wins".
+############################################################
+
+load("@rules_nixpkgs_go//:go.bzl", "nixpkgs_go_configure")
+
+nixpkgs_go_configure(
+    repository = "@nixpkgs",
+)
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+
+go_rules_dependencies()
+
+gazelle_dependencies()
+
+
+http_archive(
+    name = "io_tweag_gazelle_cabal",
+    strip_prefix = "gazelle_cabal-ca8f68e250bea33815fb373320f9610582c42083",
+    sha256 = "bd2ee67943007723b3425bf2fcbdb6b41b269c7bc03f01e40683d4b5f3984b3b",
+    url = "https://github.com/tweag/gazelle_cabal/archive/ca8f68e.zip",
+)
+
+load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
+load("@io_tweag_gazelle_cabal//:defs.bzl", "gazelle_cabal_dependencies")
+gazelle_cabal_dependencies()
+
+go_repository(
+    name = "org_golang_x_xerrors",
+    importpath = "golang.org/x/xerrors",
+    sum = "h1:go1bK/D/BFZV2I8cIQd1NKEZ+0owSTG1fDTci4IqFcE=",
+    version = "v0.0.0-20200804184101-5ec99f83aff1",
 )

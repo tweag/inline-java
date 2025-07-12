@@ -1,0 +1,15 @@
+resolver: lts-19.30
+
+packages:
+- jni
+- jvm
+- .
+
+extra-deps:
+- github: tweag/distributed-closure
+  commit: b92e75ec81e646703c7bde4f578a7352ee34f1ad
+- linear-base-0.1.0
+
+nix:
+  shell-file: ./shell-stack.nix
+  path: ["nixpkgs=./nixpkgs.nix"]

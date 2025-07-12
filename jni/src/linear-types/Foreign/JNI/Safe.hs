@@ -60,8 +60,10 @@
 {-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
+{-# OPTIONS_GHC -fno-warn-name-shadowing -F -pgmF JNI_CAT_TOKENS_PATH #-}
+
 -- XXX This file uses #### for concatenating tokens with a preprocessor in
--- a portable way. See note cat-tokens in jni/BUILD.bazel.
+-- a portable way. See cat-tokens/Main.hs.
 
 module Foreign.JNI.Safe
   ( module Foreign.JNI.Safe
@@ -303,11 +305,12 @@ deleteGlobalRefNonFinalized o = liftPreludeIO (JNI.deleteGlobalRef o)
 -- run in a thread where the reference is not valid.
 newLocalRef :: (MonadIO m, Coercible o (J ty)) => o %1-> m (o, o)
 newLocalRef = Unsafe.toLinear $ \o ->
-  liftPreludeIO ((,) o . coerce . J <$> JNI.newLocalRef (unJ . coerce $ o))
+  liftPreludeIO
+    ((,) o . coerce . J <$> JNI.newLocalRef (unJ . coerce Prelude.$ o))
 
 deleteLocalRef :: (MonadIO m, Coercible o (J ty)) => o %1-> m ()
 deleteLocalRef = Unsafe.toLinear $ \o ->
-  liftPreludeIO (JNI.deleteLocalRef (unJ . coerce $ o))
+  liftPreludeIO (JNI.deleteLocalRef (unJ . coerce Prelude.$ o))
 
 -- | Runs the given computation in a local frame, which ensures that
 -- if it throws an exception, all live local references created during

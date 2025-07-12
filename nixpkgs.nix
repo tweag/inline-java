@@ -3,7 +3,9 @@
 #
 # by going to a commit before the one introducing the regression.
 args:
-let pkgs = import (fetchTarball "https://github.com/tweag/nixpkgs/archive/73ad5f9e147.tar.gz") args;
+let pkgs = import (fetchTarball {
+             sha256 = "01j7nhxbb2kjw38yk4hkjkkbmz50g3br7fgvad6b1cjpdvfsllds";
+             url = "https://github.com/tweag/nixpkgs/archive/73ad5f9e147.tar.gz";}) args;
     stack_ignore_global_hints = pkgs.writeScriptBin "stack" ''
       #!${pkgs.stdenv.shell}
       # Skips the --global-hints parameter to stack. This is

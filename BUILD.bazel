@@ -1,36 +1,80 @@
 exports_files(["nixpkgs.nix"])
 
+# gazelle:exclude {benchmarks,examples,jvm-streaming,jvm-batching}
+# gazelle:resolve gazelle_cabal jvm @openjdk//:lib
+
 load(
     "@rules_haskell//haskell:defs.bzl",
     "ghc_plugin",
+    "haskell_binary",
     "haskell_library",
+    "haskell_test",
 )
 
 cc_library(
     name = "bctable",
-    hdrs = ["cbits/bctable.h"],
     srcs = ["cbits/bctable.c"],
+    hdrs = ["cbits/bctable.h"],
     strip_include_prefix = "cbits",
 )
 
+ghc_plugin(
+    name = "inline-java-plugin",
+    args = ["$(JAVABASE)/bin/javac"],
+    module = "Language.Java.Inline.Plugin",
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    visibility = ["//visibility:public"],
+    deps = [":inline-java"],
+)
+
+load(
+    "@bazel_gazelle//:def.bzl",
+    "DEFAULT_LANGUAGES",
+    "gazelle",
+    "gazelle_binary",
+)
+
+gazelle(
+    name = "gazelle",
+    gazelle = ":gazelle_binary",
+)
+
+gazelle_binary(
+    name = "gazelle_binary",
+    languages = DEFAULT_LANGUAGES + ["@io_tweag_gazelle_cabal//gazelle_cabal"],
+)
+
+# rule generated from inline-java.cabal by gazelle_cabal
 haskell_library(
     name = "inline-java",
     # cbits/bctable.h is included here so it can be found by Plugin.hs
     # at the same location when building with bazel as with stack.
-    srcs = glob(['src/**/*.hs',
-                 'src/**/*.hsc',
-                 'cbits/bctable.h',
-                 ]),
+    srcs = [
+        "cbits/bctable.h",  # keep
+        "src/GhcPlugins/Extras.hs",
+        "src/Language/Java/Inline.hs",
+        "src/Language/Java/Inline/Internal.hs",
+        "src/Language/Java/Inline/Internal/Magic.hsc",
+        "src/Language/Java/Inline/Internal/QQMarker.hs",
+        "src/Language/Java/Inline/Internal/QQMarker/Names.hs",
+        "src/Language/Java/Inline/Internal/QQMarker/Safe.hs",
+        "src/Language/Java/Inline/Plugin.hs",
+        "src/Language/Java/Inline/Safe.hs",
+        "src/Language/Java/Inline/Unsafe.hs",
+    ],
+    ghcopts = ["-DVERSION_inline_java=\"0.10.0\""],
+    hidden_modules = ["GhcPlugins.Extras"],
+    version = "0.10.0",
     visibility = ["//visibility:public"],
     deps = [
+        ":bctable",  # keep
         "//jni",
         "//jvm",
-        ":bctable",
         "@stackage//:Cabal",
         "@stackage//:base",
         "@stackage//:bytestring",
         "@stackage//:directory",
-        "@stackage//:filemanip",
         "@stackage//:filepath",
         "@stackage//:ghc",
         "@stackage//:language-java",
@@ -43,12 +87,63 @@ haskell_library(
     ],
 )
 
-ghc_plugin(
-    name = "inline-java-plugin",
-    args = ["$(JAVABASE)/bin/javac"],
-    module = "Language.Java.Inline.Plugin",
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
+# rule generated from inline-java.cabal by gazelle_cabal
+haskell_test(
+    name = "spec",
+    srcs = [
+        "tests/Language/Java/Inline/SafeSpec.hs",
+        "tests/Language/Java/InlineSpec.hs",
+        "tests/Main.hs",
+        "tests/SafeSpec.hs",
+        "tests/Spec.hs",
+    ],
+    extra_srcs = ["@openjdk//:rpath"],  # keep
+    ghcopts = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",  # keep
+        "-DVERSION_inline_java=\"0.10.0\"",
+        "-threaded",
+        "-DHSPEC_DISCOVER_HSPEC_DISCOVER_PATH=$(location @stackage-exe//hspec-discover)",
+    ],
+    main_file = "tests/Main.hs",
+    plugins = [":inline-java-plugin"],
+    tools = ["@stackage-exe//hspec-discover"],
+    version = "0.10.0",
     visibility = ["//visibility:public"],
-    deps = [":inline-java"],
+    deps = [
+        "//:inline-java",  # keep
+        "//jni",
+        "//jvm",
+        "@stackage//:QuickCheck",
+        "@stackage//:base",
+        "@stackage//:hspec",
+        "@stackage//:linear-base",
+        "@stackage//:quickcheck-unicode",
+        "@stackage//:text",
+        "@stackage//:vector",
+    ],
+)
+
+# rule generated from inline-java.cabal by gazelle_cabal
+haskell_binary(
+    name = "micro-benchmarks",
+    srcs = ["benchmarks/micro/Main.hs"],
+    extra_srcs = ["@openjdk//:rpath"],  # keep
+    ghcopts = [
+        "-optl-Wl,@$(location @openjdk//:rpath)",  # keep
+        "-DVERSION_inline_java=\"0.10.0\"",
+        "-threaded",
+    ],
+    main_file = "benchmarks/micro/Main.hs",
+    plugins = [":inline-java-plugin"],
+    version = "0.10.0",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:inline-java",  # keep
+        "//jni",
+        "//jvm",
+        "@stackage//:base",
+        "@stackage//:criterion",
+        "@stackage//:deepseq",
+        "@stackage//:singletons",
+    ],
 )

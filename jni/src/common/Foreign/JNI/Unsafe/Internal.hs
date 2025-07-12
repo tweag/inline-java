@@ -10,10 +10,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing -F -pgmF JNI_CAT_TOKENS_PATH #-}
 
 -- XXX This file uses #### for concatenating tokens with a preprocessor in
--- a portable way. See note cat-tokens in jni/BUILD.bazel.
+-- a portable way. See note cat-tokens in jni/cat-tokens/Main.hs.
 
 module Foreign.JNI.Unsafe.Internal
   ( -- * JNI functions

@@ -7,7 +7,7 @@ env:
 
 jobs:
   run-tests-with-ubuntu:
-    name: Run Tests with ubuntu runner
+    name: with bazel
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -28,6 +28,7 @@ jobs:
           restore-keys: |
             repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
       - run: |
+          nix-shell --pure --run "bazel run $BAZEL_ARGS  //:gazelle"
           nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
       - uses: actions/cache/save@v3
         if: github.ref == 'refs/heads/master'
@@ -36,9 +37,48 @@ jobs:
             ~/repo-cache
             ~/disk-cache
           key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: gazelle check
+        run: |
+          if ! git diff --exit-code
+          then
+            echo Repository files have changed
+            echo You might need to run: nix-shell --run "\"bazel run //:gazelle\""
+            echo and commit the resulting changes.
+            exit 1
+          fi
+
+  run-tests-with-stack:
+    name: with stack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v22
+      - name: Configure
+        run: |
+          mkdir -p ~/repo-cache ~/disk-cache
+          echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
+      - name: Get Stack snapshot install directory
+        id: stack-snapshot
+        # NOTE: `stack path` must run at least once prior to caching to ensure the directory
+        # exists and is populated.
+        run: |
+          stack --nix path --snapshot-install-root
+          echo "dir=$(stack --nix path --snapshot-install-root)" > "${GITHUB_OUTPUT}"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.stack-snapshot.outputs.dir }}
+          key: ${{ runner.os }}-stack-${{ hashFiles('**/*.cabal') }}
+          restore-keys: ${{ runner.os }}-stack-
+      - name: Build
+        run: |
+          stack --nix build
+      - name: Test
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          stack --nix test
 
   run-tests-with-darwin:
-    name: Run Tests with darwin runner
+    name: with bazel in darwin
     runs-on: macos-11
 
     steps:

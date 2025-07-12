@@ -1,20 +1,28 @@
 load(
-  "@rules_haskell//haskell:defs.bzl",
-  "haskell_library",
+    "@rules_haskell//haskell:defs.bzl",
+    "haskell_binary",
+    "haskell_library",
+    "haskell_test",
 )
 
+# rule generated from jvm/jvm.cabal by gazelle_cabal
 haskell_library(
     name = "jvm",
-    srcs = glob([
-             'src/common/**/*.hs',
-			 'src/linear-types/**/*.hs',
-           ]),
+    srcs = [
+        "src/common/Language/Java.hs",
+        "src/common/Language/Java/Internal.hs",
+        "src/common/Language/Java/Unsafe.hs",
+        "src/linear-types/Language/Java/Safe.hs",
+    ],
+    ghcopts = ["-DVERSION_jvm=\"0.6.0\""],
+    version = "0.6.0",
+    visibility = ["//visibility:public"],
     deps = [
         "//jni",
         "@stackage//:base",
         "@stackage//:bytestring",
-        "@stackage//:constraints",
         "@stackage//:choice",
+        "@stackage//:constraints",
         "@stackage//:distributed-closure",
         "@stackage//:exceptions",
         "@stackage//:linear-base",
@@ -22,7 +30,63 @@ haskell_library(
         "@stackage//:template-haskell",
         "@stackage//:text",
         "@stackage//:vector",
-    ] + [
-	],
+    ],
+)
+
+# rule generated from jvm/jvm.cabal by gazelle_cabal
+haskell_test(
+    name = "spec",
+    srcs = [
+        "tests/Language/JavaSpec.hs",
+        "tests/Main.hs",
+        "tests/Spec.hs",
+    ],
+    # keep
+    extra_srcs = ["@openjdk//:rpath"],
+    ghcopts = [
+        "-DVERSION_jvm=\"0.6.0\"",
+        "-threaded",
+        "-lpthread",
+        "-DHSPEC_DISCOVER_HSPEC_DISCOVER_PATH=$(location @stackage-exe//hspec-discover)",
+        "-optl-Wl,@$(location @openjdk//:rpath)",  # keep
+    ],
+    main_file = "tests/Main.hs",
+    tools = ["@stackage-exe//hspec-discover"],
+    version = "0.6.0",
     visibility = ["//visibility:public"],
+    deps = [
+        ":jvm",
+        "//jni",
+        "@stackage//:QuickCheck",
+        "@stackage//:base",
+        "@stackage//:bytestring",
+        "@stackage//:hspec",
+        "@stackage//:quickcheck-text",
+        "@stackage//:text",
+    ],
+)
+
+# rule generated from jvm/jvm.cabal by gazelle_cabal
+haskell_binary(
+    name = "micro-benchmarks",
+    srcs = ["benchmarks/Main.hs"],
+    # keep
+    extra_srcs = ["@openjdk//:rpath"],
+    ghcopts = [
+        "-DVERSION_jvm=\"0.6.0\"",
+        "-threaded",
+        "-optl-Wl,@$(location @openjdk//:rpath)",  # keep
+    ],
+    main_file = "benchmarks/Main.hs",
+    version = "0.6.0",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":jvm",
+        "//jni",
+        "@stackage//:base",
+        "@stackage//:criterion",
+        "@stackage//:deepseq",
+        "@stackage//:singletons",
+        "@stackage//:text",
+    ],
 )

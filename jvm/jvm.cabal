@@ -1,0 +1,80 @@
+name:                jvm
+version:             0.6.0
+synopsis:            Call JVM methods from Haskell.
+description:         Please see README.md.
+homepage:            http://github.com/tweag/inline-java/tree/master/jvm#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Tweag I/O
+maintainer:          m@tweag.io
+copyright:           2015-2016 EURL Tweag.
+category:            FFI, JVM, Java
+build-type:          Simple
+cabal-version:       2.0
+extra-source-files:  README.md
+
+source-repository head
+  type: git
+  location: https://github.com/tweag/inline-java
+  subdir: jvm
+
+library
+  hs-source-dirs: src/common src/linear-types
+  exposed-modules:
+    Language.Java
+    Language.Java.Internal
+    Language.Java.Safe
+    Language.Java.Unsafe
+  build-depends:
+    base >=4.14 && <5,
+    bytestring >=0.10,
+    constraints >=0.8,
+    choice >=0.1,
+    distributed-closure >=0.3,
+    exceptions >=0.8,
+    jni >=0.8.0 && <0.9,
+    linear-base ==0.1.0,
+    singletons >=2.6,
+    text >=1.2,
+    template-haskell,
+    vector >=0.11
+  default-language: Haskell2010
+
+test-suite spec
+  type:
+    exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: Main.hs
+  other-modules:
+    Language.JavaSpec
+    Spec
+  build-depends:
+    base,
+    bytestring,
+    hspec,
+    jni,
+    jvm,
+    QuickCheck,
+    quickcheck-text,
+    text
+  default-language: Haskell2010
+  extra-libraries: pthread
+  ghc-options: -threaded
+  cpp-options: -DHSPEC_DISCOVER_HSPEC_DISCOVER_PATH=hspec-discover
+  build-tool-depends:
+    hspec-discover:hspec-discover
+
+benchmark micro-benchmarks
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: benchmarks
+  build-depends:
+    base >=4.8 && <5,
+    criterion,
+    deepseq >=1.4.2,
+    jni,
+    jvm,
+    singletons,
+    text >=1.2
+  default-language: Haskell2010
+  ghc-options: -threaded
