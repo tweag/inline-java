@@ -48,7 +48,7 @@ library
     jni >=0.8 && <0.9,
     jvm >=0.6 && <0.7,
     language-java >=0.2,
-    linear-base ==0.1.1,
+    linear-base ==0.1.0,
     mtl >=2.2.1,
     process >=1.2,
     text >=1.2,

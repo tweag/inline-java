@@ -33,7 +33,7 @@ library
     distributed-closure >=0.3,
     exceptions >=0.8,
     jni >=0.8.0 && <0.9,
-    linear-base ==0.1.1,
+    linear-base ==0.1.0,
     singletons >=2.6,
     text >=1.2,
     template-haskell,

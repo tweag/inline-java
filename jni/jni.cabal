@@ -44,7 +44,7 @@ library
     constraints >=0.8,
     deepseq >=1.4.2,
     inline-c >=0.6,
-    linear-base ==0.1.1,
+    linear-base ==0.1.0,
     singletons-base ==3.0,
     stm >= 2.3,
     text >= 1.2.3
