@@ -28,6 +28,7 @@ jobs:
           restore-keys: |
             repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
       - run: |
+          nix-shell --pure --run "bazel run $BAZEL_ARGS  //:gazelle"
           nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
       - uses: actions/cache/save@v3
         if: github.ref == 'refs/heads/master'
@@ -36,6 +37,15 @@ jobs:
             ~/repo-cache
             ~/disk-cache
           key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: gazelle check
+        run: |
+          if ! git diff --exit-code
+          then
+            echo Repository files have changed
+            echo You might need to run: nix-shell --run "\"bazel run //:gazelle\""
+            echo and commit the resulting changes.
+            exit 1
+          fi
 
   run-tests-with-stack:
     name: with stack
