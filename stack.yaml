@@ -2,8 +2,11 @@ resolver: lts-19.30
 
 packages:
 - jni
+- jvm
 
 extra-deps:
+- github: tweag/distributed-closure
+  commit: b92e75ec81e646703c7bde4f578a7352ee34f1ad
 - github: tweag/linear-base
   commit: ec0b5aa6dc89f1d7c7e368b7387e363a5062e52d
 
