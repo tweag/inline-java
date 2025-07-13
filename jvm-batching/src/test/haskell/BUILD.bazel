@@ -7,7 +7,7 @@ haskell_test(
     name = "spec",
     srcs = glob(["**/*.hs"]),
     extra_srcs = ["@openjdk//:rpath"],
-    compiler_flags = [
+    ghcopts = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-DHSPEC_DISCOVER=$(location @hspec-discover//:bin)",
 		"-threaded",

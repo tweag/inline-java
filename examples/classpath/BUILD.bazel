@@ -18,7 +18,7 @@ haskell_binary(
     name = "classpath",
     srcs = ['Main.hs'],
     extra_srcs = ["@openjdk//:rpath"],
-    compiler_flags = [
+    ghcopts = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-threaded",
     ],

@@ -7,7 +7,7 @@ haskell_binary(
     name = "directory-server",
     srcs = glob(['src/**/*.hs']),
     extra_srcs = ["@openjdk//:rpath"],
-    compiler_flags = [
+    ghcopts = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-threaded",
     ],

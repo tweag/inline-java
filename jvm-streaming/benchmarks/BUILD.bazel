@@ -8,7 +8,7 @@ haskell_binary(
     srcs = glob(['**/*.hs'], exclude = ["Main.hs"]),
     main_file = "MainBazel.hs",
     extra_srcs = ["@openjdk//:rpath"],
-    compiler_flags = [
+    ghcopts = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-threaded",
     ],

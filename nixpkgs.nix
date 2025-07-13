@@ -1,11 +1,8 @@
-# Trying to workaround
-# https://github.com/NixOS/nixpkgs/issues/105573
-#
-# by going to a commit before the one introducing the regression.
 args:
 let pkgs = import (fetchTarball {
-             sha256 = "01j7nhxbb2kjw38yk4hkjkkbmz50g3br7fgvad6b1cjpdvfsllds";
-             url = "https://github.com/tweag/nixpkgs/archive/73ad5f9e147.tar.gz";}) args;
+             sha256 = "0dcslr2lwfaclfl4pmbwb3yw27bnvwlqiif394d3d66vyd163dvy";
+             url = "https://github.com/NixOS/nixpkgs/archive/3e3afe5174c561dee0df6f2c2b2236990146329f.tar.gz";
+             }) args;
     stack_ignore_global_hints = pkgs.writeScriptBin "stack" ''
       #!${pkgs.stdenv.shell}
       # Skips the --global-hints parameter to stack. This is

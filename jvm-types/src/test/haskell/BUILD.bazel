@@ -7,12 +7,12 @@ haskell_test(
     name = "spec",
     size = "small",
     srcs = glob(["**/*.hs"]),
-    compiler_flags = [
+    extra_srcs = ["@openjdk//:rpath"],
+    ghcopts = [
         "-optl-Wl,@$(location @openjdk//:rpath)",
         "-DHSPEC_DISCOVER=$(location @hspec-discover//:bin)",
         "-threaded",
     ],
-    extra_srcs = ["@openjdk//:rpath"],
     plugins = ["//:inline-java-plugin"],
     tools = ["@hspec-discover//:bin"],
     deps = [

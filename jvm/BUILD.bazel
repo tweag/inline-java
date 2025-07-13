@@ -36,6 +36,8 @@ haskell_library(
 # rule generated from jvm/jvm.cabal by gazelle_cabal
 haskell_test(
     name = "spec",
+    # keep
+    timeout = "short",
     srcs = [
         "tests/Language/JavaSpec.hs",
         "tests/Main.hs",
