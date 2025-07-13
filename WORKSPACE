@@ -30,17 +30,12 @@ http_archive(
 )
 
 
-[
-    http_archive(
-        name = "rules_nixpkgs_" + toolchain,
-        sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
-        strip_prefix = "rules_nixpkgs-0.13.0/toolchains/" + toolchain,
-        urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
-    )
-    for toolchain in [
-        "go",
-    ]
-]
+http_archive(
+    name = "rules_nixpkgs_go",
+    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
+    strip_prefix = "rules_nixpkgs-0.13.0/toolchains/go",
+    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
+)
 
 
 load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_local_repository")
