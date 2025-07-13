@@ -120,7 +120,15 @@ stack_snapshot(
         "path", # keep
         "path-io", # keep
     ],
-    extra_deps = { "zlib" : ["@zlib.dev//:zlib"] },
+    extra_deps =
+        {
+            "zlib" : ["@zlib.dev//:zlib"],
+            "streaming-commons" : ["@zlib.dev//:zlib"],
+        },
+
+    # disable calling pkg-config
+    flags = {"zlib": ["-pkg-config"]},
+
     components_dependencies = {
         "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
     },
@@ -135,7 +143,7 @@ stack_snapshot(
                 "exe",
             ],
         },
-    local_snapshot = "//:snapshot-9.0.2.yaml",
+    local_snapshot = "//:snapshot-9.10.2.yaml",
     # stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
 )
 
@@ -156,10 +164,10 @@ filegroup(
 )
 
 haskell_register_ghc_nixpkgs(
-    attribute_path = "haskell.compiler.ghc902",
+    attribute_path = "haskell.compiler.ghc9102",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = "9.0.2",
+    version = "9.10.2",
     ghcopts = [
         "-Werror",
         "-Wall",

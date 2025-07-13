@@ -79,16 +79,19 @@ java = Java.javaWithConfig Java.QQConfig
     { Java.qqMarker = 'Safe.qqMarker
     , Java.qqCallStatic = \qargs ->
         let (args, tolist) = splitAt 2 qargs
-         in -- XXX: We need to explicitly use the linear ($) so GHC is satisfied
-            -- that the argument is going to be used linearly in the variadic
-            -- function.
-            TH.appE
+         in TH.appE
               (foldl
                 (flip TH.appE)
                 (TH.appsE (TH.varE 'Safe.callStatic : args))
-                (map (\q -> [| (Linear.$ $q) |]) tolist)
+                (map (\q -> [| flipLinearApp $q |]) tolist)
               )
               [| Safe.End |]
     , Java.qqWrapMarker = \qExp ->
         [| liftPreludeIO loadJavaWrappers Linear.>> $qExp |]
     }
+
+-- XXX: We need to explicitly use the linear ($) so GHC is satisfied
+-- that the argument is going to be used linearly in the variadic
+-- function.
+flipLinearApp :: a %1 -> (a %1 -> b) %1 -> b
+flipLinearApp x f = f Linear.$ x

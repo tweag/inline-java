@@ -44,8 +44,8 @@ library
     constraints >=0.8,
     deepseq >=1.4.2,
     inline-c >=0.6,
-    linear-base ==0.1.0,
-    singletons-base ==3.0,
+    linear-base >=0.5 && <0.6,
+    singletons-base >=3.4,
     stm >= 2.3,
     text >= 1.2.3
   default-language: Haskell2010

@@ -1,6 +1,6 @@
 {
   pkgs ? import ./nixpkgs.nix { },
-  ghcAttr ? "ghc902",
+  ghcAttr ? "ghc9102",
 }:
 
 with pkgs;

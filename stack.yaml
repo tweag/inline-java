@@ -1,4 +1,4 @@
-resolver: lts-19.30
+resolver: nightly-2025-07-12
 
 packages:
 - jni
@@ -6,9 +6,10 @@ packages:
 - .
 
 extra-deps:
-- github: tweag/distributed-closure
-  commit: b92e75ec81e646703c7bde4f578a7352ee34f1ad
-- linear-base-0.1.0
+- linear-base-0.5.0
+
+ghc-options:
+  "$locals": -Wall -Werror
 
 nix:
   shell-file: ./shell-stack.nix

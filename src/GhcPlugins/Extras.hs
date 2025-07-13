@@ -2,35 +2,37 @@
 
 module GhcPlugins.Extras
   ( module GHC.Core.FamInstEnv
+  , module GHC.Core.Reduction
   , module GHC.Plugins
   , module GhcPlugins.Extras
   , module GHC.Core.TyCo.Rep
+  , module GHC.Types.ForeignStubs
   ) where
 
-import Control.Monad.Writer hiding ((<>))
+import Control.Monad.Writer
 import Data.Data (Data)
 import Data.Maybe (mapMaybe)
-import Data.IORef (readIORef)
 import GHC.Core.FamInstEnv
+import GHC.Core.Reduction (Reduction(..))
 import GHC.Core.TyCo.Rep
+import GHC.Iface.Env (lookupNameCache)
 import GHC.Plugins
 import GHC.ThToHs (thRdrNameGuesses)
-import GHC.Types.Name.Cache (lookupOrigNameCache, nsNames)
+import GHC.Types.ForeignStubs
 import GHC.Utils.Error (ghcExit)
 import qualified Language.Haskell.TH as TH
 
 
 -- | Produces a name in GHC Core from a Template Haskell name.
 --
--- Yields Nothing if the name can't be found, which may happen if the
--- module defining the named thing hasn't been loaded.
+-- Yields Nothing if the name can't be found.
 findTHName :: TH.Name -> CoreM (Maybe Name)
 findTHName th_name =
     case thRdrNameGuesses th_name of
       Orig m occ : _ -> do
         hsc_env <- getHscEnv
-        nc <- liftIO $ readIORef (hsc_NC hsc_env)
-        return $ lookupOrigNameCache (nsNames nc) m occ
+        let nc = hsc_NC hsc_env
+        liftIO $ Just <$> lookupNameCache nc m occ
       _ -> return Nothing
 
 -- | Yields module annotations with values of the given type.
@@ -43,9 +45,6 @@ getModuleAnnotations guts =
 failWith :: SDoc -> CoreM a
 failWith m = do
     errorMsg m
-    dflags <- getDynFlags
-    liftIO $ ghcExit dflags 1
+    logger <- hsc_logger <$> getHscEnv
+    liftIO $ ghcExit logger 1
     return (error "ghcExit returned!?") -- unreachable
-
-moduleUnitId :: GenModule Unit -> UnitId
-moduleUnitId = toUnitId . moduleUnit

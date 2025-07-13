@@ -23,6 +23,7 @@ import qualified Control.Monad
 import qualified Control.Monad.IO.Class.Linear as Linear
 import qualified Control.Functor.Linear as Linear
 import Data.Int
+import Data.Kind (Type)
 import Data.Singletons
 import qualified Data.Text as Text
 import qualified Foreign.JNI as JNI
@@ -55,7 +56,7 @@ type JNIIntIntToObjFun
         (Int32 -> Int32 -> IO (Ptr NonLinear.JObject))
 
 -- | A representation of a StablePtr that we can pass to Java
-newtype StablePtrHandle a = StablePtrHandle Int64
+newtype StablePtrHandle (a :: Type) = StablePtrHandle Int64
   deriving Coercible
 
 foreign import ccall "wrapper" wrapObjectFun

@@ -9,13 +9,15 @@
 {-# LANGUAGE ViewPatterns #-}
 module Language.Java.Inline.Plugin (plugin) where
 
-import Control.Applicative ((<|>))
-import Control.Monad.Writer hiding ((<>))
+import Control.Monad (forM, when, zipWithM)
+import Control.Monad.Writer
 import qualified Data.ByteString as BS
 import Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as Builder
 import Data.Char (chr, ord)
 import Data.List (find, intersperse, isSuffixOf)
+import Data.Maybe (fromMaybe)
+import Data.Monoid (Endo(..))
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Foreign.JNI.Types (JType(..))
@@ -83,9 +85,12 @@ plugin = defaultPlugin
           return guts
             { mg_binds = binds
             , mg_foreign = appendStubC (mg_foreign guts) $
-                             text bctable_header
+                        CStub
+                          (  text bctable_header
                            $$ dotClasses dcs
                            $$ cConstructors
+                          )
+                          [] []
             }
 
     -- The contents of bctable.h
@@ -159,7 +164,7 @@ buildJava guts qqOccs jimports = do
     p_fam_env <- getPackageFamInstEnv
     let fam_envs = (p_fam_env, mg_fam_inst_env guts)
     methods <- forM qqOccs $ \QQOcc {..} -> do
-      let (_, normty) = normaliseType fam_envs Nominal (expandTypeSynonyms qqOccResTy)
+      let Reduction _ normty = normaliseType fam_envs Nominal (expandTypeSynonyms qqOccResTy)
       jTypeNames <- findJTypeNames
       resty <- case toJavaType jTypeNames normty of
         Just resty -> return resty
@@ -202,8 +207,8 @@ buildJava guts qqOccs jimports = do
            (expandTypeSynonyms -> toJavaType jTypeNames -> Just jtype) =
       return $ mconcat
         ["final ", Builder.byteString jtype, " $", Builder.byteString name]
-    getArg _ line name t = GhcPlugins.Extras.failWith $ hsep
-        [ parens (text "line" <+> integer line) <> ":"
+    getArg _ lineN name t = GhcPlugins.Extras.failWith $ hsep
+        [ parens (text "line" <+> integer lineN) <> ":"
         , quotes (ftext (mkFastStringByteString name) <+> "::" <+> ppr t)
         , text "is not sufficiently instantiated to infer a java type."
         ]
@@ -228,7 +233,7 @@ mangle m = mangleClassName (unitIdString $ moduleUnitId m)
 -- Call the java compiler and feeds it the given Java code in Builder form.
 buildBytecode :: [CommandLineOption] -> Builder -> CoreM [DotClass]
 buildBytecode args unit = do
-    let Just javac = find ("javac" `isSuffixOf`) args <|> return "javac"
+    let javac = fromMaybe "javac" $ find ("javac" `isSuffixOf`) args
     m <- getModule
     liftIO $ withSystemTempDirectory "inlinejava" $ \dir -> do
       let src = dir </> mangle m <.> "java"
@@ -393,7 +398,7 @@ collectQQMarkers qqMarkerNames p0 = do
     expMarkers (Let bnd e) = Let <$> bindMarkers bnd <*> expMarkers e
     expMarkers (Case e0 b t alts) = do
       e0' <- expMarkers e0
-      let expAlt (a, bs, e) = (,,) a bs <$> expMarkers e
+      let expAlt (Alt a bs e) = Alt a bs <$> expMarkers e
       alts' <- mapM expAlt alts
       return (Case e0' b t alts')
     expMarkers (Cast e c) = flip Cast c <$> expMarkers e
