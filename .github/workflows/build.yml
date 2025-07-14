@@ -27,8 +27,11 @@ jobs:
           key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
-      - run: |
+      - name: run gazelle_cabal
+        run: |
           nix-shell --pure --run "bazel run $BAZEL_ARGS  //:gazelle"
+      - name: Build and test
+        run: |
           nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
       - uses: actions/cache/save@v4
         if: github.ref == 'refs/heads/master'
