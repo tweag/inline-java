@@ -3,7 +3,7 @@ on: [push]
 env:
   BAZEL_ARGS: --repository_cache=~/repo-cache --disk_cache=~/disk-cache
   # Bump this number to invalidate the GH actions cache
-  cache-version: 0
+  cache-version: 1
 
 jobs:
   run-tests-with-ubuntu:
