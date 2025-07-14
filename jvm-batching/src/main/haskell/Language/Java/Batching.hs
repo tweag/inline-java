@@ -162,7 +162,7 @@ import Data.Int
 import Data.Proxy (Proxy(..))
 import Data.Singletons (SingI)
 import qualified Data.Text as Text
-import qualified Data.Text.Foreign as Text
+import qualified Data.Text.Encoding as Text
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Storable as VS
@@ -609,10 +609,14 @@ withStatic [d|
 
   instance BatchReify Text.Text where
     newBatchWriter _ = [java| new BatchWriters.StringArrayBatchWriter() |]
-    reifyBatch = reifyArrayBatch (const reify) $ \o n vs ->
-                  (VS.unsafeWith (VS.unsafeSlice o n vs) $ \ptr ->
-                      Text.fromPtr ptr (fromIntegral n)
-                  )
+    reifyBatch =
+        reifyArrayBatch (const reify) $ \o n vs ->
+          VS.unsafeWith (VS.unsafeSlice o n vs) $ \ptr ->
+            Text.decodeUtf16LEWith (\_ _ -> Just '?') <$>
+              BS.packCStringLen (castPtrWord16 ptr, fromIntegral n * 2)
+      where
+        castPtrWord16 :: Ptr Word16 -> Ptr CChar
+        castPtrWord16 = castPtr
 
   instance BatchReflect BS.ByteString where
     newBatchReader _ = [java| new BatchReaders.ByteArrayBatchReader() |]
@@ -645,9 +649,12 @@ withStatic [d|
   instance BatchReflect Text.Text where
     newBatchReader _ = [java| new BatchReaders.StringArrayBatchReader() |]
     reflectBatch = reflectArrayBatch reflect Text.length $ \ts ->
-                     Text.useAsPtr (Text.concat ts) $ \ptr len ->
-                       (`VS.unsafeFromForeignPtr0` fromIntegral len)
-                         <$> newForeignPtr_ ptr
+        BS.useAsCStringLen (Text.encodeUtf16LE (Text.concat ts)) $ \(ptr, len) ->
+          (`VS.unsafeFromForeignPtr0` (fromIntegral len `div` 2))
+             <$> newForeignPtr_ (castPtrCChar ptr)
+      where
+        castPtrCChar :: Ptr CChar -> Ptr Word16
+        castPtrCChar = castPtr
 
   instance Interpretation a => Interpretation (V.Vector a) where
     type Interp (V.Vector a) = 'Array (Interp a)

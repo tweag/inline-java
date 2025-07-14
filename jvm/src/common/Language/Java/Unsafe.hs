@@ -773,6 +773,15 @@ withStatic [d|
     reflect = reflectMVector newBooleanArray setBooleanArrayRegion .
               (unsafeCoerce :: IOVector W8Bool -> IOVector Word8)
 
+  instance Interpretation (IOVector CChar) where
+    type Interp (IOVector CChar) = 'Array ('Prim "byte")
+
+  instance Reify (IOVector CChar) where
+    reify = reifyMVector getByteArrayElements releaseByteArrayElements
+
+  instance Reflect (IOVector CChar) where
+    reflect = reflectMVector newByteArray setByteArrayRegion
+
   instance Interpretation (IOVector Word16) where
     type Interp (IOVector Word16) = 'Array ('Prim "char")
 
@@ -827,7 +836,8 @@ withStatic [d|
   instance Reflect (IOVector Double) where
     reflect = reflectMVector (newDoubleArray) (setDoubleArrayRegion)
 
-  instance Interpretation (IOVector a) => Interpretation (Vector a) where
+  instance (SingI (Interp (IOVector a)), IsReferenceType (Interp (IOVector a)), Interpretation (IOVector a))
+              => Interpretation (Vector a) where
     type Interp (Vector a) = Interp (IOVector a)
 
   instance (Storable a, Reify (IOVector a)) => Reify (Vector a) where

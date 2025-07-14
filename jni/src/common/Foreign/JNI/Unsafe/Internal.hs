@@ -310,9 +310,12 @@ throwIfNotOK_ m = m >>= \case
   rc
     | rc == [CU.pure| jint { JNI_OK } |] -> return ()
     | rc == [CU.pure| jint { JNI_EDETACHED } |] -> throwIO ThreadNotAttached
-    | otherwise -> throwIO $ JNIError (prettySrcLoc loc) rc
+    | otherwise ->
+      throwIO $ JNIError locStr rc
   where
-    (_, loc):_ = getCallStack callStack
+    locStr = case getCallStack callStack of
+      (_, loc) : _ -> prettySrcLoc loc
+      _ -> "no location"
 
 attachCurrentThreadAsDaemon :: IO ()
 attachCurrentThreadAsDaemon = do
