@@ -99,6 +99,9 @@ jobs:
         echo common --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 > .bazelrc.local
         echo build --incompatible_enable_cc_toolchain_resolution >> .bazelrc.local
 
+    - name: Clean stack caches
+      run: rm -rf ~/.stack
+
     - name: Mount Bazel cache
       uses: actions/cache/restore@v4
       if: github.ref != 'refs/heads/master'
