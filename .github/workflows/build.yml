@@ -79,7 +79,7 @@ jobs:
 
   run-tests-with-darwin:
     name: with bazel in darwin
-    runs-on: macos-11
+    runs-on: macos-15
 
     steps:
     - name: Checkout
