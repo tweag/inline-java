@@ -152,7 +152,7 @@ stack_snapshot(
                 "exe",
             ],
         },
-    local_snapshot = "//:snapshot-9.8.4.yaml",
+    local_snapshot = "//:snapshot-9.6.7.yaml",
     # stack = "@stack_ignore_global_hints//:bin/stack" if ghc_version == "9.0.1" else None,
 )
 
@@ -173,10 +173,10 @@ filegroup(
 )
 
 haskell_register_ghc_nixpkgs(
-    attribute_path = "haskell.compiler.ghc984",
+    attribute_path = "haskell.compiler.ghc967",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = "9.8.4",
+    version = "9.6.7",
     ghcopts = [
         "-Werror",
         "-Wall",
