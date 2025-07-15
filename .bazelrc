@@ -6,7 +6,6 @@ build --java_runtime_version=11
 build --java_language_version=11
 build --tool_java_language_version=11
 build --tool_java_runtime_version=11
-build --experimental_strict_java_deps=off
 
 #build --build_tag_filters=-only_with_ghc_9_0_1
 #build --test_tag_filters=-only_with_ghc_9_0_1
