@@ -97,7 +97,9 @@ jobs:
       run: |
         mkdir -p ~/repo-cache ~/disk-cache
         echo common --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 > .bazelrc.local
-        echo build --incompatible_enable_cc_toolchain_resolution >> .bazelrc.local
+        echo common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 >> .bazelrc.local
+        echo common --incompatible_enable_cc_toolchain_resolution >> .bazelrc.local
+        echo build --crosstool_top=@nixpkgs_config_cc//:toolchain >> .bazelrc.local
 
     - name: Clean stack caches
       run: rm -rf ~/.stack

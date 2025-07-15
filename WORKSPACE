@@ -48,7 +48,13 @@ nixpkgs_local_repository(
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
     "nixpkgs_package",
+    "nixpkgs_cc_configure",
     "nixpkgs_python_configure",
+)
+
+nixpkgs_cc_configure(
+    name = "nixpkgs_config_cc",
+    repository = "@rules_haskell//nixpkgs:default.nix",
 )
 
 nixpkgs_python_configure(repository = "@nixpkgs")
