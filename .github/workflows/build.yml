@@ -27,6 +27,13 @@ jobs:
           key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
+
+      - name: Prefetch Stackage snapshot
+        shell: bash
+        run: |
+          set -e -o pipefail
+          nix-shell --pure --run "cmd='bazel fetch @stackage//... $BAZEL_ARGS'; \$cmd || \$cmd || \$cmd"
+
       - name: run gazelle_cabal
         run: |
           nix-shell --pure --run "bazel run $BAZEL_ARGS  //:gazelle"
