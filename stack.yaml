@@ -1,4 +1,4 @@
-resolver: nightly-2025-07-12
+resolver: lts-23.27
 
 packages:
 - jni
