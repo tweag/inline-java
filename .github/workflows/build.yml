@@ -106,7 +106,8 @@ jobs:
         echo common --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 > .bazelrc.local
         echo common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 >> .bazelrc.local
         echo common --incompatible_enable_cc_toolchain_resolution >> .bazelrc.local
-        echo build --crosstool_top=@nixpkgs_config_cc//:toolchain >> .bazelrc.local
+        echo common --toolchain_resolution_debug=cc >> .bazelrc.local
+        echo common --crosstool_top=@nixpkgs_config_cc//:toolchain >> .bazelrc.local
 
     - name: Clean stack caches
       run: rm -rf ~/.stack
