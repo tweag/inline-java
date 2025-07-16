@@ -124,12 +124,6 @@ jobs:
         restore-keys: |
           repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-    
 
-    - name: Prefetch Stackage snapshot
-      shell: bash
-      run: |
-        set -e -o pipefail
-        nix-shell --pure --run "cmd='bazel fetch @stackage//... $BAZEL_ARGS'; \$cmd || \$cmd || \$cmd"
-
     - name: Build all
       shell: bash
       run: |

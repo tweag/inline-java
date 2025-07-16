@@ -50,17 +50,6 @@ nixpkgs_cc_configure(
 
 nixpkgs_python_configure(repository = "@nixpkgs")
 
-load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
-
-stack_snapshot(
-    name = "stackage",
-    packages = [
-        "base",
-        "bytestring",
-    ],
-    local_snapshot = "//:snapshot-9.6.7.yaml",
-)
-
 load("@rules_haskell//haskell:nixpkgs.bzl", "haskell_register_ghc_nixpkgs")
 
 nixpkgs_package(

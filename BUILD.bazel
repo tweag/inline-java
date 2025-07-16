@@ -4,6 +4,7 @@ load(
     "haskell_binary",
     "haskell_library",
     "haskell_test",
+    "haskell_toolchain_library",
 )
 
 exports_files(["nixpkgs.nix"])
@@ -14,6 +15,9 @@ cc_library(
     hdrs = ["cbits/bctable.h"],
     strip_include_prefix = "cbits",
 )
+
+haskell_toolchain_library(name = "base")
+haskell_toolchain_library(name = "bytestring")
 
 haskell_library(
     name = "inline-java",
@@ -28,7 +32,7 @@ haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         ":bctable",  # keep
-        "@stackage//:base",
-        "@stackage//:bytestring",
+        ":base",
+        ":bytestring",
     ],
 )
