@@ -1,7 +1,4 @@
--- | Internal module defining some magic, kept separate from the rest, that
--- depends on compiler internals.
-
-module Language.Java.Inline.Internal.Magic where
+module Magic where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Unsafe as BS

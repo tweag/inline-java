@@ -25,7 +25,7 @@ haskell_library(
     # at the same location when building with bazel as with stack.
     srcs = [
         "cbits/bctable.h",  # keep
-        "src/Language/Java/Inline/Internal/Magic.hsc",
+        "Magic.hsc",
     ],
     ghcopts = ["-DVERSION_inline_java=\"0.10.0\""],
     version = "0.10.0",
