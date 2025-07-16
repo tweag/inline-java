@@ -130,10 +130,6 @@ jobs:
         set -e -o pipefail
         nix-shell --pure --run 'bazel build //... $BAZEL_ARGS'
 
-    - name: Setup upterm session
-      if: ${{ failure() }}
-      uses: mxschmitt/action-tmate@v3
-
     - name: Run tests
       shell: bash
       run: |
