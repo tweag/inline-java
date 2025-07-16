@@ -58,8 +58,6 @@ haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         ":bctable",  # keep
-        "//jni",
-        "//jvm",
         "@stackage//:base",
         "@stackage//:bytestring",
         "@stackage//:template-haskell",

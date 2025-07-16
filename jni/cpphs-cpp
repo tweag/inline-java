@@ -1,4 +1,0 @@
-#!/bin/sh
-# Workaround for https://gitlab.haskell.org/ghc/ghc/-/issues/17185
-cpphs --cpp $@
-exit $?
