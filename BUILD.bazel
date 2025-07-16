@@ -1,10 +1,4 @@
 load(
-    "@bazel_gazelle//:def.bzl",
-    "DEFAULT_LANGUAGES",
-    "gazelle",
-    "gazelle_binary",
-)
-load(
     "@rules_haskell//haskell:defs.bzl",
     "ghc_plugin",
     "haskell_binary",
@@ -14,9 +8,6 @@ load(
 
 exports_files(["nixpkgs.nix"])
 
-# gazelle:exclude {benchmarks,examples,jvm-streaming,jvm-batching}
-# gazelle:resolve gazelle_cabal jvm @openjdk//:lib
-
 cc_library(
     name = "bctable",
     srcs = ["cbits/bctable.c"],
@@ -24,27 +15,6 @@ cc_library(
     strip_include_prefix = "cbits",
 )
 
-ghc_plugin(
-    name = "inline-java-plugin",
-    args = ["$(JAVABASE)/bin/javac"],
-    module = "Language.Java.Inline.Plugin",
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    visibility = ["//visibility:public"],
-    deps = [":inline-java"],
-)
-
-gazelle(
-    name = "gazelle",
-    gazelle = ":gazelle_binary",
-)
-
-gazelle_binary(
-    name = "gazelle_binary",
-    languages = DEFAULT_LANGUAGES + ["@io_tweag_gazelle_cabal//gazelle_cabal"],
-)
-
-# rule generated from inline-java.cabal by gazelle_cabal
 haskell_library(
     name = "inline-java",
     # cbits/bctable.h is included here so it can be found by Plugin.hs
@@ -60,6 +30,5 @@ haskell_library(
         ":bctable",  # keep
         "@stackage//:base",
         "@stackage//:bytestring",
-        "@stackage//:template-haskell",
     ],
 )
