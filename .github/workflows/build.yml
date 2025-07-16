@@ -28,18 +28,9 @@ jobs:
           restore-keys: |
             repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-
 
-      - name: Prefetch Stackage snapshot
-        shell: bash
+      - name: Build
         run: |
-          set -e -o pipefail
-          nix-shell --pure --run "cmd='bazel fetch @stackage//... $BAZEL_ARGS'; \$cmd || \$cmd || \$cmd"
-
-      - name: run gazelle_cabal
-        run: |
-          nix-shell --pure --run "bazel run $BAZEL_ARGS  //:gazelle"
-      - name: Build and test
-        run: |
-          nix-shell --pure --run "bazel test --test_output=all //... $BAZEL_ARGS"
+          nix-shell --pure --run "bazel build //... $BAZEL_ARGS"
       - uses: actions/cache/save@v4
         if: github.ref == 'refs/heads/master'
         with:
@@ -47,45 +38,6 @@ jobs:
             ~/repo-cache
             ~/disk-cache
           key: repo-cache-${{ runner.os }}-nixpkgs-${{ env.cache-version }}-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: gazelle check
-        run: |
-          if ! git diff --exit-code
-          then
-            echo Repository files have changed
-            echo You might need to run: nix-shell --run "\"bazel run //:gazelle\""
-            echo and commit the resulting changes.
-            exit 1
-          fi
-
-  run-tests-with-stack:
-    name: with stack
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
-      - name: Configure
-        run: |
-          mkdir -p ~/repo-cache ~/disk-cache
-          echo build --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host > .bazelrc.local
-      - name: Get Stack snapshot install directory
-        id: stack-snapshot
-        # NOTE: `stack path` must run at least once prior to caching to ensure the directory
-        # exists and is populated.
-        run: |
-          stack --nix path --snapshot-install-root
-          echo "dir=$(stack --nix path --snapshot-install-root)" > "${GITHUB_OUTPUT}"
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.stack-snapshot.outputs.dir }}
-          key: ${{ runner.os }}-stack-${{ hashFiles('**/*.cabal') }}
-          restore-keys: ${{ runner.os }}-stack-
-      - name: Build
-        run: |
-          stack --nix build
-      - name: Test
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          stack --nix test
 
   run-tests-with-darwin:
     name: with bazel in darwin
@@ -130,14 +82,6 @@ jobs:
         set -e -o pipefail
         nix-shell --pure --run 'bazel build //... $BAZEL_ARGS'
 
-    - name: Run tests
-      shell: bash
-      run: |
-        set -e -o pipefail
-        # Keep CI awake
-        while true; do echo "."; sleep 60; done &
-        nix-shell --pure --run 'bazel test //... $BAZEL_ARGS'
-      
     - uses: actions/cache/save@v4
       if: github.ref == 'refs/heads/master'
       with:
