@@ -67,10 +67,10 @@ filegroup(
 )
 
 haskell_register_ghc_nixpkgs(
-    attribute_path = "haskell.compiler.ghc967",
+    attribute_path = "haskell.compiler.ghc984",
     locale_archive = "@glibc_locales//:locale-archive",
     repositories = {"nixpkgs": "@nixpkgs"},
-    version = "9.6.7",
+    version = "9.8.4",
     ghcopts = [
         "-Werror",
         "-Wall",
