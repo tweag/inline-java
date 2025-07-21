@@ -1,4 +1,4 @@
-resolver: lts-22.44
+resolver: lts-22.20
 
 packages:
 - linear-base-0.5.0

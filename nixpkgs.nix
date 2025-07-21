@@ -1,7 +1,7 @@
 args:
 let pkgs = import (fetchTarball {
-             sha256 = "0dcslr2lwfaclfl4pmbwb3yw27bnvwlqiif394d3d66vyd163dvy";
-             url = "https://github.com/NixOS/nixpkgs/archive/3e3afe5174c561dee0df6f2c2b2236990146329f.tar.gz";
+             sha256 = "sha256:0bpw6x46mp0xqfdwbrhnjn6qlb4avglir993n3cdqg8zv4klgllw";
+             url = "https://github.com/NixOS/nixpkgs/archive/706eef542dec88cc0ed25b9075d3037564b2d164.tar.gz";
              }) args;
     stack_ignore_global_hints = pkgs.writeScriptBin "stack" ''
       #!${pkgs.stdenv.shell}
