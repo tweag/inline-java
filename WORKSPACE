@@ -45,7 +45,7 @@ load(
 
 nixpkgs_cc_configure(
     name = "nixpkgs_config_cc",
-    repository = "@rules_haskell//nixpkgs:default.nix",
+    repository = "@nixpkgs",
 )
 
 nixpkgs_python_configure(repository = "@nixpkgs")
