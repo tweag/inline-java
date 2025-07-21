@@ -3,6 +3,28 @@ workspace(name = "io_tweag_inline_java")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 
+# workarorund https://github.com/bazelbuild/bazel/issues/25124 by using the latest rules_nixpkgs
+
+http_archive(
+    name = "io_tweag_rules_nixpkgs_rules_java",
+    sha256 = "f469fa2a577c0c904580fbb02d0a51e0e9e16bb6dbf25823d45f91dc01572694",
+    strip_prefix = "rules_nixpkgs-329ca7c9479fb44176e5b5523fe0ecc12e5ff196/testing/java",
+    urls = ["https://github.com/tweag/rules_nixpkgs/archive/329ca7c9479fb44176e5b5523fe0ecc12e5ff196.tar.gz"],
+)
+
+http_archive(
+    name = "remote_java_tools",
+    sha256 = "30a7d845bec3dd054ac45b5546c2fdf1922c0b1040b2a13b261fcc2e2d63a2f4",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/java/v13.3/java_tools-v13.3.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/java_v13.3/java_tools-v13.3.zip",
+    ],
+    # zlib needs to be upgradeded from 1.3 to 1.3.1 to work with apple-sdk_11 and later
+	patches = ["@io_tweag_rules_nixpkgs_rules_java//patches:remote_java_tools.patch"],
+    patch_args = ["-d", "java_tools/zlib", "-p1"],
+)
+
+
 # rules_nixpkgs and rules_haskell
 
 http_archive(
@@ -12,9 +34,9 @@ http_archive(
 
 http_archive(
     name = "io_tweag_rules_nixpkgs",
-    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
-    strip_prefix = "rules_nixpkgs-0.13.0",
-    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
+    sha256 = "f469fa2a577c0c904580fbb02d0a51e0e9e16bb6dbf25823d45f91dc01572694",
+    strip_prefix = "rules_nixpkgs-329ca7c9479fb44176e5b5523fe0ecc12e5ff196",
+    urls = ["https://github.com/tweag/rules_nixpkgs/archive/329ca7c9479fb44176e5b5523fe0ecc12e5ff196.tar.gz"],
 )
 
 load("@io_tweag_rules_nixpkgs//nixpkgs:repositories.bzl", "rules_nixpkgs_dependencies")
