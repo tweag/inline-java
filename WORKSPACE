@@ -3,6 +3,31 @@ workspace(name = "io_tweag_inline_java")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 
+# rules_nixpkgs and rules_haskell
+
+http_archive(
+   name = "bazel_skylib",
+   urls = ["https://github.com/bazelbuild/bazel-skylib/releases/download/1.7.1/bazel-skylib-1.7.1.tar.gz"],
+)
+
+http_archive(
+    name = "io_tweag_rules_nixpkgs",
+    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
+    strip_prefix = "rules_nixpkgs-0.13.0",
+    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
+)
+
+load("@io_tweag_rules_nixpkgs//nixpkgs:repositories.bzl", "rules_nixpkgs_dependencies")
+
+rules_nixpkgs_dependencies(toolchains = ["cc", "posix", "rust", "python", "nodejs", "java"])
+
+http_archive(
+    name = "rules_nixpkgs_core",
+    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
+    strip_prefix = "rules_nixpkgs-0.13.0/core",
+    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
+)
+
 http_archive(
     name = "rules_haskell",
     sha256 = "4cae22bc84f327bf3cb7605021c3663160ff6bc8a0b7b6266062366bcbd19e79",
@@ -12,23 +37,6 @@ http_archive(
 
 load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 rules_haskell_dependencies()
-
-
-
-http_archive(
-    name = "io_tweag_rules_nixpkgs",
-    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
-    strip_prefix = "rules_nixpkgs-0.13.0",
-    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
-)
-
-http_archive(
-    name = "rules_nixpkgs_core",
-    sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397",
-    strip_prefix = "rules_nixpkgs-0.13.0/core",
-    urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v0.13.0/rules_nixpkgs-0.13.0.tar.gz"],
-)
-
 
 http_archive(
     name = "rules_nixpkgs_go",
