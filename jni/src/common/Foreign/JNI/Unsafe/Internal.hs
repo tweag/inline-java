@@ -18,11 +18,17 @@
 module Foreign.JNI.Unsafe.Internal
   ( -- * JNI functions
     -- ** VM management
+#if !defined(ANDROID)
     withJVM
   , newJVM
   , destroyJVM
-  , startFinalizerThread
+  ,
+#endif
+    startFinalizerThread
   , stopFinalizerThread
+  , getVersion
+  , getEnvJVM
+  , setJVM
     -- ** Class loading
   , defineClass
   , JNINativeMethod(..)
@@ -50,6 +56,7 @@ module Foreign.JNI.Unsafe.Internal
   , deleteGlobalRefNonFinalized
   , newLocalRef
   , deleteLocalRef
+  , isSameObject
   , pushLocalFrame
   , popLocalFrame
   , submitToFinalizerThread
@@ -186,6 +193,7 @@ import Control.Concurrent
 import Control.Exception
   (Exception, SomeException, bracket, bracket_, catch, finally, handle, throwIO)
 import Control.Monad (unless, void, when)
+import Data.Bits
 import Data.Choice
 import Data.Coerce
 import Data.Int
@@ -221,12 +229,16 @@ import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (String)
 import qualified Prelude
 
+import Foreign.C.String (CString)
+
 C.context (C.baseCtx <> C.bsCtx <> jniCtx)
 
 C.include "<jni.h>"
 C.include "<stdio.h>"
 C.include "<errno.h>"
 C.include "<stdlib.h>"
+
+$(C.verbatim "static JavaVM* jniJVM; ")
 
 -- A thread-local variable to cache the JNI environment. Accessing this variable
 -- is faster than calling @jvm->GetEnv()@.
@@ -354,27 +366,42 @@ runInAttachedThread io = do
           detachCurrentThread
           io
 
+getVersion :: Ptr JNIEnv -> IO (Int16, Int16)
+getVersion env = (\i -> (fromIntegral $ i .>>. 16, fromIntegral i)) <$> do
+    [CU.exp| jint {
+      (*$(JNIEnv *env))->GetVersion($(JNIEnv *env))
+    } |]
+
+getEnvJVM :: Ptr JNIEnv -> IO JVM
+getEnvJVM env = JVM_ <$> do
+    [C.block| JavaVM * {
+      JavaVM *jvm;
+      (*$(JNIEnv *env))->GetJavaVM($(JNIEnv *env), (JavaVM**)&jvm);
+      return jvm;
+    } |]
+
+-- | Sets the current JVM
+--
+setJVM :: JVM -> IO ()
+setJVM (JVM_ jvm) = do
+    [CU.exp| void {
+      jniJVM = $(JavaVM *jvm)
+    } |]
+
 -- | The current JVM
 --
--- Assumes there's at most one JVM. The current JNI spec (2016) says only
+-- Assumes there's at most one JVM. The current JNI spec says only
 -- one JVM per process is supported anyways.
+-- https://docs.oracle.com/en/java/javase/11/docs/specs/jni/invocation.html#jni_getcreatedjavavms
 {-# NOINLINE jvm #-}
 jvm :: Ptr JVM
-jvm = unsafePerformIO $ alloca $ \pjvm -> alloca $ \pnum_jvms -> do
-    throwIfNotOK_
-      [CU.exp| jint {
-        JNI_GetCreatedJavaVMs($(JavaVM** pjvm), 1, $(jsize* pnum_jvms))
-      }|]
-    num_jvms <- peek pnum_jvms
-    when (num_jvms == 0) $
-      fail "JNI_GetCreatedJavaVMs: No JVM has been initialized yet."
-    when (num_jvms > 1) $
-      fail "JNI_GetCreatedJavaVMs: There are multiple JVMs but only one is supported."
-    peek pjvm
+jvm = unsafePerformIO $ [CU.exp| JavaVM* { jniJVM } |] >>= \case
+    vm | vm == nullPtr ->
+      fail "JVM has not been set yet. Call setJVM to set a JVM."
+    vm -> return vm
 
 -- | Yields the JNIEnv of the calling thread.
 --
--- Yields @Nothing@ if the calling thread is not attached to the JVM.
 getJNIEnv :: IO (Ptr JNIEnv)
 getJNIEnv = [CU.exp| JNIEnv* { jniEnv } |] >>= \case
     env | env == nullPtr -> do
@@ -395,6 +422,7 @@ useAsCStrings :: [ByteString] -> ([Ptr CChar] -> IO a) -> IO a
 useAsCStrings strs m =
   foldr (\str k cstrs -> BS.useAsCString str $ \cstr -> k (cstr:cstrs)) m strs []
 
+#if !defined(ANDROID)
 -- | Create a new JVM, with the given arguments. /Can only be called once per
 -- process due to limitations of the JNI implementation/ (see documentation
 -- of JNI_CreateJavaVM and JNI_DestroyJavaVM). Best practice: use 'withJVM'
@@ -410,7 +438,6 @@ newJVM options = JVM_ <$> do
           let n = fromIntegral (length cstrs) :: C.CInt
 
           [C.block| JavaVM * {
-            JavaVM *jvm;
             JavaVMInitArgs vm_args;
             JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
             for(int i = 0; i < $(int n); i++)
@@ -419,9 +446,10 @@ newJVM options = JVM_ <$> do
             vm_args.nOptions = $(int n);
             vm_args.options = options;
             vm_args.ignoreUnrecognized = 0;
-            JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
+            JNI_CreateJavaVM(&jniJVM, (void**)&jniEnv, &vm_args);
             free(options);
-            return jvm; } |]
+            return jniJVM; } |]
+#endif
 
 checkBoundness :: IO ()
 checkBoundness =
@@ -434,6 +462,7 @@ checkBoundness =
       , "Perhaps link your program with -threaded."
       ]
 
+#if !defined(ANDROID)
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
@@ -442,6 +471,7 @@ destroyJVM (JVM_ jvm) = do
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
         jniEnv = NULL;
+        jniJVM = NULL;
     } |]
 
 -- | Create a new JVM, with the given arguments. Destroy it once the given
@@ -451,6 +481,7 @@ destroyJVM (JVM_ jvm) = do
 -- your @main@ function.
 withJVM :: [ByteString] -> IO a -> IO a
 withJVM options action = bracket (newJVM options) destroyJVM (const action)
+#endif
 
 defineClass
   :: Coercible o (J ('Class "java.lang.ClassLoader"))
@@ -738,6 +769,15 @@ deleteLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
     [CU.exp| void {
       (*$(JNIEnv *env))->DeleteLocalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
+
+isSameObject :: Coercible o (J ty) => o -> o -> IO Bool
+isSameObject (coerce -> upcast -> obj1) (coerce -> upcast -> obj2) = do
+    w <- withJNIEnv $ \env ->
+      [CU.exp| jboolean {
+        (*$(JNIEnv *env))->IsSameObject($(JNIEnv *env),
+                                        $fptr-ptr:(jobject obj1),
+                                        $fptr-ptr:(jobject obj2)) } |]
+    return $ toEnum $ fromIntegral w
 
 pushLocalFrame :: Int32 -> IO ()
 pushLocalFrame (coerce -> capacity) = withJNIEnv $ \env ->
