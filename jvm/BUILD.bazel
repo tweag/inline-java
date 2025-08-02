@@ -46,11 +46,11 @@ haskell_test(
     # keep
     extra_srcs = ["@openjdk//:rpath"],
     ghcopts = [
-        "-DVERSION_jvm=\"0.6.0\"",
         "-threaded",
         "-lpthread",
         "-DHSPEC_DISCOVER_HSPEC_DISCOVER_PATH=$(location @stackage-exe//hspec-discover)",
         "-optl-Wl,@$(location @openjdk//:rpath)",  # keep
+        "-DVERSION_jvm=\"0.6.0\"",
     ],
     main_file = "tests/Main.hs",
     tools = ["@stackage-exe//hspec-discover"],
@@ -75,9 +75,9 @@ haskell_binary(
     # keep
     extra_srcs = ["@openjdk//:rpath"],
     ghcopts = [
-        "-DVERSION_jvm=\"0.6.0\"",
         "-threaded",
         "-optl-Wl,@$(location @openjdk//:rpath)",  # keep
+        "-DVERSION_jvm=\"0.6.0\"",
     ],
     main_file = "benchmarks/Main.hs",
     version = "0.6.0",
