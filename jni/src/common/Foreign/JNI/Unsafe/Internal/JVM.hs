@@ -209,9 +209,9 @@ jvmPtr = unsafePerformIO $ [CU.exp| JavaVM* { jniJVM } |] >>= \case
 
 -- | Sets the current JVM
 --
--- Only supported in ANDROID
+-- Does nothing if not in ANDROID
 setJVM :: JVM -> IO ()
-setJVM = error "setJVM: only supported in ANDROID"
+setJVM _ = return ()
 
 -- | Create a new JVM, with the given arguments. /Can only be called once per
 -- process due to limitations of the JNI implementation/ (see documentation
