@@ -27,7 +27,7 @@ module Foreign.JNI.Unsafe.Internal
     startFinalizerThread
   , stopFinalizerThread
   , getVersion
-  , getEnvJVM
+  , getJavaVM
   , setJVM
     -- ** Class loading
   , defineClass

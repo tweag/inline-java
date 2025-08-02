@@ -132,8 +132,8 @@ getVersion env = (\i -> (fromIntegral $ i .>>. 16, fromIntegral i)) <$> do
       (*$(JNIEnv *env))->GetVersion($(JNIEnv *env))
     } |]
 
-getEnvJVM :: Ptr JNIEnv -> IO JVM
-getEnvJVM env = JVM_ <$> do
+getJavaVM :: Ptr JNIEnv -> IO JVM
+getJavaVM env = JVM_ <$> do
     [C.block| JavaVM * {
       JavaVM *jvm;
       (*$(JNIEnv *env))->GetJavaVM($(JNIEnv *env), (JavaVM**)&jvm);
