@@ -40,7 +40,6 @@
 -- class and method lookups, for performance. This memoization is safe only when
 -- no new named classes are defined at runtime.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}

@@ -18,14 +18,8 @@ source-repository head
   location: https://github.com/tweag/inline-java
   subdir: jvm
 
-flag android
-  Description:   Turn on JNI Android compatibility
-  Default:       False
-
 library
   hs-source-dirs: src/common src/linear-types
-  if flag(android)
-    cpp-options: -DANDROID
   exposed-modules:
     Language.Java
     Language.Java.Internal
