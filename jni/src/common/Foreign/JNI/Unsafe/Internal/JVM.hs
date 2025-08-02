@@ -174,7 +174,7 @@ checkBoundness =
       ]
 
 
-#if defined(ANDROID)
+#if defined(NO_CREATED_JAVA_VMS)
 
 $(C.verbatim "static JavaVM* jniJVM; ")
 
@@ -185,17 +185,17 @@ setJVM (JVM_ jvm) = do
       jniJVM = $(JavaVM *jvm)
     } |]
 
--- | Unsupported in ANDROID
+-- | Unsupported if NO_CREATED_JAVA_VMS is set
 newJVM :: [ByteString] -> IO JVM
-newJVM = error "newJVM is unsupported in ANDROID"
+newJVM = error "newJVM is unsupported in NO_CREATED_JAVA_VMS"
 
--- | Unsupported in ANDROID
+-- | Unsupported in NO_CREATED_JAVA_VMS
 destroyJVM :: JVM -> IO ()
-destroyJVM = error "destroyJVM is unsupported in ANDROID"
+destroyJVM = error "destroyJVM is unsupported if NO_CREATED_JAVA_VMS"
 
--- | Unsupported in ANDROID
+-- | Unsupported in NO_CREATED_JAVA_VMS
 withJVM :: [ByteString] -> IO a -> IO a
-withJVM = error "withJVM is unsupported in ANDROID"
+withJVM = error "withJVM is unsupported in NO_CREATED_JAVA_VMS"
 
 -- | The JVM set with setJVM
 {-# NOINLINE jvmPtr #-}
@@ -209,7 +209,7 @@ jvmPtr = unsafePerformIO $ [CU.exp| JavaVM* { jniJVM } |] >>= \case
 
 -- | Sets the current JVM
 --
--- Does nothing if not in ANDROID
+-- Does nothing if NO_CREATED_JAVA_VMS is unset
 setJVM :: JVM -> IO ()
 setJVM _ = return ()
 

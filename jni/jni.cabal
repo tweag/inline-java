@@ -18,15 +18,15 @@ source-repository head
   location: https://github.com/tweag/inline-java
   subdir: jni
 
-Flag android
-  Description:   Turn on JNI Android compatibility
+Flag no-get-created-java-vms
+  Description:   Enable builds without JNI_GetCreatedJavaVMs
   Default:       False
 
 library
   hs-source-dirs: src/common src/linear-types
   cc-options: -std=c11
-  if flag(android)
-    cpp-options: -DANDROID
+  if flag(no-get-created-java-vms)
+    cpp-options: -DNO_GET_CREATED_JAVA_VMS
   extra-libraries: jvm
   exposed-modules:
     Foreign.JNI

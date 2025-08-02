@@ -67,9 +67,7 @@
 
 module Foreign.JNI.Safe
   ( module Foreign.JNI.Safe
-#if !defined(ANDROID)
   , JNI.withJVM
-#endif
   ) where
 
 import Control.Exception hiding (throw)
