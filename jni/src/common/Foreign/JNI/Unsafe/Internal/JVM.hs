@@ -17,7 +17,7 @@ import Control.Concurrent
   (isCurrentThreadBound, rtsSupportsBoundThreads, runInBoundThread)
 import Control.Exception
   (Exception, SomeException, bracket, bracket_, catch, handle, throwIO)
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Data.Bits
 import Data.Int
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
@@ -29,8 +29,10 @@ import qualified Foreign.JNI.Internal.RWLock as RWLock
 import Foreign.JNI.Internal.BackgroundWorker (BackgroundWorker)
 import qualified Foreign.JNI.Internal.BackgroundWorker as BackgroundWorker
 import Foreign.JNI.Types
+import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array
 import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.Storable (peek)
 import GHC.Stack (HasCallStack, callStack, getCallStack, prettySrcLoc)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
@@ -45,8 +47,6 @@ C.include "<jni.h>"
 C.include "<stdio.h>"
 C.include "<errno.h>"
 C.include "<stdlib.h>"
-
-$(C.verbatim "static JavaVM* jniJVM; ")
 
 -- A thread-local variable to cache the JNI environment. Accessing this variable
 -- is faster than calling @jvm->GetEnv()@.
@@ -140,26 +140,6 @@ getJavaVM env = JVM_ <$> do
       return jvm;
     } |]
 
--- | Sets the current JVM
---
-setJVM :: JVM -> IO ()
-setJVM (JVM_ jvm) = do
-    [CU.exp| void {
-      jniJVM = $(JavaVM *jvm)
-    } |]
-
--- | The current JVM
---
--- Assumes there's at most one JVM. The current JNI spec says only
--- one JVM per process is supported anyways.
--- https://docs.oracle.com/en/java/javase/11/docs/specs/jni/invocation.html#jni_getcreatedjavavms
-{-# NOINLINE jvmPtr #-}
-jvmPtr :: Ptr JVM
-jvmPtr = unsafePerformIO $ [CU.exp| JavaVM* { jniJVM } |] >>= \case
-    vm | vm == nullPtr ->
-      fail "JVM has not been set yet. Call setJVM to set a JVM."
-    vm -> return vm
-
 -- | Yields the JNIEnv of the calling thread.
 --
 getJNIEnv :: IO (Ptr JNIEnv)
@@ -182,7 +162,57 @@ useAsCStrings :: [ByteString] -> ([Ptr CChar] -> IO a) -> IO a
 useAsCStrings strs m =
   foldr (\str k cstrs -> BS.useAsCString str $ \cstr -> k (cstr:cstrs)) m strs []
 
-#if !defined(ANDROID)
+checkBoundness :: IO ()
+checkBoundness =
+  if rtsSupportsBoundThreads then do
+    bound <- isCurrentThreadBound
+    unless bound (throwIO ThreadNotBound)
+  else
+    error $ unlines
+      [ "jni won't work with a non-threaded runtime."
+      , "Perhaps link your program with -threaded."
+      ]
+
+
+#if defined(ANDROID)
+
+$(C.verbatim "static JavaVM* jniJVM; ")
+
+-- | Sets the current JVM
+setJVM :: JVM -> IO ()
+setJVM (JVM_ jvm) = do
+    [CU.exp| void {
+      jniJVM = $(JavaVM *jvm)
+    } |]
+
+-- | Unsupported in ANDROID
+newJVM :: [ByteString] -> IO JVM
+newJVM = error "newJVM is unsupported in ANDROID"
+
+-- | Unsupported in ANDROID
+destroyJVM :: JVM -> IO ()
+destroyJVM = error "destroyJVM is unsupported in ANDROID"
+
+-- | Unsupported in ANDROID
+withJVM :: [ByteString] -> IO a -> IO a
+withJVM = error "withJVM is unsupported in ANDROID"
+
+-- | The JVM set with setJVM
+{-# NOINLINE jvmPtr #-}
+jvmPtr :: Ptr JVM
+jvmPtr = unsafePerformIO $ [CU.exp| JavaVM* { jniJVM } |] >>= \case
+    vm | vm == nullPtr ->
+      fail "JVM has not been set yet. Call setJVM to set a JVM."
+    vm -> return vm
+
+#else
+
+-- | Sets the current JVM
+--
+-- Only supported in ANDROID
+setJVM :: JVM -> IO ()
+setJVM = error "setJVM: only supported in ANDROID"
+
 -- | Create a new JVM, with the given arguments. /Can only be called once per
 -- process due to limitations of the JNI implementation/ (see documentation
 -- of JNI_CreateJavaVM and JNI_DestroyJavaVM). Best practice: use 'withJVM'
@@ -198,6 +228,7 @@ newJVM options = JVM_ <$> do
           let n = fromIntegral (length cstrs) :: C.CInt
 
           [C.block| JavaVM * {
+            JavaVM *jvm;
             JavaVMInitArgs vm_args;
             JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
             for(int i = 0; i < $(int n); i++)
@@ -206,23 +237,10 @@ newJVM options = JVM_ <$> do
             vm_args.nOptions = $(int n);
             vm_args.options = options;
             vm_args.ignoreUnrecognized = 0;
-            JNI_CreateJavaVM(&jniJVM, (void**)&jniEnv, &vm_args);
+            JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
             free(options);
-            return jniJVM; } |]
-#endif
+            return jvm; } |]
 
-checkBoundness :: IO ()
-checkBoundness =
-  if rtsSupportsBoundThreads then do
-    bound <- isCurrentThreadBound
-    unless bound (throwIO ThreadNotBound)
-  else
-    error $ unlines
-      [ "jni won't work with a non-threaded runtime."
-      , "Perhaps link your program with -threaded."
-      ]
-
-#if !defined(ANDROID)
 -- | Deallocate a 'JVM' created using 'newJVM'.
 destroyJVM :: JVM -> IO ()
 destroyJVM (JVM_ jvm) = do
@@ -231,7 +249,6 @@ destroyJVM (JVM_ jvm) = do
     [C.block| void {
         (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
         jniEnv = NULL;
-        jniJVM = NULL;
     } |]
 
 -- | Create a new JVM, with the given arguments. Destroy it once the given
@@ -241,6 +258,26 @@ destroyJVM (JVM_ jvm) = do
 -- your @main@ function.
 withJVM :: [ByteString] -> IO a -> IO a
 withJVM options action = bracket (newJVM options) destroyJVM (const action)
+
+-- | The current JVM
+--
+-- Assumes there's at most one JVM. The current JNI spec says only
+-- one JVM per process is supported anyways.
+-- https://docs.oracle.com/en/java/javase/11/docs/specs/jni/invocation.html#jni_getcreatedjavavms
+{-# NOINLINE jvmPtr #-}
+jvmPtr :: Ptr JVM
+jvmPtr = unsafePerformIO $ alloca $ \pjvm -> alloca $ \pnum_jvms -> do
+    throwIfNotOK_
+      [CU.exp| jint {
+        JNI_GetCreatedJavaVMs($(JavaVM** pjvm), 1, $(jsize* pnum_jvms))
+      }|]
+    num_jvms <- peek pnum_jvms
+    when (num_jvms == 0) $
+      fail "JNI_GetCreatedJavaVMs: No JVM has been initialized yet."
+    when (num_jvms > 1) $
+      fail "JNI_GetCreatedJavaVMs: There are multiple JVMs but only one is supported."
+    peek pjvm
+
 #endif
 
 -- | A background thread for cleaning global references

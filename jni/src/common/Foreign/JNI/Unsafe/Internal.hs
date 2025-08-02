@@ -18,13 +18,10 @@
 module Foreign.JNI.Unsafe.Internal
   ( -- * JNI functions
     -- ** VM management
-#if !defined(ANDROID)
     withJVM
   , newJVM
   , destroyJVM
-  ,
-#endif
-    startFinalizerThread
+  , startFinalizerThread
   , stopFinalizerThread
   , getVersion
   , getJavaVM

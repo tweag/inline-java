@@ -63,9 +63,7 @@
 module Language.Java.Safe
   ( module Foreign.JNI.Types.Safe
   -- * JVM instance management
-#if !defined(ANDROID)
   , withJVM
-#endif
   -- * JVM calls
   , classOf
   , new

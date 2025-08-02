@@ -70,9 +70,7 @@
 module Language.Java.Unsafe
   ( module Foreign.JNI.Types
   -- * JVM instance management
-#if !defined(ANDROID)
   , withJVM
-#endif
   -- * JVM calls
   , classOf
   , getClass
