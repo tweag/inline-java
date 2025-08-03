@@ -23,6 +23,9 @@ module Foreign.JNI.Unsafe.Internal
   , destroyJVM
   , startFinalizerThread
   , stopFinalizerThread
+  , getVersion
+  , getJavaVM
+  , setJVM
     -- ** Class loading
   , defineClass
   , JNINativeMethod(..)
@@ -50,6 +53,7 @@ module Foreign.JNI.Unsafe.Internal
   , deleteGlobalRefNonFinalized
   , newLocalRef
   , deleteLocalRef
+  , isSameObject
   , pushLocalFrame
   , popLocalFrame
   , submitToFinalizerThread
@@ -181,18 +185,18 @@ module Foreign.JNI.Unsafe.Internal
   , getDirectBufferCapacity
   ) where
 
-import Control.Concurrent
-  (isCurrentThreadBound, rtsSupportsBoundThreads, runInBoundThread)
 import Control.Exception
-  (Exception, SomeException, bracket, bracket_, catch, finally, handle, throwIO)
+  ( Exception
+  , bracket
+  , finally
+  , throwIO
+  )
 import Control.Monad (unless, void, when)
 import Data.Choice
 import Data.Coerce
 import Data.Int
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Word
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import Foreign.C (CChar)
 import Foreign.ForeignPtr
   ( finalizeForeignPtr
@@ -200,26 +204,19 @@ import Foreign.ForeignPtr
   , withForeignPtr
   )
 import Foreign.JNI.Internal
-import Foreign.JNI.Internal.RWLock (RWLock)
 import qualified Foreign.JNI.Internal.RWLock as RWLock
-import Foreign.JNI.Internal.BackgroundWorker (BackgroundWorker)
-import qualified Foreign.JNI.Internal.BackgroundWorker as BackgroundWorker
 import Foreign.JNI.NativeMethod
 import Foreign.JNI.Types
 import qualified Foreign.JNI.String as JNI
-import Foreign.Marshal.Alloc (alloca)
+import Foreign.JNI.Unsafe.Internal.JVM
 import Foreign.Marshal.Array
 import Foreign.Ptr (Ptr, castPtr, nullPtr)
-import Foreign.Storable (peek)
 import GHC.ForeignPtr (newConcForeignPtr)
-import GHC.Stack (HasCallStack, callStack, getCallStack, prettySrcLoc)
 import qualified Language.C.Inline as C
 import qualified Language.C.Inline.Unsafe as CU
-import qualified System.Exit
 import System.IO (fixIO)
-import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (String)
-import qualified Prelude
+
 
 C.context (C.baseCtx <> C.bsCtx <> jniCtx)
 
@@ -227,10 +224,6 @@ C.include "<jni.h>"
 C.include "<stdio.h>"
 C.include "<errno.h>"
 C.include "<stdlib.h>"
-
--- A thread-local variable to cache the JNI environment. Accessing this variable
--- is faster than calling @jvm->GetEnv()@.
-$(C.verbatim "static __thread JNIEnv* jniEnv; ")
 
 -- | A JNI call may cause a (Java) exception to be raised. This module raises it
 -- as a Haskell exception wrapping the Java exception.
@@ -256,20 +249,6 @@ data DirectBufferFailed = DirectBufferFailed
 data NullPointerException = NullPointerException
   deriving (Exception, Show)
 
--- | A JNI call is made from a thread not attached to the JVM.
-data ThreadNotAttached = ThreadNotAttached
-  deriving (Exception, Show)
-
--- | A JNI call is made from an unbound thread.
-data ThreadNotBound = ThreadNotBound
-  deriving (Exception, Show)
-
--- | Thrown when an JNI call is made from an unbound thread.
-data JNIError = JNIError Prelude.String Int32
-  deriving Show
-
-instance Exception JNIError
-
 -- | Map Java exceptions to Haskell exceptions.
 throwIfException :: Ptr JNIEnv -> IO a -> IO a
 throwIfException env m = m `finally` do
@@ -294,164 +273,6 @@ throwIfJNull j io =
     then throwIO NullPointerException
     else io
 
--- | This lock is used to avoid the JVM from dying before any finalizers
--- deleting global references are finished.
---
--- Finalizers try to acquire read locks.
---
--- The JVM acquires a write lock before shutdown. Thence, finalizers fail to
--- acquire read locks and behave as noops.
-globalJVMLock :: RWLock
-globalJVMLock = unsafePerformIO RWLock.new
-{-# NOINLINE globalJVMLock #-}
-
-throwIfNotOK_ :: HasCallStack => IO Int32 -> IO ()
-throwIfNotOK_ m = m >>= \case
-  rc
-    | rc == [CU.pure| jint { JNI_OK } |] -> return ()
-    | rc == [CU.pure| jint { JNI_EDETACHED } |] -> throwIO ThreadNotAttached
-    | otherwise ->
-      throwIO $ JNIError locStr rc
-  where
-    locStr = case getCallStack callStack of
-      (_, loc) : _ -> prettySrcLoc loc
-      _ -> "no location"
-
-attachCurrentThreadAsDaemon :: IO ()
-attachCurrentThreadAsDaemon = do
-    checkBoundness
-    throwIfNotOK_
-      [CU.exp| jint {
-        (*$(JavaVM* jvm))->AttachCurrentThreadAsDaemon($(JavaVM* jvm), (void**)&jniEnv, NULL)
-      } |]
-
-detachCurrentThread :: IO ()
-detachCurrentThread =
-    throwIfNotOK_
-    [CU.block| jint {
-      int rc = (*$(JavaVM* jvm))->DetachCurrentThread($(JavaVM* jvm));
-      if (rc == JNI_OK)
-        jniEnv = NULL;
-      return rc;
-    } |]
-
--- | Tells whether the calling thread is attached to the JVM.
-isCurrentThreadAttached :: IO Bool
-isCurrentThreadAttached =
-    catch (getJNIEnv >> return True) (\ThreadNotAttached -> return False)
-
--- | Attaches the calling thread to the JVM, runs the given IO action and
--- then detaches the thread.
---
--- If the thread is already attached no attaching and detaching is performed.
-runInAttachedThread :: IO a -> IO a
-runInAttachedThread io = do
-    attached <- isCurrentThreadAttached
-    if attached
-    then io
-    else bracket_
-          attachCurrentThreadAsDaemon
-          detachCurrentThread
-          io
-
--- | The current JVM
---
--- Assumes there's at most one JVM. The current JNI spec (2016) says only
--- one JVM per process is supported anyways.
-{-# NOINLINE jvm #-}
-jvm :: Ptr JVM
-jvm = unsafePerformIO $ alloca $ \pjvm -> alloca $ \pnum_jvms -> do
-    throwIfNotOK_
-      [CU.exp| jint {
-        JNI_GetCreatedJavaVMs($(JavaVM** pjvm), 1, $(jsize* pnum_jvms))
-      }|]
-    num_jvms <- peek pnum_jvms
-    when (num_jvms == 0) $
-      fail "JNI_GetCreatedJavaVMs: No JVM has been initialized yet."
-    when (num_jvms > 1) $
-      fail "JNI_GetCreatedJavaVMs: There are multiple JVMs but only one is supported."
-    peek pjvm
-
--- | Yields the JNIEnv of the calling thread.
---
--- Yields @Nothing@ if the calling thread is not attached to the JVM.
-getJNIEnv :: IO (Ptr JNIEnv)
-getJNIEnv = [CU.exp| JNIEnv* { jniEnv } |] >>= \case
-    env | env == nullPtr -> do
-      throwIfNotOK_
-        [CU.exp| jint {
-          (*$(JavaVM* jvm))->GetEnv($(JavaVM* jvm), (void**)&jniEnv, JNI_VERSION_1_6)
-        }|]
-      [CU.exp| JNIEnv* { jniEnv } |]
-    env -> return env
-
--- | Run an action against the appropriate 'JNIEnv'.
---
--- Each OS thread has its own 'JNIEnv', which this function gives access to.
-withJNIEnv :: (Ptr JNIEnv -> IO a) -> IO a
-withJNIEnv f = getJNIEnv >>= f
-
-useAsCStrings :: [ByteString] -> ([Ptr CChar] -> IO a) -> IO a
-useAsCStrings strs m =
-  foldr (\str k cstrs -> BS.useAsCString str $ \cstr -> k (cstr:cstrs)) m strs []
-
--- | Create a new JVM, with the given arguments. /Can only be called once per
--- process due to limitations of the JNI implementation/ (see documentation
--- of JNI_CreateJavaVM and JNI_DestroyJavaVM). Best practice: use 'withJVM'
--- instead. Only useful for GHCi.
-newJVM :: [ByteString] -> IO JVM
-newJVM options = JVM_ <$> do
-    checkBoundness
-    startJVM options <* startFinalizerThread
-  where
-    startJVM options =
-      useAsCStrings options $ \cstrs -> do
-        withArray cstrs $ \(coptions :: Ptr (Ptr CChar)) -> do
-          let n = fromIntegral (length cstrs) :: C.CInt
-
-          [C.block| JavaVM * {
-            JavaVM *jvm;
-            JavaVMInitArgs vm_args;
-            JavaVMOption *options = malloc(sizeof(JavaVMOption) * $(int n));
-            for(int i = 0; i < $(int n); i++)
-                options[i].optionString = $(char **coptions)[i];
-            vm_args.version = JNI_VERSION_1_6;
-            vm_args.nOptions = $(int n);
-            vm_args.options = options;
-            vm_args.ignoreUnrecognized = 0;
-            JNI_CreateJavaVM(&jvm, (void**)&jniEnv, &vm_args);
-            free(options);
-            return jvm; } |]
-
-checkBoundness :: IO ()
-checkBoundness =
-  if rtsSupportsBoundThreads then do
-    bound <- isCurrentThreadBound
-    unless bound (throwIO ThreadNotBound)
-  else
-    error $ unlines
-      [ "jni won't work with a non-threaded runtime."
-      , "Perhaps link your program with -threaded."
-      ]
-
--- | Deallocate a 'JVM' created using 'newJVM'.
-destroyJVM :: JVM -> IO ()
-destroyJVM (JVM_ jvm) = do
-    stopFinalizerThread
-    RWLock.acquireWriteLock globalJVMLock
-    [C.block| void {
-        (*$(JavaVM *jvm))->DestroyJavaVM($(JavaVM *jvm));
-        jniEnv = NULL;
-    } |]
-
--- | Create a new JVM, with the given arguments. Destroy it once the given
--- action completes. /Can only be called once per process due to
--- limitations of the JNI implementation/ (see documentation of
--- JNI_CreateJavaVM and JNI_DestroyJavaVM). Best practice: use it to wrap
--- your @main@ function.
-withJVM :: [ByteString] -> IO a -> IO a
-withJVM options action = bracket (newJVM options) destroyJVM (const action)
-
 defineClass
   :: Coercible o (J ('Class "java.lang.ClassLoader"))
   => ReferenceTypeName -- ^ Class name
@@ -468,6 +289,7 @@ defineClass (coerce -> name) (coerce -> upcast -> loader) buf = withJNIEnv $ \en
                                      $fptr-ptr:(jobject loader),
                                      $bs-ptr:buf,
                                      $bs-len:buf) } |]
+
 registerNatives
   :: JClass
   -> [JNINativeMethod]
@@ -738,6 +560,15 @@ deleteLocalRef (coerce -> upcast -> obj) = withJNIEnv $ \env ->
     [CU.exp| void {
       (*$(JNIEnv *env))->DeleteLocalRef($(JNIEnv *env),
                                         $fptr-ptr:(jobject obj)) } |]
+
+isSameObject :: Coercible o (J ty) => o -> o -> IO Bool
+isSameObject (coerce -> upcast -> obj1) (coerce -> upcast -> obj2) = do
+    w <- withJNIEnv $ \env ->
+      [CU.exp| jboolean {
+        (*$(JNIEnv *env))->IsSameObject($(JNIEnv *env),
+                                        $fptr-ptr:(jobject obj1),
+                                        $fptr-ptr:(jobject obj2)) } |]
+    return $ toEnum $ fromIntegral w
 
 pushLocalFrame :: Int32 -> IO ()
 pushLocalFrame (coerce -> capacity) = withJNIEnv $ \env ->
@@ -1039,65 +870,3 @@ isInstanceOf (coerce -> upcast -> obj) cls = do
                                         $fptr-ptr:(jobject obj),
                                         $fptr-ptr:(jclass cls)) } |]
     return $ toEnum $ fromIntegral w
-
--- | A background thread for cleaning global references
-finalizerThread :: IORef BackgroundWorker
-{-# NOINLINE finalizerThread #-}
-finalizerThread = unsafePerformIO $ newIORef uninitializedFinalizerThread
-
-uninitializedFinalizerThread :: BackgroundWorker
-uninitializedFinalizerThread = error "The finalizer thread is not initialized"
-
--- | Starts a background thread to delete global references.
---
--- Global references have GC finalizers responsible for deleting
--- them. Because the finalizers run in threads dettached from the
--- JVM, the finalizers send the references to this auxiliary
--- thread for deletion.
---
--- Call this function only once at the beginning of the program.
---
--- This call is not needed if 'newJVM' or 'startJVM' are invoked.
--- This call is only useful when JNI is used in an application where
--- the JVM has been initialized by other means.
---
--- Call 'stopFinalizerThread' to stop the thread.
-startFinalizerThread :: IO ()
-startFinalizerThread =
-    BackgroundWorker.create
-        (exitOnError . runInBoundThread . runInAttachedThread)
-    >>= writeIORef finalizerThread
-  where
-    exitOnError = handle $ \(e :: SomeException) -> do
-      System.Exit.die $ "Haskell jni package: error in finalizer thread: " ++ show e
-
--- | Stops the background thread that deletes global references.
---
--- Any global references waiting to be deletead are deleted
--- before stopping the thread. Any new references submitted for
--- deletion after this call won't be deleted.
---
--- Probably the safest way to call this function is to stop first
--- all threads using global references, and calling the GC in
--- advance to cause unreachable global references to be submitted
--- for deletion.
---
--- This call is not needed if 'withJVM' or 'destroyJVM' are called
--- instead. This call is only useful when JNI is used in an
--- application where the JVM is terminated by other means.
-stopFinalizerThread :: IO ()
-stopFinalizerThread = do
-    readIORef finalizerThread >>= BackgroundWorker.stop
-    writeIORef finalizerThread uninitializedFinalizerThread
-
--- | Runs a task in a long-living background thread attached to the
--- JVM. The thread is dedicated to release unused references to java
--- objects.
---
--- Useful to be called from GC finalizers, where attaching to the JVM would
--- be too expensive.
---
-submitToFinalizerThread :: IO () -> IO ()
-submitToFinalizerThread action = do
-  worker <- readIORef finalizerThread
-  BackgroundWorker.submitTask worker action

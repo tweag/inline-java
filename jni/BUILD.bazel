@@ -19,12 +19,13 @@ haskell_library(
         "src/common/Foreign/JNI/Unsafe.hs",
         "src/common/Foreign/JNI/Unsafe/Internal.hs",
         "src/common/Foreign/JNI/Unsafe/Internal/Introspection.hs",
+        "src/common/Foreign/JNI/Unsafe/Internal/JVM.hs",
         "src/linear-types/Foreign/JNI/Safe.hs",
         "src/linear-types/Foreign/JNI/Types/Safe.hs",
     ],
     ghcopts = [
-        "-DVERSION_jni=\"0.8.0\"",
         "-DJNI_CAT_TOKENS_PATH=$(location :cat-tokens)",
+        "-DVERSION_jni=\"0.8.0\"",
     ],
     tools = [":cat-tokens"],
     version = "0.8.0",
@@ -58,11 +59,11 @@ haskell_test(
     # keep
     extra_srcs = ["@openjdk//:rpath"],
     ghcopts = [
-        "-DVERSION_jni=\"0.8.0\"",
         "-threaded",
         "-lpthread",
         "-DHSPEC_DISCOVER_HSPEC_DISCOVER_PATH=$(location @stackage-exe//hspec-discover)",
         "-optl-Wl,@$(location @openjdk//:rpath)",  # keep
+        "-DVERSION_jni=\"0.8.0\"",
     ],
     main_file = "tests/Main.hs",
     tools = ["@stackage-exe//hspec-discover"],
