@@ -7,11 +7,13 @@ module GhcPlugins.Extras
   , module GhcPlugins.Extras
   , module GHC.Core.TyCo.Rep
   , module GHC.Types.ForeignStubs
+  , module GHC.Cmm.CLabel
   ) where
 
 import Control.Monad.Writer
 import Data.Data (Data)
 import Data.Maybe (mapMaybe)
+import GHC.Cmm.CLabel (mkInitializerStubLabel)
 import GHC.Core.FamInstEnv
 import GHC.Core.Reduction (Reduction(..))
 import GHC.Core.TyCo.Rep
